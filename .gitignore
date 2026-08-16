@@ -1,0 +1,17 @@
+node_modules/
+test-results/
+playwright-report/
+artifacts/
+.ops/
+.hermes/plans/
+.DS_Store
+.env
+.env.*
+*.key
+*.pem
+secrets/
+ops/*.plist
+
+# Mutable, sanitized runtime projection; publish atomically, never commit.
+standalone/public/data/provider-usage.v1.json
+.hermes/plugins/autobot-command-center/dashboard/dist/data/provider-usage.v1.json
