@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="860" viewBox="0 0 1600 860" role="img" aria-labelledby="title desc">
+  <title id="title">Cloudflare aggregate analytics reporting flow</title>
+  <desc id="desc">Cloudflare edge aggregate analytics are retained as checksummed daily archives, compiled through strict reconciliation, and projected read-only into Autobot Command Center.</desc>
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#163148" stroke-width="1"/></pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#38bdf8"/></marker>
+    <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#a78bfa"/></marker>
+    <filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <style>
+      .t{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}
+      .cloud{fill:#3b2711;stroke:#fbbf24}.archive{fill:#172a43;stroke:#38bdf8}.compiler{fill:#3a1d2a;stroke:#fb7185}.projection{fill:#261c46;stroke:#a78bfa}.surface{fill:#0a382d;stroke:#34d399}
+      .label{fill:#f0f9ff;font-size:23px;font-weight:700}.sub{fill:#b4cbe0;font-size:16px}.tiny{fill:#8da9bf;font-size:14px}.eyebrow{fill:#7dd3fc;font-size:15px;font-weight:800;letter-spacing:2px}.flow{fill:none;stroke:#38bdf8;stroke-width:3;marker-end:url(#arrow)}.optional{fill:none;stroke:#a78bfa;stroke-width:2.5;stroke-dasharray:8 7;marker-end:url(#arrow2)}
+    </style>
+  </defs>
+  <rect width="1600" height="860" rx="28" fill="#061827"/><rect width="1600" height="860" rx="28" fill="url(#grid)" opacity=".7"/>
+  <circle cx="72" cy="67" r="8" fill="#4ade80" filter="url(#glow)"/>
+  <text x="96" y="76" class="t label" font-size="34">Cloudflare Reports — Aggregate Evidence Flow</text>
+  <text x="72" y="111" class="t sub">Portable daily aggregates become a versioned read-only projection — not a second analytics database.</text>
+
+  <path class="flow" d="M332 334H410"/><path class="flow" d="M690 334H770"/><path class="flow" d="M1065 334H1145"/>
+  <path class="optional" d="M215 545V602H915V518"/>
+
+  <text x="62" y="175" class="t eyebrow">01 · SOURCE AUTHORITY</text>
+  <rect x="62" y="200" width="270" height="318" rx="18" class="cloud" stroke-width="2"/>
+  <text x="92" y="247" class="t label">Cloudflare edge</text>
+  <text x="92" y="280" class="t label">aggregate analytics</text>
+  <g class="t sub">
+    <text x="92" y="338">Requests</text><text x="92" y="375">Cloudflare Visits</text><text x="92" y="412">Transfer bytes</text><text x="92" y="449">Country / status / cache</text>
+  </g>
+  <text x="92" y="486" class="t tiny">Aggregate groups only;</text><text x="92" y="507" class="t tiny">no raw request logs.</text>
+
+  <text x="410" y="175" class="t eyebrow">02 · DAILY RETENTION</text>
+  <rect x="410" y="200" width="280" height="318" rx="18" class="archive" stroke-width="2"/>
+  <text x="440" y="247" class="t label">Immutable archives</text>
+  <text x="440" y="284" class="mono sub">daily NDJSON.gz</text>
+  <g class="t sub">
+    <text x="440" y="338">• Closed UTC periods</text><text x="440" y="382">• SHA-256 sidecars</text><text x="440" y="426">• Schema + query version</text><text x="440" y="470">• Explicit zero-traffic flag</text>
+  </g>
+
+  <text x="770" y="175" class="t eyebrow">03 · DETERMINISTIC COMPILER</text>
+  <rect x="770" y="200" width="295" height="318" rx="18" class="compiler" stroke-width="2"/>
+  <text x="800" y="247" class="t label">Verify and reconcile</text>
+  <g class="t sub">
+    <text x="800" y="304">Checksum every archive</text><text x="800" y="346">Reject schema drift</text><text x="800" y="388">Reconcile dimensions</text><text x="800" y="430">Preserve missing periods</text><text x="800" y="472">Apply metric registry v2</text>
+  </g>
+
+  <text x="1145" y="175" class="t eyebrow">04 · ACC PROJECTION</text>
+  <rect x="1145" y="200" width="393" height="318" rx="18" class="surface" stroke-width="2"/>
+  <text x="1175" y="247" class="t label">Read-only analytics</text>
+  <g class="t sub">
+    <text x="1175" y="304">1 / 7 / 30-day windows</text><text x="1175" y="346">Coverage and freshness</text><text x="1175" y="388">World map + country table</text><text x="1175" y="430">Response and cache classes</text><text x="1175" y="472">Truthful unavailable state detail</text>
+  </g>
+
+  <rect x="62" y="602" width="1476" height="166" rx="18" class="projection" stroke-width="2"/>
+  <text x="94" y="646" class="t eyebrow" fill="#c4b5fd">PORTABLE PROJECTION CONTRACT</text>
+  <text x="94" y="688" class="t label">Real projections stay outside Git; schemas, compiler code, tests, and an explicitly illustrative fixture are reviewable.</text>
+  <text x="94" y="728" class="t sub">The UI does not infer people, sessions, or US states from country-level aggregate evidence. Unretained and missing periods remain distinct from zero traffic.</text>
+  <text x="72" y="817" class="t tiny">Autobot Command Center · architecture evidence · sanitized repository diagram</text>
+</svg>

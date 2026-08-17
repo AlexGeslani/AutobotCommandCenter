@@ -1,6 +1,7 @@
-import commandCenterMarkUrl from '../standalone/command-center-mark.svg';
+import commandCenterMarkUrl from '../standalone/autobot-mark.jpg';
 import voicePerformanceUrl from '../standalone/voice-performance-comparison.png';
 import { loadProviderUsageSnapshot, providerUsageFallback } from './provider-usage/client.mjs';
+import { createAnalyticsView } from './analytics/view.mjs';
 import {
   NAV_ITEMS,
   RELEASES,
@@ -18,6 +19,7 @@ import {
   getSourceTrust,
   buildAccUrl,
   parseAccUrl,
+  canonicalizeAccRoute,
 } from './model.mjs';
 
 export function registerAutobotCommandCenter() {
@@ -201,7 +203,7 @@ export function registerAutobotCommandCenter() {
     return h('section', { className: cx('acc-section', 'acc-provider-usage'), 'aria-labelledby': 'acc-provider-usage-title' },
       h(SectionHeading, {
         eyebrow: 'Authoritative usage headroom', title: compact ? 'Provider usage' : 'Usage & limits',
-        action: compact ? h('button', { type: 'button', className: 'acc-secondary-button', onClick: () => go({ view: 'usage' }) }, 'Open details') : null,
+        action: compact ? h('button', { type: 'button', className: 'acc-secondary-button', onClick: () => go({ view: 'analytics', domain: 'ai', subject: 'provider-usage' }) }, 'Open details') : null,
       }),
       h('p', { className: 'acc-lede' }, 'Frontier subscriptions and service quotas stay separate. Unavailable data is never shown as zero.'),
       groups.map((group) => h('section', { key: group.id, className: cx('acc-provider-group', `acc-provider-group--${group.id}`), 'aria-labelledby': `acc-provider-group-${group.id}` },
@@ -221,6 +223,9 @@ export function registerAutobotCommandCenter() {
       row: getLeaderboard(domain)[0],
     }));
     const pending = fixtures.evaluations.filter((evaluation) => evaluation.stage === 'Running' || evaluation.stage === 'Verifying');
+    const durableProducts = ['autobot-command-center', 'jarvis', 'model-serving', 'benchmark-program']
+      .map((id) => fixtures.products.find((product) => product.id === id))
+      .filter(Boolean);
     return h('div', { className: 'acc-view acc-overview' },
       h('section', { className: 'acc-section' },
         h(SectionHeading, { eyebrow: 'Changed outcomes', title: 'Recently landed' }),
@@ -242,7 +247,7 @@ export function registerAutobotCommandCenter() {
       h(ProviderUsage, { snapshot: providerUsage, go, compact: true }),
       h('section', { className: 'acc-section' },
         h(SectionHeading, { eyebrow: 'Durable objects', title: 'Durable capabilities' }),
-        h('div', { className: 'acc-card-grid' }, fixtures.products.slice(0, 4).map((product) => {
+        h('div', { className: 'acc-card-grid' }, durableProducts.map((product) => {
           const claims = getEffectiveProductClaims(product);
           return h('button', { key: product.id, type: 'button', className: 'acc-object-card', onClick: () => go({ view: 'portfolio', product: product.id }) },
             h('span', { className: 'acc-object-card__top' }, h(Badge, null, product.kind), h(StatusBadge, { state: claims.state.toLowerCase() })),
@@ -305,18 +310,30 @@ export function registerAutobotCommandCenter() {
         ),
       );
     }
+    const portfolioGroups = [
+      { id: 'products', eyebrow: 'Built experiences', title: 'Products', items: fixtures.products.filter((item) => item.kind === 'Product') },
+      { id: 'capabilities', eyebrow: 'Reusable foundations', title: 'Capabilities', items: fixtures.products.filter((item) => item.kind === 'Capability') },
+    ];
     return h('div', { className: 'acc-view' },
       h(SectionHeading, { eyebrow: 'Products and capabilities', title: 'Portfolio' }),
-      h('p', { className: 'acc-lede' }, 'Durable products and capabilities with evidence. Current availability appears only when its authority is claim-safe.'),
-      h('div', { className: 'acc-portfolio-grid' }, fixtures.products.map((item) => {
-        const claims = getEffectiveProductClaims(item);
-        return h('button', { key: item.id, type: 'button', className: 'acc-portfolio-card', onClick: () => go({ view: 'portfolio', product: item.id }) },
-          h('span', { className: 'acc-object-card__top' }, h(Badge, null, item.kind), h(StatusBadge, { state: claims.state.toLowerCase() })),
-          h('h3', null, item.name), h('p', null, item.value),
-          h('div', { className: 'acc-callout' }, h('span', null, 'Landed outcome'), h('strong', null, item.outcome)),
-          h('small', null, `Verified ${item.verified}`),
-        );
-      })),
+      h('p', { className: 'acc-lede' }, 'A curated map of durable products and reusable capabilities. Each card leads with the outcome, its operating boundary, and named evidence.'),
+      h('div', { className: 'acc-registry-summary', 'aria-label': 'Portfolio summary' },
+        h('div', null, h('strong', null, fixtures.products.length), h('span', null, 'Durable entries')),
+        h('div', null, h('strong', null, portfolioGroups[0].items.length), h('span', null, 'Products')),
+        h('div', null, h('strong', null, portfolioGroups[1].items.length), h('span', null, 'Capabilities')),
+      ),
+      portfolioGroups.map((group) => h('section', { className: 'acc-portfolio-group', key: group.id, 'aria-labelledby': `acc-${group.id}-title` },
+        h('div', { className: 'acc-section-heading' }, h('div', null, h('p', { className: 'acc-eyebrow' }, group.eyebrow), h('h3', { id: `acc-${group.id}-title` }, group.title))),
+        h('div', { className: 'acc-portfolio-grid' }, group.items.map((item) => {
+          const claims = getEffectiveProductClaims(item);
+          return h('button', { key: item.id, type: 'button', className: 'acc-portfolio-card', onClick: () => go({ view: 'portfolio', product: item.id }) },
+            h('span', { className: 'acc-object-card__top' }, h(Badge, null, item.kind), h(StatusBadge, { state: claims.state.toLowerCase() })),
+            h('h3', null, item.name), h('p', null, item.value),
+            h('div', { className: 'acc-callout' }, h('span', null, 'Landed outcome'), h('strong', null, item.outcome)),
+            h('small', null, `${item.source} · verified ${item.verified}`),
+          );
+        })),
+      )),
     );
   }
 
@@ -486,7 +503,7 @@ export function registerAutobotCommandCenter() {
     const skill = route.skill ? fixtures.skills.find((item) => item.id === route.skill) : null;
     if (skill) {
       const claims = getEffectiveSkillClaims(skill);
-      const fields = [['Provenance', skill.provenance], ['Stewardship', claims.stewardship], ['Publication', claims.publication], ['Validation', `${skill.validation} · ${skill.lastValidated}`], ['Operating envelope', skill.envelope], ['Repository state', skill.repo]];
+      const fields = [['Purpose', skill.purpose], ['Provenance', skill.provenance], ['Stewardship', claims.stewardship], ['Publication', claims.publication], ['Validation', `${skill.validation} · ${skill.lastValidated}`], ['Operating envelope', skill.envelope], ['Metadata source', skill.repo]];
       return h('div', { className: 'acc-view' },
         h('button', { type: 'button', className: 'acc-back', onClick: () => go({ view: 'skills' }) }, '← Skill Registry'),
         h('article', { className: 'acc-detail' }, h('p', { className: 'acc-eyebrow' }, skill.category), h('h2', null, skill.name),
@@ -497,15 +514,24 @@ export function registerAutobotCommandCenter() {
     }
     return h('div', { className: 'acc-view' },
       h(SectionHeading, { eyebrow: 'Durable reusable artifacts', title: 'Skill Registry' }),
-      h('p', { className: 'acc-lede' }, 'Authored and materially maintained skills only. Operational enable, edit, and install actions stay in Hermes.'),
+      h('p', { className: 'acc-lede' }, 'A curated projection of authored or materially maintained skills that encode repeatable delivery knowledge. Enable, edit, install, and full inventory actions stay in Hermes.'),
+      h('div', { className: 'acc-registry-summary', 'aria-label': 'Skill registry summary' },
+        h('div', null, h('strong', null, fixtures.skills.length), h('span', null, 'Curated skills')),
+        h('div', null, h('strong', null, fixtures.skills.filter((item) => item.validation === 'validated').length), h('span', null, 'Validated')),
+        h('div', null, h('strong', null, new Set(fixtures.skills.map((item) => item.category)).size), h('span', null, 'Domains')),
+      ),
       h('div', { className: 'acc-skill-list' }, fixtures.skills.map((item) => {
         const claims = getEffectiveSkillClaims(item);
         return h('button', { type: 'button', key: item.id, className: 'acc-skill-row', onClick: () => go({ view: 'skills', skill: item.id }) },
-          h('span', { className: 'acc-skill-row__identity' }, h('strong', null, item.name), h('small', null, item.category)),
-          h('span', { className: 'acc-skill-row__states' }, h(Badge, null, item.provenance), h(Badge, null, claims.stewardship), h(StatusBadge, { state: item.validation }), h(StatusBadge, { state: claims.publication })),
+          h('span', { className: 'acc-skill-row__identity' }, h('small', null, item.category), h('strong', null, item.name), h('span', { className: 'acc-skill-row__purpose' }, item.purpose)),
+          h('span', { className: 'acc-skill-row__states' },
+            h(Badge, null, item.provenance),
+            h(StatusBadge, { state: item.validation }),
+            claims.publication === 'unknown' ? null : h(StatusBadge, { state: claims.publication }),
+          ),
         );
       })),
-      h('div', { className: 'acc-prototype-note' }, 'Publication metadata is intentionally shown as unavailable where no repository-backed authority exists.'),
+      h('div', { className: 'acc-prototype-note' }, 'This curated prototype snapshot is derived from selected local SKILL.md metadata. Publication and stewardship claims remain withheld until a canonical metadata adapter is connected.'),
     );
   }
 
@@ -628,8 +654,10 @@ export function registerAutobotCommandCenter() {
     return h('img', { className: 'acc-command-mark', src: commandCenterMarkUrl, alt: '', 'aria-hidden': 'true', draggable: false });
   }
 
+  const Analytics = createAnalyticsView({ React, h, useEffect, useState, Badge, StatusBadge, SectionHeading, ProviderUsage });
+
   function App() {
-    const [route, setRoute] = useState(() => parseAccUrl(window.location.href));
+    const [route, setRoute] = useState(() => canonicalizeAccRoute(parseAccUrl(window.location.href)));
     const [providerUsage, setProviderUsage] = useState(() => providerUsageFallback());
     const mainRef = useRef(null);
     useEffect(() => {
@@ -641,7 +669,15 @@ export function registerAutobotCommandCenter() {
       return () => { active = false; };
     }, []);
     useEffect(() => {
-      const onPop = () => setRoute(parseAccUrl(window.location.href));
+      const parsed = parseAccUrl(window.location.href);
+      if (parsed.view === 'usage') {
+        const target = canonicalizeAccRoute(parsed);
+        window.history.replaceState({}, '', buildAccUrl(target, window.__ACC_BASE_PATH__ || '/autobot-command-center'));
+        setRoute(target);
+      }
+    }, []);
+    useEffect(() => {
+      const onPop = () => setRoute(canonicalizeAccRoute(parseAccUrl(window.location.href)));
       window.addEventListener('popstate', onPop);
       return () => window.removeEventListener('popstate', onPop);
     }, []);
@@ -650,7 +686,7 @@ export function registerAutobotCommandCenter() {
     }, [route]);
 
     function go(next, replace = false) {
-      const target = { ...next };
+      const target = canonicalizeAccRoute(next);
       if (!target.view) target.view = 'overview';
       const url = buildAccUrl(target, window.__ACC_BASE_PATH__ || '/autobot-command-center');
       window.history[replace ? 'replaceState' : 'pushState']({}, '', url);
@@ -661,12 +697,15 @@ export function registerAutobotCommandCenter() {
     const primaryView = NAV_ITEMS.some((item) => item.id === route.view) ? route.view : null;
     let content;
     if (route.view === 'portfolio') content = h(Portfolio, { route, go });
+    else if (route.view === 'analytics') content = h(Analytics, { route, go, providerUsage });
     else if (route.view === 'benchmarks') content = h(Benchmarks, { route, go });
     else if (route.view === 'skills') content = h(Skills, { route, go });
     else if (route.view === 'hivemind') content = h(HiveMindSearch);
     else if (route.view === 'evidence') content = h(Evidence, { route, go });
-    else if (route.view === 'usage') content = h('div', { className: 'acc-view' }, h('button', { type: 'button', className: 'acc-back', onClick: () => go({ view: 'overview' }) }, '← Overview'), h(ProviderUsage, { snapshot: providerUsage, go }));
     else content = h(Overview, { go, providerUsage });
+
+    const isAnalytics = route.view === 'analytics';
+    const analyticsFixture = isAnalytics && route.mode === 'fixture';
 
     return h('div', { className: cx('acc-shell', route.view !== 'overview' && 'acc-shell--subview') },
       h('header', { className: 'acc-hero' },
@@ -679,11 +718,11 @@ export function registerAutobotCommandCenter() {
           ),
         ),
         h('div', { className: 'acc-hero__actions' },
-          h(Badge, { tone: 'warn' }, 'Prototype fixtures'),
+          h(Badge, { tone: analyticsFixture ? 'warn' : isAnalytics ? 'good' : 'warn' }, analyticsFixture ? 'Illustrative fixture' : isAnalytics ? 'Read-only analytics' : 'Prototype fixtures'),
           h('button', { type: 'button', className: 'acc-secondary-button', onClick: () => go({ view: 'evidence' }) }, 'Evidence index'),
         ),
       ),
-      h(TrustStrip, { openEvidence: () => go({ view: 'evidence' }) }),
+      isAnalytics ? null : h(TrustStrip, { openEvidence: () => go({ view: 'evidence' }) }),
       h('nav', { className: 'acc-local-nav', 'aria-label': 'Command Center sections' }, NAV_ITEMS.map((item) =>
         h('button', {
           key: item.id, type: 'button', className: cx(primaryView === item.id && 'is-active'),
@@ -692,7 +731,7 @@ export function registerAutobotCommandCenter() {
         }, item.label),
       )),
       h('main', { className: 'acc-main', ref: mainRef, tabIndex: -1, 'aria-label': 'Command Center content' }, content),
-      h('footer', { className: 'acc-footer' }, h('span', null, fixtures.meta.notice), h('span', null, 'No mutations · No second source of truth')),
+      h('footer', { className: 'acc-footer' }, h('span', null, isAnalytics ? 'Sanitized static projections · No browser-side Cloudflare access' : fixtures.meta.notice), h('span', null, 'No mutations · No second source of truth')),
     );
   }
 

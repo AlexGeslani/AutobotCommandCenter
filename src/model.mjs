@@ -1,6 +1,7 @@
 export const NAV_ITEMS = [
   { id: 'overview', label: 'Overview' },
   { id: 'portfolio', label: 'Portfolio' },
+  { id: 'analytics', label: 'Analytics' },
   { id: 'benchmarks', label: 'Benchmarks' },
   { id: 'skills', label: 'Skill Registry' },
   { id: 'hivemind', label: 'Hive Mind' },
@@ -36,36 +37,52 @@ export const fixtures = {
   },
   products: [
     {
-      id: 'voice-lab', name: 'Voice Lab', kind: 'Product', state: 'Human gate', verified: '2026-07-26', source: 'Prime voice benchmark',
+      id: 'autobot-command-center', name: 'Autobot Command Center', kind: 'Product', state: 'Development', verified: '2026-08-16', source: 'ACC dev acceptance checks',
+      value: 'A read-only answer plane for durable products, analytics, provider usage, benchmark evidence, and reusable skills.',
+      outcome: 'Development now projects six durable destinations through one responsive dashboard without becoming a second operational control plane.',
+      limitation: 'Portfolio and registry records remain curated projections until their canonical metadata adapters are connected.',
+      worksNow: ['Responsive product projection', 'Provider-usage snapshots', 'Web analytics destination', 'Evidence-linked benchmark views'],
+      evidence: ['Browser acceptance matrix', 'Application test suite', 'Public-safety scanner'], evaluations: [],
+    },
+    {
+      id: 'jarvis', name: 'Jarvis Voice Agent', kind: 'Product', state: 'Development', verified: '2026-08-16', source: 'Development acceptance record',
+      value: 'A thin push-to-talk assistant joining local speech, web research, and home-control capabilities behind explicit boundaries.',
+      outcome: 'Development Web and Watch surfaces share the same bounded voice path while production remains frozen for acceptance.',
+      limitation: 'Web Search, Home Assistant, and physical-device behavior must pass the development gate before production promotion.',
+      worksNow: ['Development web client', 'Watch push-to-talk client', 'Local speech path', 'Bounded tool integration'],
+      evidence: ['Development browser checks', 'Voice route acceptance records'], evaluations: ['eval-voice-latency'],
+    },
+    {
+      id: 'voice-lab', name: 'Prime Voice Lab', kind: 'Product', state: 'Human gate', verified: '2026-07-26', source: 'Prime voice benchmark',
       value: 'Reusable intranet-first voice interaction core for tutors, agents, avatars, calls, and meetings.',
-      outcome: 'Six configured voice routes are now compared end-to-end; Edge Node A Kokoro leads at 0.344 seconds while GPU Node B Kokoro follows at 0.444 seconds.',
-      limitation: 'GPU Node B Qwen produced one runaway 90-second timeout in the matched set; voice quality remains a subjective human gate.',
+      outcome: 'Six configured voice routes are compared end-to-end; the fastest instant and cloned-voice paths are identified separately.',
+      limitation: 'One experimental route produced a runaway timeout in the matched set; voice identity and quality remain subjective human gates.',
       worksNow: ['Six-route performance comparison', 'Non-speech rejection', 'Profile-driven output'],
       evidence: ['Voice performance snapshot · 2026-07-26', 'Prime acceptance suite', 'Audio sample set'], evaluations: ['eval-voice-runtime-comparison', 'eval-voice-latency'],
     },
     {
-      id: 'model-serving', name: 'Local Model Service', kind: 'Capability', state: 'Usable', availabilityAuthority: 'runtime', verified: '42m ago', source: 'Frozen benchmark artifacts',
-      value: 'Private local inference for bounded agent and evaluation workloads.',
-      outcome: 'Qwen3.6 AWQ condition is deployable with a defined context/output envelope.',
+      id: 'web-analytics', name: 'Web Analytics Projection', kind: 'Capability', state: 'Development', verified: '2026-08-16', source: 'Cloudflare edge aggregate projection',
+      value: 'One evidence-aware reporting destination for web properties without inventing missing geography or visitor semantics.',
+      outcome: 'Two web properties now share daily, monthly, and yearly edge-aggregate views with explicit source coverage and provenance.',
+      limitation: 'Aggregate analytics are not raw request logs; unavailable state-level dimensions remain unknown rather than inferred.',
+      worksNow: ['Multi-property routing', 'Daily/monthly/yearly ranges', 'Coverage-aware world views', 'Explicit null gaps'],
+      evidence: ['Projection schema tests', 'Compiler tests', 'Browser analytics routes'], evaluations: [],
+    },
+    {
+      id: 'model-serving', name: 'Local AI Runtime', kind: 'Capability', state: 'Usable', availabilityAuthority: 'runtime', verified: '2026-08-16', source: 'Frozen benchmark artifacts',
+      value: 'Private local inference for bounded agent, tool-use, and evaluation workloads.',
+      outcome: 'A quantized serving condition has a defined runtime, context, output envelope, and immutable evidence identity.',
       limitation: 'Current availability is unknown while runtime telemetry is stale.',
       worksNow: ['OpenAI-compatible endpoint', 'Condition manifests', 'Bounded outputs'],
       evidence: ['Frozen run manifests', 'Service acceptance record'], evaluations: ['eval-model-condition'],
     },
     {
-      id: 'benchmark-program', name: 'Benchmark Program', kind: 'Capability', state: 'Usable', verified: '42m ago', source: 'Frozen benchmark artifacts',
-      value: 'Comparable model-condition evidence across tool use, reasoning, and offline-safe coding.',
-      outcome: 'Release-scoped canonical results and run lineage are available.',
+      id: 'benchmark-program', name: 'Model Evaluation Program', kind: 'Capability', state: 'Usable', verified: '2026-08-16', source: 'Frozen benchmark artifacts',
+      value: 'Comparable condition-level evidence across tool use, reasoning, and offline-safe coding.',
+      outcome: 'Release-scoped canonical results, exact condition fingerprints, and supporting run lineage are represented separately from runtime availability.',
       limitation: 'Cross-release rankings are intentionally prohibited.',
       worksNow: ['BFCL', 'GPQA Diamond', 'BigCodeBench-Hard'],
       evidence: ['Frozen manifests', 'Canonical result index'], evaluations: ['eval-model-condition'],
-    },
-    {
-      id: 'release-platform', name: 'Release Platform', kind: 'Product', state: 'Production', verified: '1h ago', source: 'LLM Wiki',
-      value: 'Public home for durable projects, demonstrations, and released artifacts.',
-      outcome: 'Repository-backed publishing path is operational.',
-      limitation: 'ACC does not publish or edit content.',
-      worksNow: ['Project pages', 'Repository evidence', 'Public-CA TLS'],
-      evidence: ['Production URL', 'Deployment record'], evaluations: [],
     },
   ],
   modelFamilies: [
@@ -121,13 +138,13 @@ export const fixtures = {
       question: 'Which configured route best serves instant speech, cloned voice identity, and streaming character quality?',
       finding: 'Edge Node A Kokoro is fastest at 0.344 seconds; GPU Node B Kokoro is near-instant at 0.444 seconds; GPT-SoVITS is the fastest cloned route at 2.216 seconds. GPU Node B Qwen streams earlier but had one runaway timeout.',
       comparisonId: 'voice-performance-2026-07-26',
-      affectedObjects: [{ type: 'product', id: 'voice-lab', label: 'Voice Lab' }],
+      affectedObjects: [{ type: 'product', id: 'voice-lab', label: 'Prime Voice Lab' }],
     },
     {
       id: 'eval-voice-latency', title: 'Voice interaction latency envelope', stage: 'Running', findingStatus: 'provisional', decision: 'No decision', progress: 68,
       question: 'Can the local voice core sustain conversational turn latency without accepting non-speech?',
       finding: 'Non-speech rejection is stable; interruption and tail latency remain under evaluation.',
-      affectedObjects: [{ type: 'product', id: 'voice-lab', label: 'Voice Lab' }],
+      affectedObjects: [{ type: 'product', id: 'voice-lab', label: 'Prime Voice Lab' }],
     },
     {
       id: 'eval-model-condition', title: 'Qwen3.6 production condition', stage: 'Verifying', findingStatus: 'provisional', decision: 'Re-run', progress: 84,
@@ -143,8 +160,14 @@ export const fixtures = {
     },
   ],
   skills: [
-    { id: 'autobots', name: '/autobots', category: 'Agent orchestration', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'candidate', validation: 'validated', lastValidated: 'today', envelope: 'Claude CLI + Codex CLI; isolated transport', repo: 'Metadata unavailable' },
-    { id: 'voice-profile', name: 'voice-profile', category: 'Voice', provenance: 'authored here', stewardship: 'maintained here', publication: 'internal', validation: 'validated', lastValidated: '3d ago', envelope: 'macOS; local Qwen3-TTS', repo: 'Internal source' },
+    { id: 'autobots', name: '/autobots', category: 'Agent orchestration', purpose: 'Runs bounded specialist coding lanes with explicit pause, resume, review, and delivery contracts.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Claude CLI + Codex CLI; isolated transport', repo: 'Local SKILL.md metadata snapshot' },
+    { id: 'dashboard-product-design', name: 'operational-dashboard-product-design', category: 'Product design', purpose: 'Designs evidence-backed command centers that answer durable questions without duplicating operational systems.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Dashboard IA, source authority, desktop/mobile acceptance', repo: 'Local SKILL.md metadata snapshot' },
+    { id: 'local-model-evaluation', name: 'local-model-evaluation', category: 'Model evaluation', purpose: 'Builds frozen, executable comparisons across local and hosted inference conditions.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Local/cloud OpenAI-compatible runtimes; evidence-first', repo: 'Local SKILL.md metadata snapshot' },
+    { id: 'portable-safety-harnesses', name: 'portable-integration-safety-harnesses', category: 'Integration safety', purpose: 'Creates secret-safe integration checks that travel across environments without carrying private infrastructure assumptions.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Portable fixtures, fail-closed checks, redacted evidence', repo: 'Local SKILL.md metadata snapshot' },
+    { id: 'intranet-recovery', name: 'intranet-app-versioning-recovery', category: 'Reliability', purpose: 'Versions, backs up, restore-tests, and safely publishes private application baselines.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Private intranet applications; reversible releases', repo: 'Local SKILL.md metadata snapshot' },
+    { id: 'container-hosting', name: 'macos-container-hosting-operations', category: 'Platform operations', purpose: 'Operates LAN-only container hosting with validated routing, bind-mount safety, and independent-client acceptance.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'macOS container hosts; shared Caddy ingress', repo: 'Local SKILL.md metadata snapshot' },
+    { id: 'event-film', name: 'mixed-media-event-film-production', category: 'Media production', purpose: 'Assembles mixed-source footage into a scene-tagged event film with selective restoration and conservative finishing.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Mixed photo/video/audio; reviewable editorial stages', repo: 'Local SKILL.md metadata snapshot' },
+    { id: 'repository-docs', name: 'repository-documentation-operations', category: 'Documentation', purpose: 'Keeps a repository README aligned with the actual default-branch product and operating state.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Repository-backed products; evidence-based documentation', repo: 'Local SKILL.md metadata snapshot' },
   ],
 };
 
@@ -268,7 +291,7 @@ export function getSourceTrust() {
 
 export function buildAccUrl(state = {}, basePath = '/autobot-command-center') {
   const params = new URLSearchParams();
-  for (const key of ['view', 'domain', 'product', 'condition', 'result', 'release', 'run', 'skill', 'evaluation']) {
+  for (const key of ['view', 'domain', 'subject', 'range', 'mode', 'product', 'condition', 'result', 'release', 'run', 'skill', 'evaluation']) {
     if (state[key]) params.set(key, state[key]);
   }
   const query = params.toString();
@@ -278,10 +301,15 @@ export function buildAccUrl(state = {}, basePath = '/autobot-command-center') {
 export function parseAccUrl(input) {
   const url = new URL(input, 'http://localhost');
   const state = {};
-  for (const key of ['view', 'domain', 'product', 'condition', 'result', 'release', 'run', 'skill', 'evaluation']) {
+  for (const key of ['view', 'domain', 'subject', 'range', 'mode', 'product', 'condition', 'result', 'release', 'run', 'skill', 'evaluation']) {
     const value = url.searchParams.get(key);
     if (value) state[key] = value;
   }
   if (!state.view) state.view = 'overview';
   return state;
+}
+
+export function canonicalizeAccRoute(route = {}) {
+  if (route.view === 'usage') return { view: 'analytics', domain: 'ai', subject: 'provider-usage' };
+  return { ...route };
 }

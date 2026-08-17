@@ -1,0 +1,13 @@
+{
+  "version": "web-analytics-metrics-v1",
+  "archiveSchemaVersions": [1],
+  "queryVersions": ["httpRequestsAdaptiveGroups-safe-v1"],
+  "totalsGroup": "hourly",
+  "headlineMetrics": ["requests", "edge_response_bytes"],
+  "strictCacheHit": {
+    "numeratorStatuses": ["hit"],
+    "denominator": "all_cache_status_requests",
+    "label": "Strict cache-hit share"
+  },
+  "excludedMetrics": ["visits"]
+}

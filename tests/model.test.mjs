@@ -13,6 +13,7 @@ import {
   getEffectiveSkillClaims,
   buildAccUrl,
   parseAccUrl,
+  canonicalizeAccRoute,
   getVoicePerformance,
 } from '../src/model.mjs';
 
@@ -27,10 +28,20 @@ describe('ACC product contract', () => {
     expect(snapshot.method).toMatch(/same sentence/i);
     expect(snapshot.observedAt).toBe('2026-07-26');
   });
-  it('keeps exactly five durable primary destinations', () => {
+  it('adds Analytics as the sixth durable primary destination without renaming existing areas', () => {
     expect(NAV_ITEMS.map((item) => item.label)).toEqual([
-      'Overview', 'Portfolio', 'Benchmarks', 'Skill Registry', 'Hive Mind',
+      'Overview', 'Portfolio', 'Analytics', 'Benchmarks', 'Skill Registry', 'Hive Mind',
     ]);
+  });
+
+  it('round-trips analytics domain, subject, range, and fixture mode', () => {
+    const state = { view: 'analytics', domain: 'web', subject: 'kungfuclan-demo', range: '30d', mode: 'fixture' };
+    expect(parseAccUrl(buildAccUrl(state))).toEqual(state);
+  });
+
+  it('keeps the legacy usage route as a one-way alias into Analytics', () => {
+    expect(canonicalizeAccRoute({ view: 'usage' })).toEqual({ view: 'analytics', domain: 'ai', subject: 'provider-usage' });
+    expect(canonicalizeAccRoute({ view: 'analytics', domain: 'ai', subject: 'provider-usage' })).toEqual({ view: 'analytics', domain: 'ai', subject: 'provider-usage' });
   });
 
   it('ranks only comparable canonical results for one benchmark release', () => {
@@ -99,12 +110,21 @@ describe('ACC product contract', () => {
   });
 
   it('separates skill provenance, stewardship, publication, and validation', () => {
+    expect(fixtures.skills.length).toBeGreaterThanOrEqual(8);
     for (const skill of fixtures.skills) {
+      expect(skill.purpose.length).toBeGreaterThan(20);
       expect(skill).toHaveProperty('provenance');
       expect(skill).toHaveProperty('stewardship');
       expect(skill).toHaveProperty('publication');
       expect(skill).toHaveProperty('validation');
     }
+  });
+
+  it('projects named products and capabilities in the portfolio', () => {
+    expect(fixtures.products.map((product) => product.id)).toEqual(expect.arrayContaining([
+      'autobot-command-center', 'jarvis', 'voice-lab', 'web-analytics', 'model-serving', 'benchmark-program',
+    ]));
+    expect(new Set(fixtures.products.map((product) => product.kind))).toEqual(new Set(['Product', 'Capability']));
   });
 
   it('degrades claims visibly when an authoritative source is stale or missing', () => {

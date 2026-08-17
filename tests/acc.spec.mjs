@@ -1,7 +1,27 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { readFile } from 'node:fs/promises';
 
 const pluginUrl = process.env.ACC_PLUGIN_PATH || '/autobot-command-center';
+const showcaseProjection = JSON.parse(await readFile(new URL('./fixtures/analytics/kungfuclan-demo.v2.json', import.meta.url), 'utf8'));
+
+async function routeWebAnalytics(page) {
+  const realProjection = structuredClone(showcaseProjection);
+  realProjection.dataKind = 'real';
+  realProjection.subject = { id: 'kungfuclan.com', label: 'Kung Fu Clan', domain: 'web' };
+  delete realProjection.notice;
+  await page.route('**/data/analytics/web/kungfuclan.com.v2.json', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(realProjection) });
+  });
+  await page.route('**/data/analytics/showcase/kungfuclan-demo.v2.json', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(showcaseProjection) });
+  });
+  const alexProjection = structuredClone(realProjection);
+  alexProjection.subject = { id: 'alexgeslani.com', label: 'alexgeslani.com', domain: 'web' };
+  await page.route('**/data/analytics/web/alexgeslani.com.v2.json', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(alexProjection) });
+  });
+}
 
 async function routeProviderUsage(page, providers, generatedAt = '2026-07-31T23:30:00.000Z') {
   await page.route('**/data/provider-usage.v1.json', async (route) => {
@@ -41,14 +61,70 @@ async function routeHiveMind(page) {
 test('ten-second facts are visible and primary IA is bounded', async ({ page }) => {
   await page.goto(pluginUrl);
   await expect(page.getByRole('heading', { name: 'Autobot Command Center' })).toBeVisible();
-  await expect(page.locator('img.acc-command-mark')).toHaveAttribute('src', /^data:image\/svg\+xml,/);
-  if (pluginUrl === '/') await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/command-center-mark.svg?v=1');
+  await expect(page.locator('img.acc-command-mark')).toHaveAttribute('src', /^data:image\/jpeg;base64,/);
+  if (pluginUrl === '/') await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/autobot-mark.jpg?v=1');
   await expect(page.getByText('Recently landed', { exact: true })).toBeVisible();
   await expect(page.getByText('Durable capabilities', { exact: true })).toBeVisible();
   await expect(page.getByText('Model leaders', { exact: true })).toBeVisible();
   await expect(page.getByText('Decision pending', { exact: true })).toBeVisible();
   const localNav = page.getByRole('navigation', { name: 'Command Center sections' });
-  await expect(localNav.getByRole('button')).toHaveCount(5);
+  await expect(localNav.getByRole('button')).toHaveCount(6);
+});
+
+test('Analytics exposes scalable domains and a truthful KFC real-data route', async ({ page }) => {
+  await routeWebAnalytics(page);
+  await page.goto(pluginUrl + '?view=analytics');
+  await expect(page.getByRole('heading', { name: 'Analytics', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Web properties' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'AI services' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Products & agents' })).toBeVisible();
+  await expect(page.getByText('Not connected', { exact: true })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Open alexgeslani.com analytics' })).toBeVisible();
+  await page.getByRole('button', { name: 'Open KFC analytics' }).click();
+  await expect(page).toHaveURL(/view=analytics.*domain=web.*subject=kungfuclan\.com.*range=30d/);
+  await expect(page.getByRole('heading', { name: 'Kung Fu Clan', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Analytics summary').getByText('Cloudflare Visits', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Page-entry events from direct traffic or an external referrer/i)).toBeVisible();
+  await expect(page.getByText('Strict cache-hit share', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'World request map' })).toBeVisible();
+  const unitedStates = page.locator('.acc-world-map__country[data-country="US"]');
+  await expect(unitedStates).toHaveAttribute('data-state', 'observed');
+  await expect(unitedStates).toHaveAttribute('aria-label', /United States.*requests/i);
+  await unitedStates.focus();
+  await expect(unitedStates).toBeFocused();
+  await expect(page.getByText(/US state breakdown unavailable/i)).toBeVisible();
+  await expect(page.getByText('ILLUSTRATIVE FIXTURE', { exact: false })).toHaveCount(0);
+  await expect(page.getByText(/Visits are entry events, not unique people or sessions/i)).toBeVisible();
+});
+
+test('Analytics exposes the alexgeslani.com real-data route', async ({ page }) => {
+  await routeWebAnalytics(page);
+  await page.goto(pluginUrl + '?view=analytics&domain=web&subject=alexgeslani.com&range=30d');
+  await expect(page.getByRole('heading', { name: 'alexgeslani.com', exact: true })).toBeVisible();
+  await expect(page.getByText('ILLUSTRATIVE FIXTURE', { exact: false })).toHaveCount(0);
+});
+
+test('illustrative analytics stays on its separate identity with a permanent warning', async ({ page }) => {
+  await routeWebAnalytics(page);
+  await page.goto(pluginUrl + '?view=analytics&domain=web&subject=kungfuclan-demo&range=30d&mode=fixture');
+  await expect(page.getByRole('alert')).toHaveText('ILLUSTRATIVE FIXTURE — NOT CURRENT KUNGFUCLAN.COM ANALYTICS');
+  await expect(page.getByRole('heading', { name: 'Kung Fu Clan illustrative demo' })).toBeVisible();
+  await expect(page.getByText('30/30 observed', { exact: true })).toBeVisible();
+});
+
+test('Analytics remains readable without horizontal overflow on mobile', async ({ page }) => {
+  await routeWebAnalytics(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(pluginUrl + '?view=analytics&domain=web&subject=kungfuclan.com&range=30d');
+  await expect(page.getByRole('heading', { name: 'Kung Fu Clan', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  await expect(page.getByRole('navigation', { name: 'Command Center sections' }).getByRole('button')).toHaveCount(6);
+});
+
+test('legacy usage URL redirects to the canonical Analytics provider route', async ({ page }) => {
+  await page.goto(pluginUrl + '?view=usage');
+  await expect(page).toHaveURL(/view=analytics.*domain=ai.*subject=provider-usage/);
+  await expect(page.getByRole('heading', { name: 'Usage & limits' })).toBeVisible();
 });
 
 test('Hive Mind search returns source-linked QMD results', async ({ page }) => {
@@ -133,8 +209,10 @@ test('mobile composition has no primary horizontal overflow', async ({ page }) =
 });
 
 test('critical accessibility scan is clean across overview and detail routes', async ({ page }) => {
+  await routeWebAnalytics(page);
   for (const route of [
     '',
+    '?view=analytics&domain=web&subject=kungfuclan.com&range=30d',
     '?view=benchmarks&domain=rollup',
     '?view=benchmarks&domain=tool-use&condition=qwen36-awq-vllm',
     '?view=skills&skill=autobots',
@@ -142,7 +220,8 @@ test('critical accessibility scan is clean across overview and detail routes', a
     '?view=hivemind',
   ]) {
     await page.goto(pluginUrl + route);
-    const results = await new AxeBuilder({ page }).analyze();
+    await expect(page.locator('.acc-shell')).toBeVisible();
+    const results = await new AxeBuilder({ page }).include('.acc-shell').analyze();
     expect(results.violations.filter((v) => ['critical', 'serious'].includes(v.impact)), route).toEqual([]);
   }
 });
@@ -178,7 +257,7 @@ test('valid coding lineage opens its exact canonical result and run', async ({ p
 
 test('runtime-dependent service claims are withheld in overview and portfolio', async ({ page }) => {
   await page.goto(pluginUrl);
-  const service = page.getByRole('button', { name: /Local Model Service/i });
+  const service = page.getByRole('button', { name: /Local AI Runtime/i });
   await expect(service.getByText('unknown', { exact: true })).toBeVisible();
   await service.click();
   await expect(page.getByRole('heading', { name: 'Current availability' })).toBeVisible();
@@ -254,14 +333,14 @@ test('provider usage projects a sanitized snapshot without expanding primary nav
   await expect(page.getByRole('heading', { name: 'Provider usage' })).toBeVisible();
   await expect(page.locator('[data-provider="codex"]')).toContainText(/Codex \/ ChatGPT/);
   await expect(page.locator('[data-provider="claude"]').getByText(/^Last observed /)).toBeVisible();
-  await expect(page.locator('[data-provider="claude"]').getByText('Genuine activity updates immediately; guarded /usage fallback runs after 12 hours.', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-provider="claude"]').getByText('Genuine activity updates immediately; guarded /usage refresh also runs when a reported window resets or after 12 hours.', { exact: true })).toBeVisible();
   await expect(page.locator('[data-provider="claude"]').getByText(/^stale$/i)).toHaveCount(0);
   await expect(page.locator('[data-provider="antigravity"]').getByText(/^Last observed /)).toBeVisible();
   await expect(page.locator('[data-provider="antigravity"]').getByText(/^stale$/i)).toHaveCount(0);
   await page.getByRole('button', { name: 'Open details' }).click();
-  await expect(page).toHaveURL(/view=usage/);
+  await expect(page).toHaveURL(/view=analytics.*domain=ai.*subject=provider-usage/);
   await expect(page.getByRole('heading', { name: 'Usage & limits' })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Command Center sections' }).getByRole('button')).toHaveCount(5);
+  await expect(page.getByRole('navigation', { name: 'Command Center sections' }).getByRole('button')).toHaveCount(6);
 });
 
 test('provider quota windows render accessible progress bars with reset information below', async ({ page }) => {

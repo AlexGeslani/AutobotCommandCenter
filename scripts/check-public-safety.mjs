@@ -1,7 +1,10 @@
 import { readdir, readFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
 import { relative, resolve } from 'node:path';
+import { promisify } from 'node:util';
 
 const root = resolve(import.meta.dirname, '..');
+const execFileAsync = promisify(execFile);
 const excludedDirectories = new Set(['.git', 'node_modules', 'artifacts', 'test-results', 'playwright-report', '.ops']);
 const excludedFiles = new Set([
   '.git',
@@ -32,7 +35,15 @@ async function filesUnder(directory) {
 }
 
 const findings = [];
-for (const path of await filesUnder(root)) {
+let candidateFiles;
+try {
+  const { stdout } = await execFileAsync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { cwd: root, encoding: 'buffer', maxBuffer: 16 * 1024 * 1024 });
+  candidateFiles = stdout.toString('utf8').split('\0').filter(Boolean).map((name) => resolve(root, name));
+} catch {
+  candidateFiles = await filesUnder(root);
+}
+
+for (const path of candidateFiles) {
   const name = relative(root, path).replaceAll('\\', '/');
   if (excludedFiles.has(name)) continue;
   const bytes = await readFile(path);

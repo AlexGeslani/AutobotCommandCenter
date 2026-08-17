@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="820" viewBox="0 0 1600 820" role="img" aria-labelledby="title desc">
+  <title id="title">Provider usage bounded read path</title>
+  <desc id="desc">A fail-closed pipeline from provider read-only usage sources through bounded adapters and an atomic sanitized snapshot into the Autobot Command Center.</desc>
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#113b3a" stroke-width="1"/></pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#39d8c4"/></marker>
+    <filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <style>
+      .t{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}
+      .box{fill:#082f2d;stroke:#22c9b6;stroke-width:2}.source{fill:#132d3d;stroke:#38bdf8}.guard{fill:#3a1d2a;stroke:#fb7185}.artifact{fill:#261c46;stroke:#a78bfa}.surface{fill:#0b3b2e;stroke:#34d399}
+      .label{fill:#e5fffb;font-size:24px;font-weight:700}.sub{fill:#9fc7c3;font-size:17px}.tiny{fill:#87aaa7;font-size:14px}.eyebrow{fill:#55e7d4;font-size:15px;font-weight:800;letter-spacing:2px}.flow{fill:none;stroke:#39d8c4;stroke-width:3;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1600" height="820" rx="28" fill="#031c1b"/><rect width="1600" height="820" rx="28" fill="url(#grid)" opacity=".7"/>
+  <circle cx="72" cy="67" r="8" fill="#4ade80" filter="url(#glow)"/>
+  <text x="96" y="76" class="t label" font-size="34">Provider Usage — Bounded Read Path</text>
+  <text x="72" y="111" class="t sub">Quota evidence reaches the dashboard; credentials, identity, prompts, and raw responses do not.</text>
+
+  <path class="flow" d="M365 330H475"/><path class="flow" d="M785 330H895"/><path class="flow" d="M1185 330H1295"/>
+
+  <text x="72" y="170" class="t eyebrow">01 · READ-ONLY SOURCES</text>
+  <rect x="72" y="195" width="293" height="315" rx="18" class="source" stroke-width="2"/>
+  <text x="100" y="240" class="t label">Provider signals</text>
+  <g class="t sub">
+    <text x="100" y="290">Claude Code usage view</text>
+    <text x="100" y="336">Codex app-server RPC</text>
+    <text x="100" y="382">Antigravity status line</text>
+    <text x="100" y="428">Brave response headers</text>
+  </g>
+  <text x="100" y="474" class="t tiny">Each source keeps its own</text><text x="100" y="495" class="t tiny">authority and metric class.</text>
+
+  <text x="475" y="170" class="t eyebrow">02 · FAIL-CLOSED ADAPTERS</text>
+  <rect x="475" y="195" width="310" height="315" rx="18" class="guard" stroke-width="2"/>
+  <text x="505" y="240" class="t label">Bound and normalize</text>
+  <g class="t sub">
+    <text x="505" y="290">• Strict field allowlists</text>
+    <text x="505" y="334">• Canonical window IDs</text>
+    <text x="505" y="378">• Reset provenance</text>
+    <text x="505" y="422">• Observation TTL</text>
+    <text x="505" y="466">• Per-provider isolation</text>
+  </g>
+
+  <text x="895" y="170" class="t eyebrow">03 · SANITIZED SNAPSHOT</text>
+  <rect x="895" y="195" width="290" height="315" rx="18" class="artifact" stroke-width="2"/>
+  <text x="925" y="240" class="t label">Atomic JSON</text>
+  <text x="925" y="275" class="mono sub">provider-usage.v1.json</text>
+  <g class="t sub">
+    <text x="925" y="332">Usage percentage</text>
+    <text x="925" y="376">Reset timestamp + kind</text>
+    <text x="925" y="420">Safe request counts</text>
+    <text x="925" y="464">Fresh / stale / unknown</text>
+  </g>
+
+  <text x="1295" y="170" class="t eyebrow">04 · READ-ONLY SURFACES</text>
+  <rect x="1295" y="195" width="233" height="315" rx="18" class="surface" stroke-width="2"/>
+  <text x="1325" y="240" class="t label">ACC Analytics</text>
+  <g class="t sub">
+    <text x="1325" y="300">Window headroom</text>
+    <text x="1325" y="344">Reset countdown</text>
+    <text x="1325" y="388">Source authority</text>
+    <text x="1325" y="432">Explicit gaps</text>
+  </g>
+  <text x="1325" y="474" class="t tiny">Hermes plugin + static</text><text x="1325" y="495" class="t tiny">review artifact</text>
+
+  <rect x="72" y="570" width="1456" height="160" rx="18" class="guard" stroke-width="2" stroke-dasharray="8 8"/>
+  <text x="104" y="616" class="t eyebrow" fill="#fb7185">TRUST BOUNDARY</text>
+  <text x="104" y="657" class="t label">Missing telemetry is unknown — never zero, healthy, unlimited, or current.</text>
+  <text x="104" y="696" class="t sub">The browser never receives credentials, cookies, account identity, prompts, project IDs, local paths, billing data, or raw provider payloads.</text>
+  <text x="72" y="776" class="t tiny">Autobot Command Center · architecture evidence · sanitized repository diagram</text>
+</svg>

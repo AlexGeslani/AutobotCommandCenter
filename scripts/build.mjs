@@ -1,5 +1,5 @@
 import { build } from 'esbuild';
-import { copyFile, cp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
@@ -48,7 +48,15 @@ const [appCss, standaloneCss] = await Promise.all([
 ]);
 await writeFile(resolve(standalone, 'app.css'), `${standaloneCss}\n${appCss}`);
 await copyFile(resolve(root, 'standalone/index.html'), resolve(standalone, 'index.html'));
-await copyFile(resolve(root, 'standalone/command-center-mark.svg'), resolve(standalone, 'command-center-mark.svg'));
+await copyFile(resolve(root, 'standalone/autobot-mark.jpg'), resolve(standalone, 'autobot-mark.jpg'));
+const showcaseDestination = resolve(standalone, 'data/analytics/showcase/kungfuclan-demo.v2.json');
+if (process.env.ACC_ANALYTICS_SHOWCASE === '1') {
+  await mkdir(dirname(showcaseDestination), { recursive: true });
+  await copyFile(resolve(root, 'tests/fixtures/analytics/kungfuclan-demo.v2.json'), showcaseDestination);
+} else {
+  await rm(showcaseDestination, { force: true });
+}
+await rm(resolve(dashboard, 'dist/data'), { recursive: true, force: true });
 await cp(resolve(standalone, 'data'), resolve(dashboard, 'dist/data'), { recursive: true, force: true });
 const standaloneBundle = await readFile(standaloneJs, 'utf8');
 console.log(`Built ${standaloneJs} (${Buffer.byteLength(standaloneBundle)} bytes)`);

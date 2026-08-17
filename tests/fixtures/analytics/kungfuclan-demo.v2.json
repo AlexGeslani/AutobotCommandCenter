@@ -1,0 +1,634 @@
+{
+  "schemaVersion": "web-analytics-projection-v2",
+  "dataKind": "illustrative_fixture",
+  "generatedAt": "2026-08-16T02:00:00.000Z",
+  "subject": {
+    "id": "kungfuclan-demo",
+    "label": "Kung Fu Clan illustrative demo",
+    "domain": "web"
+  },
+  "source": {
+    "authority": "Cloudflare edge aggregate analytics",
+    "fidelity": "aggregate_not_raw_request_logs"
+  },
+  "versions": {
+    "archiveSchema": 1,
+    "query": "httpRequestsAdaptiveGroups-safe-v1",
+    "metricRegistry": "web-analytics-metrics-v2",
+    "compiler": "2.0.0"
+  },
+  "coverage": {
+    "archiveStart": "2026-07-17",
+    "expectedThrough": "2026-08-15",
+    "dataThrough": "2026-08-15",
+    "freshness": "fresh",
+    "acceptedPeriods": 30,
+    "rejectedPeriods": 0,
+    "missingPeriods": [],
+    "outsideArchivePeriods": 0,
+    "inputSha256s": [
+      "90c2ea5ec5c530f6a58c856d3c55abf9e123cd601dae655113c2d550e175e9e8",
+      "072104a80a82c77eb1dbd7c77738c63377506dec057a3299e3776e690dc6dcfd",
+      "f6f9f6a936d64e94e09089648418d996cbb5a52edfa7234dde7c8e7bbb27c987",
+      "b5f2db5adc79930f9b270f4d64a84a67d32da184f5394afefd8e21296a1f3d4a",
+      "996900b6a62ac6a74038743f1f670468b47883a3f571ec4efb95c32f6f736c3c",
+      "6d23abc53a461d4410f6b0679f98c9b2d1c5c5a6a22e4d86377ed9f2804c0b57",
+      "e71465f51de0112fbc84b7f7126a0dbdd1b0b4d06dea0bbc10d371fe9fb0fd11",
+      "e253accb1c1786e3ea27865995c9cf5618933aeb1bca8692f693984677939cdc",
+      "456b4ae4fbc0f97ad02c990a16aaee2afa65ca14b2596d22520e47e384d4abdd",
+      "c1706962dcb9655679891870f60b84b2038e42e42e6f0bcdc525f966724eea93",
+      "f2edcbd3466887e92d4ed5e48ed873d2cfd90d0453c7521e8390bc4180ca8b1e",
+      "df25d974ea55ecc805f6259c389953b1e44ccc2e675d1ddfc363777f37a8c4a2",
+      "7d6b03ec822f08e930a15e4f2ad88d9cb11f87fbfbd3d15e85401f2a7683ad0c",
+      "2654b30dc2b853db4477d4c9e376120d4a82d88223082deaf0b1b7f71ee05019",
+      "1b4a6ab11511a9fcf99e4a816e0ee3a66925a2602f6add9505a14a088484703b",
+      "bc4e9a773738b2d5783914540ef708d15c155ca398add5bbb82d90d2355b5b99",
+      "d3ed7a24100cccd6f8d9c820a07feeac22089109c8bce7d48273a20657afa498",
+      "cf52061b2909c3faf97865db1dbbfb28e6673cdc771c4c0fcce139f484dc5ee3",
+      "e83b3da8205ba745f927a548c0775f409bac83e5d9b136b3f45697015269309e",
+      "c16e27ea864ee6c342bc67b4b112749afa4661e36f427dd92e610eaab1a70e0c",
+      "b4c2a49b432637f2bddc99fd17b55a0f6a914d7c8f4546da073fa53b6a51c6a4",
+      "2e839ba6b41c38754ee3abb7b9740ca63ca828d1da7b4d6659e8c5bdce810735",
+      "4d137fb76174011defcb69cbcec04259a1e1af5bd98fabdfaf4729971e5cbb34",
+      "2d0dfcd852f8b5dd6dd44cfa5caa8ab9e1ba50b2a0f23b9aab7da6d3c20d22a5",
+      "854658a18a972623fbaf09b09ea25d2ddaa0494c5f87a49d06c7d20d0b77249b",
+      "106ecb11789609df051e6e1f396fca4b1450e86afd93063e5fc2f71dbac55597",
+      "182f814624fa112f763169640dd1dc485df6bb248e874b0d430c91a9da7da949",
+      "c8c039460330e322d4bfe68ef98cdad3840e592d180d62c0d85b644687712eb4",
+      "216a51ed2abb7c176ae76e294799c1d6d19a0df5cf0da7ed3104897201a7de44",
+      "c5a84309dcf7f8d08d7160d70d6cfbc1bac82862b2bef1ef083be906343c5f71"
+    ]
+  },
+  "ranges": {
+    "1d": {
+      "id": "1d",
+      "startDate": "2026-08-15",
+      "endDate": "2026-08-15",
+      "daysCalendar": 1,
+      "daysObserved": 1,
+      "daysMissing": 0,
+      "daysOutsideArchive": 0,
+      "totals": {
+        "requests": 2199,
+        "edgeResponseBytes": 18955380,
+        "visits": 186,
+        "cacheHitRequests": 637,
+        "cacheEligibleRequests": 2199,
+        "strictCacheHitRatio": 0.2896771259663483
+      },
+      "daily": [
+        {
+          "date": "2026-08-15",
+          "state": "present",
+          "requests": 2199,
+          "edgeResponseBytes": 18955380,
+          "visits": 186
+        }
+      ],
+      "countries": [
+        {
+          "code": "US",
+          "requests": 1055,
+          "edgeResponseBytes": 9098582
+        },
+        {
+          "code": "CA",
+          "requests": 241,
+          "edgeResponseBytes": 2085091
+        },
+        {
+          "code": "GB",
+          "requests": 219,
+          "edgeResponseBytes": 1895538
+        },
+        {
+          "code": "DE",
+          "requests": 175,
+          "edgeResponseBytes": 1516430
+        },
+        {
+          "code": "AU",
+          "requests": 153,
+          "edgeResponseBytes": 1326876
+        },
+        {
+          "code": "JP",
+          "requests": 131,
+          "edgeResponseBytes": 1137322
+        },
+        {
+          "code": "BR",
+          "requests": 109,
+          "edgeResponseBytes": 947769
+        },
+        {
+          "code": "SG",
+          "requests": 116,
+          "edgeResponseBytes": 947772
+        }
+      ],
+      "statusClasses": [
+        {
+          "class": "2xx",
+          "requests": 1803
+        },
+        {
+          "class": "3xx",
+          "requests": 197
+        },
+        {
+          "class": "4xx",
+          "requests": 164
+        },
+        {
+          "class": "5xx",
+          "requests": 35
+        }
+      ],
+      "cacheStatuses": [
+        {
+          "status": "dynamic",
+          "requests": 1253,
+          "edgeResponseBytes": 9288136
+        },
+        {
+          "status": "hit",
+          "requests": 637,
+          "edgeResponseBytes": 6823936
+        },
+        {
+          "status": "miss",
+          "requests": 219,
+          "edgeResponseBytes": 2085091
+        },
+        {
+          "status": "bypass",
+          "requests": 90,
+          "edgeResponseBytes": 758217
+        }
+      ]
+    },
+    "7d": {
+      "id": "7d",
+      "startDate": "2026-08-09",
+      "endDate": "2026-08-15",
+      "daysCalendar": 7,
+      "daysObserved": 7,
+      "daysMissing": 0,
+      "daysOutsideArchive": 0,
+      "totals": {
+        "requests": 16252,
+        "edgeResponseBytes": 128356250,
+        "visits": 1378,
+        "cacheHitRequests": 4713,
+        "cacheEligibleRequests": 16252,
+        "strictCacheHitRatio": 0.2899950775289195
+      },
+      "daily": [
+        {
+          "date": "2026-08-09",
+          "state": "present",
+          "requests": 1893,
+          "edgeResponseBytes": 15503670,
+          "visits": 160
+        },
+        {
+          "date": "2026-08-10",
+          "state": "present",
+          "requests": 2074,
+          "edgeResponseBytes": 17877880,
+          "visits": 176
+        },
+        {
+          "date": "2026-08-11",
+          "state": "present",
+          "requests": 2385,
+          "edgeResponseBytes": 16456500,
+          "visits": 202
+        },
+        {
+          "date": "2026-08-12",
+          "state": "present",
+          "requests": 2766,
+          "edgeResponseBytes": 20274780,
+          "visits": 235
+        },
+        {
+          "date": "2026-08-13",
+          "state": "present",
+          "requests": 2627,
+          "edgeResponseBytes": 20385520,
+          "visits": 223
+        },
+        {
+          "date": "2026-08-14",
+          "state": "present",
+          "requests": 2308,
+          "edgeResponseBytes": 18902520,
+          "visits": 196
+        },
+        {
+          "date": "2026-08-15",
+          "state": "present",
+          "requests": 2199,
+          "edgeResponseBytes": 18955380,
+          "visits": 186
+        }
+      ],
+      "countries": [
+        {
+          "code": "US",
+          "requests": 7800,
+          "edgeResponseBytes": 61611000
+        },
+        {
+          "code": "CA",
+          "requests": 1787,
+          "edgeResponseBytes": 14119187
+        },
+        {
+          "code": "GB",
+          "requests": 1625,
+          "edgeResponseBytes": 12835625
+        },
+        {
+          "code": "DE",
+          "requests": 1300,
+          "edgeResponseBytes": 10268500
+        },
+        {
+          "code": "AU",
+          "requests": 1137,
+          "edgeResponseBytes": 8984937
+        },
+        {
+          "code": "JP",
+          "requests": 975,
+          "edgeResponseBytes": 7701375
+        },
+        {
+          "code": "BR",
+          "requests": 812,
+          "edgeResponseBytes": 6417812
+        },
+        {
+          "code": "SG",
+          "requests": 816,
+          "edgeResponseBytes": 6417814
+        }
+      ],
+      "statusClasses": [
+        {
+          "class": "2xx",
+          "requests": 13326
+        },
+        {
+          "class": "3xx",
+          "requests": 1462
+        },
+        {
+          "class": "4xx",
+          "requests": 1218
+        },
+        {
+          "class": "5xx",
+          "requests": 246
+        }
+      ],
+      "cacheStatuses": [
+        {
+          "status": "dynamic",
+          "requests": 9263,
+          "edgeResponseBytes": 62894562
+        },
+        {
+          "status": "hit",
+          "requests": 4713,
+          "edgeResponseBytes": 46208250
+        },
+        {
+          "status": "miss",
+          "requests": 1625,
+          "edgeResponseBytes": 14119187
+        },
+        {
+          "status": "bypass",
+          "requests": 651,
+          "edgeResponseBytes": 5134251
+        }
+      ]
+    },
+    "30d": {
+      "id": "30d",
+      "startDate": "2026-07-17",
+      "endDate": "2026-08-15",
+      "daysCalendar": 30,
+      "daysObserved": 30,
+      "daysMissing": 0,
+      "daysOutsideArchive": 0,
+      "totals": {
+        "requests": 63355,
+        "edgeResponseBytes": 491974500,
+        "visits": 5370,
+        "cacheHitRequests": 18372,
+        "cacheEligibleRequests": 63355,
+        "strictCacheHitRatio": 0.289985005129824
+      },
+      "daily": [
+        {
+          "date": "2026-07-17",
+          "state": "present",
+          "requests": 1440,
+          "edgeResponseBytes": 9936000,
+          "visits": 122
+        },
+        {
+          "date": "2026-07-18",
+          "state": "present",
+          "requests": 1331,
+          "edgeResponseBytes": 9756230,
+          "visits": 113
+        },
+        {
+          "date": "2026-07-19",
+          "state": "present",
+          "requests": 1242,
+          "edgeResponseBytes": 9637920,
+          "visits": 105
+        },
+        {
+          "date": "2026-07-20",
+          "state": "present",
+          "requests": 1423,
+          "edgeResponseBytes": 11654370,
+          "visits": 120
+        },
+        {
+          "date": "2026-07-21",
+          "state": "present",
+          "requests": 1734,
+          "edgeResponseBytes": 14947080,
+          "visits": 147
+        },
+        {
+          "date": "2026-07-22",
+          "state": "present",
+          "requests": 2115,
+          "edgeResponseBytes": 14593500,
+          "visits": 179
+        },
+        {
+          "date": "2026-07-23",
+          "state": "present",
+          "requests": 1976,
+          "edgeResponseBytes": 14484080,
+          "visits": 167
+        },
+        {
+          "date": "2026-07-24",
+          "state": "present",
+          "requests": 1657,
+          "edgeResponseBytes": 12858320,
+          "visits": 140
+        },
+        {
+          "date": "2026-07-25",
+          "state": "present",
+          "requests": 1548,
+          "edgeResponseBytes": 12678120,
+          "visits": 131
+        },
+        {
+          "date": "2026-07-26",
+          "state": "present",
+          "requests": 1459,
+          "edgeResponseBytes": 12576580,
+          "visits": 124
+        },
+        {
+          "date": "2026-07-27",
+          "state": "present",
+          "requests": 1640,
+          "edgeResponseBytes": 11316000,
+          "visits": 139
+        },
+        {
+          "date": "2026-07-28",
+          "state": "present",
+          "requests": 1951,
+          "edgeResponseBytes": 14300830,
+          "visits": 165
+        },
+        {
+          "date": "2026-07-29",
+          "state": "present",
+          "requests": 2332,
+          "edgeResponseBytes": 18096320,
+          "visits": 198
+        },
+        {
+          "date": "2026-07-30",
+          "state": "present",
+          "requests": 2193,
+          "edgeResponseBytes": 17960670,
+          "visits": 186
+        },
+        {
+          "date": "2026-07-31",
+          "state": "present",
+          "requests": 1874,
+          "edgeResponseBytes": 16153880,
+          "visits": 159
+        },
+        {
+          "date": "2026-08-01",
+          "state": "present",
+          "requests": 1765,
+          "edgeResponseBytes": 12178500,
+          "visits": 150
+        },
+        {
+          "date": "2026-08-02",
+          "state": "present",
+          "requests": 1676,
+          "edgeResponseBytes": 12285080,
+          "visits": 142
+        },
+        {
+          "date": "2026-08-03",
+          "state": "present",
+          "requests": 2587,
+          "edgeResponseBytes": 20075120,
+          "visits": 219
+        },
+        {
+          "date": "2026-08-04",
+          "state": "present",
+          "requests": 3158,
+          "edgeResponseBytes": 25864020,
+          "visits": 268
+        },
+        {
+          "date": "2026-08-05",
+          "state": "present",
+          "requests": 3799,
+          "edgeResponseBytes": 32747380,
+          "visits": 322
+        },
+        {
+          "date": "2026-08-06",
+          "state": "present",
+          "requests": 3400,
+          "edgeResponseBytes": 23460000,
+          "visits": 289
+        },
+        {
+          "date": "2026-08-07",
+          "state": "present",
+          "requests": 2821,
+          "edgeResponseBytes": 20677930,
+          "visits": 239
+        },
+        {
+          "date": "2026-08-08",
+          "state": "present",
+          "requests": 1982,
+          "edgeResponseBytes": 15380320,
+          "visits": 168
+        },
+        {
+          "date": "2026-08-09",
+          "state": "present",
+          "requests": 1893,
+          "edgeResponseBytes": 15503670,
+          "visits": 160
+        },
+        {
+          "date": "2026-08-10",
+          "state": "present",
+          "requests": 2074,
+          "edgeResponseBytes": 17877880,
+          "visits": 176
+        },
+        {
+          "date": "2026-08-11",
+          "state": "present",
+          "requests": 2385,
+          "edgeResponseBytes": 16456500,
+          "visits": 202
+        },
+        {
+          "date": "2026-08-12",
+          "state": "present",
+          "requests": 2766,
+          "edgeResponseBytes": 20274780,
+          "visits": 235
+        },
+        {
+          "date": "2026-08-13",
+          "state": "present",
+          "requests": 2627,
+          "edgeResponseBytes": 20385520,
+          "visits": 223
+        },
+        {
+          "date": "2026-08-14",
+          "state": "present",
+          "requests": 2308,
+          "edgeResponseBytes": 18902520,
+          "visits": 196
+        },
+        {
+          "date": "2026-08-15",
+          "state": "present",
+          "requests": 2199,
+          "edgeResponseBytes": 18955380,
+          "visits": 186
+        }
+      ],
+      "countries": [
+        {
+          "code": "US",
+          "requests": 30410,
+          "edgeResponseBytes": 236147760
+        },
+        {
+          "code": "CA",
+          "requests": 6969,
+          "edgeResponseBytes": 54117195
+        },
+        {
+          "code": "GB",
+          "requests": 6335,
+          "edgeResponseBytes": 49197450
+        },
+        {
+          "code": "DE",
+          "requests": 5068,
+          "edgeResponseBytes": 39357960
+        },
+        {
+          "code": "AU",
+          "requests": 4434,
+          "edgeResponseBytes": 34438215
+        },
+        {
+          "code": "JP",
+          "requests": 3801,
+          "edgeResponseBytes": 29518470
+        },
+        {
+          "code": "BR",
+          "requests": 3167,
+          "edgeResponseBytes": 24598725
+        },
+        {
+          "code": "SG",
+          "requests": 3171,
+          "edgeResponseBytes": 24598725
+        }
+      ],
+      "statusClasses": [
+        {
+          "class": "2xx",
+          "requests": 51951
+        },
+        {
+          "class": "3xx",
+          "requests": 5701
+        },
+        {
+          "class": "4xx",
+          "requests": 4751
+        },
+        {
+          "class": "5xx",
+          "requests": 952
+        }
+      ],
+      "cacheStatuses": [
+        {
+          "status": "dynamic",
+          "requests": 36112,
+          "edgeResponseBytes": 241067505
+        },
+        {
+          "status": "hit",
+          "requests": 18372,
+          "edgeResponseBytes": 177110820
+        },
+        {
+          "status": "miss",
+          "requests": 6335,
+          "edgeResponseBytes": 54117195
+        },
+        {
+          "status": "bypass",
+          "requests": 2536,
+          "edgeResponseBytes": 19678980
+        }
+      ]
+    }
+  },
+  "notice": "ILLUSTRATIVE FIXTURE — NOT CURRENT KUNGFUCLAN.COM ANALYTICS"
+}
