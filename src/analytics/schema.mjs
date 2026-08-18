@@ -219,6 +219,15 @@ export function projectWebAnalyticsProjection(value) {
   };
 }
 
+export function projectCurrentWebAnalyticsCoverage(coverage, now = new Date()) {
+  if (!coverage || typeof coverage !== 'object' || Array.isArray(coverage)) throw new TypeError('coverage must be an object');
+  assertDate(coverage.dataThrough, 'coverage.dataThrough');
+  if (!(now instanceof Date) || Number.isNaN(now.getTime())) throw new TypeError('now must be a valid Date');
+  const currentUtcDay = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const expectedThrough = new Date(currentUtcDay - 86_400_000).toISOString().slice(0, 10);
+  return { ...coverage, expectedThrough, freshness: coverage.dataThrough === expectedThrough ? 'fresh' : 'stale' };
+}
+
 export function isPublicWebAnalyticsProjection(value) {
   try {
     projectWebAnalyticsProjection(value);

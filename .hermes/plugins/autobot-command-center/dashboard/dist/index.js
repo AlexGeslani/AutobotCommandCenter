@@ -413,6 +413,14 @@
       ...value.notice ? { notice: value.notice } : {}
     };
   }
+  function projectCurrentWebAnalyticsCoverage(coverage, now = /* @__PURE__ */ new Date()) {
+    if (!coverage || typeof coverage !== "object" || Array.isArray(coverage)) throw new TypeError("coverage must be an object");
+    assertDate(coverage.dataThrough, "coverage.dataThrough");
+    if (!(now instanceof Date) || Number.isNaN(now.getTime())) throw new TypeError("now must be a valid Date");
+    const currentUtcDay = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const expectedThrough = new Date(currentUtcDay - 864e5).toISOString().slice(0, 10);
+    return { ...coverage, expectedThrough, freshness: coverage.dataThrough === expectedThrough ? "fresh" : "stale" };
+  }
   function parseWebAnalyticsText(text) {
     if (typeof text !== "string") throw new TypeError("analytics payload must be text");
     const bytes = new TextEncoder().encode(text).byteLength;
@@ -741,7 +749,7 @@
         h("button", { type: "button", className: "acc-back", onClick: () => go({ view: "analytics" }) }, "\u2190 Analytics"),
         h("section", { className: "acc-boundary", role: "status" }, h("h2", null, mode === "fixture" ? "Illustrative showcase is not included in this build" : `${subject} analytics unavailable`), h("p", null, mode === "fixture" ? "The default build excludes synthetic analytics. Use an explicitly labeled development showcase build." : "No validated public projection was loaded. The dashboard does not substitute zeros or fixture data."))
       );
-      const projection = loadState.projection;
+      const projection = { ...loadState.projection, coverage: projectCurrentWebAnalyticsCoverage(loadState.projection.coverage) };
       const range = projection.ranges[selectedRange];
       return h(
         "div",

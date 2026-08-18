@@ -1,4 +1,5 @@
 import { loadWebAnalyticsProjection } from './client.mjs';
+import { projectCurrentWebAnalyticsCoverage } from './schema.mjs';
 import { buildWorldTrafficModel } from './world-map.mjs';
 
 const RANGE_LABELS = { '1d': '1 day', '7d': '7 days', '30d': '30 days' };
@@ -218,7 +219,7 @@ export function createAnalyticsView({ React, h, useEffect, useState, Badge, Stat
       h('button', { type: 'button', className: 'acc-back', onClick: () => go({ view: 'analytics' }) }, '← Analytics'),
       h('section', { className: 'acc-boundary', role: 'status' }, h('h2', null, mode === 'fixture' ? 'Illustrative showcase is not included in this build' : `${subject} analytics unavailable`), h('p', null, mode === 'fixture' ? 'The default build excludes synthetic analytics. Use an explicitly labeled development showcase build.' : 'No validated public projection was loaded. The dashboard does not substitute zeros or fixture data.')),
     );
-    const projection = loadState.projection;
+    const projection = { ...loadState.projection, coverage: projectCurrentWebAnalyticsCoverage(loadState.projection.coverage) };
     const range = projection.ranges[selectedRange];
     return h('div', { className: 'acc-view acc-analytics' },
       projection.notice ? h('div', { className: 'acc-analytics-fixture-banner', role: 'alert' }, projection.notice) : null,

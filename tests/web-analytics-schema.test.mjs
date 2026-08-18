@@ -3,6 +3,7 @@ import {
   PUBLIC_WEB_ANALYTICS_SCHEMA_VERSION,
   isPublicWebAnalyticsProjection,
   parseWebAnalyticsText,
+  projectCurrentWebAnalyticsCoverage,
   projectWebAnalyticsProjection,
 } from '../src/analytics/schema.mjs';
 import { webAnalyticsProjectionPath } from '../src/analytics/client.mjs';
@@ -99,6 +100,16 @@ describe('public web analytics projection', () => {
     const value = validProjection();
     for (const range of Object.values(value.ranges)) range.countries[0].code = 'T1';
     expect(projectWebAnalyticsProjection(value).ranges['1d'].countries[0].code).toBe('T1');
+  });
+
+  it('recalculates displayed freshness against the current fully closed UTC day', () => {
+    const coverage = validProjection().coverage;
+    coverage.expectedThrough = '2026-08-15';
+    coverage.dataThrough = '2026-08-15';
+    coverage.freshness = 'fresh';
+    expect(projectCurrentWebAnalyticsCoverage(coverage, new Date('2026-08-18T00:01:00Z'))).toMatchObject({ expectedThrough: '2026-08-17', dataThrough: '2026-08-15', freshness: 'stale' });
+    coverage.dataThrough = '2026-08-17';
+    expect(projectCurrentWebAnalyticsCoverage(coverage, new Date('2026-08-18T23:59:00Z')).freshness).toBe('fresh');
   });
 
   it('requires daily entry visits to reconcile to each range total', () => {
