@@ -5,6 +5,8 @@ import { dirname, resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '..');
 const dashboard = resolve(root, '.hermes/plugins/autobot-command-center/dashboard');
 const out = resolve(dashboard, 'dist/index.js');
+const analyticsShowcaseEnabled = process.env.ACC_ANALYTICS_SHOWCASE === '1';
+const buildDefines = { 'globalThis.__ACC_ANALYTICS_SHOWCASE__': JSON.stringify(analyticsShowcaseEnabled) };
 await mkdir(dirname(out), { recursive: true });
 await build({
   entryPoints: [resolve(root, 'src/plugin.mjs')],
@@ -17,6 +19,7 @@ await build({
   minify: false,
   legalComments: 'none',
   banner: { js: '/* Autobot Command Center prototype — Hermes dashboard plugin */' },
+  define: buildDefines,
 });
 await copyFile(resolve(root, 'src/style.css'), resolve(dashboard, 'dist/style.css'));
 const bundle = await readFile(out, 'utf8');
@@ -41,6 +44,7 @@ await build({
   minify: true,
   legalComments: 'none',
   banner: { js: '/* ACC standalone human-gate build — same application source, no Hermes API */' },
+  define: buildDefines,
 });
 const [appCss, standaloneCss] = await Promise.all([
   readFile(resolve(root, 'src/style.css'), 'utf8'),
@@ -50,7 +54,7 @@ await writeFile(resolve(standalone, 'app.css'), `${standaloneCss}\n${appCss}`);
 await copyFile(resolve(root, 'standalone/index.html'), resolve(standalone, 'index.html'));
 await copyFile(resolve(root, 'standalone/autobot-mark.jpg'), resolve(standalone, 'autobot-mark.jpg'));
 const showcaseDestination = resolve(standalone, 'data/analytics/showcase/kungfuclan-demo.v2.json');
-if (process.env.ACC_ANALYTICS_SHOWCASE === '1') {
+if (analyticsShowcaseEnabled) {
   await mkdir(dirname(showcaseDestination), { recursive: true });
   await copyFile(resolve(root, 'tests/fixtures/analytics/kungfuclan-demo.v2.json'), showcaseDestination);
 } else {

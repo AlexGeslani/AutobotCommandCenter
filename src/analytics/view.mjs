@@ -2,6 +2,7 @@ import { loadWebAnalyticsProjection } from './client.mjs';
 import { buildWorldTrafficModel } from './world-map.mjs';
 
 const RANGE_LABELS = { '1d': '1 day', '7d': '7 days', '30d': '30 days' };
+const ANALYTICS_SHOWCASE_ENABLED = globalThis.__ACC_ANALYTICS_SHOWCASE__ === true;
 
 function formatNumber(value) {
   return Number.isSafeInteger(value) ? value.toLocaleString() : 'Unknown';
@@ -233,7 +234,7 @@ export function createAnalyticsView({ React, h, useEffect, useState, Badge, Stat
         } },
         h('option', { value: 'kungfuclan.com' }, 'kungfuclan.com · real archive'),
         h('option', { value: 'alexgeslani.com' }, 'alexgeslani.com · real archive'),
-        h('option', { value: 'kungfuclan-demo' }, 'Kung Fu Clan · illustrative demo'),
+        ANALYTICS_SHOWCASE_ENABLED ? h('option', { value: 'kungfuclan-demo' }, 'Kung Fu Clan · illustrative demo') : null,
         )),
         h('div', { className: 'acc-metric-tabs', role: 'group', 'aria-label': 'Analytics date range' }, Object.entries(RANGE_LABELS).map(([id, label]) => h('button', { key: id, type: 'button', className: `acc-tab-button${selectedRange === id ? ' is-active' : ''}`, 'aria-pressed': selectedRange === id, onClick: () => go({ view: 'analytics', domain: 'web', subject, range: id, ...(mode === 'fixture' ? { mode: 'fixture' } : {}) }) }, label))),
       ),
@@ -256,7 +257,7 @@ export function createAnalyticsView({ React, h, useEffect, useState, Badge, Stat
       h('button', { type: 'button', className: 'acc-back', onClick: () => go({ view: 'analytics' }) }, '← Analytics'),
       h(ProviderUsage, { snapshot: providerUsage, go }),
     );
-    if (route.domain === 'web' && (route.subject === 'kungfuclan.com' || route.subject === 'alexgeslani.com' || route.subject === 'kungfuclan-demo')) return h(WebPropertyAnalytics, { route, go });
+    if (route.domain === 'web' && (route.subject === 'kungfuclan.com' || route.subject === 'alexgeslani.com' || (ANALYTICS_SHOWCASE_ENABLED && route.subject === 'kungfuclan-demo'))) return h(WebPropertyAnalytics, { route, go });
     return h('div', { className: 'acc-view' },
       h('button', { type: 'button', className: 'acc-back', onClick: () => go({ view: 'analytics' }) }, '← Analytics'),
       h('section', { className: 'acc-boundary', role: 'status' }, h('h2', null, 'Analytics source not connected'), h('p', null, 'No validated projection is registered for this domain and subject. Unknown sources never become zero-valued dashboards.')),

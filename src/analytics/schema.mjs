@@ -99,7 +99,7 @@ function projectCountries(values, totals) {
   const seen = new Set();
   const projected = values.map((value, index) => {
     assertAllowedKeys(value, COUNTRY_FIELDS, `countries[${index}]`);
-    if (typeof value.code !== 'string' || !/^[A-Z]{2}$/.test(value.code) || seen.has(value.code)) throw new TypeError('country code must be a unique ISO alpha-2 code');
+    if (typeof value.code !== 'string' || !(/^[A-Z]{2}$/.test(value.code) || value.code === 'T1') || seen.has(value.code)) throw new TypeError('country code must be a unique ISO alpha-2 or allowlisted provider region code');
     seen.add(value.code);
     return { code: value.code, requests: assertInteger(value.requests, 'country.requests'), edgeResponseBytes: assertInteger(value.edgeResponseBytes, 'country.edgeResponseBytes') };
   });

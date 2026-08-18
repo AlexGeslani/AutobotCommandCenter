@@ -296,7 +296,7 @@
     const seen = /* @__PURE__ */ new Set();
     const projected = values.map((value, index) => {
       assertAllowedKeys2(value, COUNTRY_FIELDS, `countries[${index}]`);
-      if (typeof value.code !== "string" || !/^[A-Z]{2}$/.test(value.code) || seen.has(value.code)) throw new TypeError("country code must be a unique ISO alpha-2 code");
+      if (typeof value.code !== "string" || !(/^[A-Z]{2}$/.test(value.code) || value.code === "T1") || seen.has(value.code)) throw new TypeError("country code must be a unique ISO alpha-2 or allowlisted provider region code");
       seen.add(value.code);
       return { code: value.code, requests: assertInteger(value.requests, "country.requests"), edgeResponseBytes: assertInteger(value.edgeResponseBytes, "country.edgeResponseBytes") };
     });
@@ -478,6 +478,7 @@
 
   // src/analytics/view.mjs
   var RANGE_LABELS = { "1d": "1 day", "7d": "7 days", "30d": "30 days" };
+  var ANALYTICS_SHOWCASE_ENABLED = false;
   function formatNumber(value) {
     return Number.isSafeInteger(value) ? value.toLocaleString() : "Unknown";
   }
@@ -764,7 +765,7 @@
             } },
             h("option", { value: "kungfuclan.com" }, "kungfuclan.com \xB7 real archive"),
             h("option", { value: "alexgeslani.com" }, "alexgeslani.com \xB7 real archive"),
-            h("option", { value: "kungfuclan-demo" }, "Kung Fu Clan \xB7 illustrative demo")
+            ANALYTICS_SHOWCASE_ENABLED ? h("option", { value: "kungfuclan-demo" }, "Kung Fu Clan \xB7 illustrative demo") : null
           )),
           h("div", { className: "acc-metric-tabs", role: "group", "aria-label": "Analytics date range" }, Object.entries(RANGE_LABELS).map(([id, label]) => h("button", { key: id, type: "button", className: `acc-tab-button${selectedRange === id ? " is-active" : ""}`, "aria-pressed": selectedRange === id, onClick: () => go({ view: "analytics", domain: "web", subject, range: id, ...mode === "fixture" ? { mode: "fixture" } : {} }) }, label)))
         ),
@@ -790,7 +791,7 @@
         h("button", { type: "button", className: "acc-back", onClick: () => go({ view: "analytics" }) }, "\u2190 Analytics"),
         h(ProviderUsage, { snapshot: providerUsage, go })
       );
-      if (route.domain === "web" && (route.subject === "kungfuclan.com" || route.subject === "alexgeslani.com" || route.subject === "kungfuclan-demo")) return h(WebPropertyAnalytics, { route, go });
+      if (route.domain === "web" && (route.subject === "kungfuclan.com" || route.subject === "alexgeslani.com" || ANALYTICS_SHOWCASE_ENABLED && route.subject === "kungfuclan-demo")) return h(WebPropertyAnalytics, { route, go });
       return h(
         "div",
         { className: "acc-view" },

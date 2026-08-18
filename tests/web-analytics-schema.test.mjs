@@ -95,6 +95,12 @@ describe('public web analytics projection', () => {
     expect(projectWebAnalyticsProjection(value)).toEqual(value);
   });
 
+  it('accepts Cloudflare\'s Tor network country bucket without dropping its totals', () => {
+    const value = validProjection();
+    for (const range of Object.values(value.ranges)) range.countries[0].code = 'T1';
+    expect(projectWebAnalyticsProjection(value).ranges['1d'].countries[0].code).toBe('T1');
+  });
+
   it('requires daily entry visits to reconcile to each range total', () => {
     const value = validProjection();
     value.ranges['30d'].totals.visits += 1;

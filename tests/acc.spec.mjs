@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { readFile } from 'node:fs/promises';
 
 const pluginUrl = process.env.ACC_PLUGIN_PATH || '/autobot-command-center';
+const showcaseBuild = process.env.ACC_ANALYTICS_SHOWCASE === '1';
 const showcaseProjection = JSON.parse(await readFile(new URL('./fixtures/analytics/kungfuclan-demo.v2.json', import.meta.url), 'utf8'));
 
 async function routeWebAnalytics(page) {
@@ -83,6 +84,9 @@ test('Analytics exposes scalable domains and a truthful KFC real-data route', as
   await page.getByRole('button', { name: 'Open KFC analytics' }).click();
   await expect(page).toHaveURL(/view=analytics.*domain=web.*subject=kungfuclan\.com.*range=30d/);
   await expect(page.getByRole('heading', { name: 'Kung Fu Clan', exact: true })).toBeVisible();
+  const propertySelector = page.getByLabel('Web property');
+  await expect(propertySelector.getByRole('option')).toHaveCount(2);
+  await expect(propertySelector.getByRole('option', { name: /illustrative demo/i })).toHaveCount(0);
   await expect(page.getByLabel('Analytics summary').getByText('Cloudflare Visits', { exact: true })).toBeVisible();
   await expect(page.getByText(/Page-entry events from direct traffic or an external referrer/i)).toBeVisible();
   await expect(page.getByText('Strict cache-hit share', { exact: true })).toBeVisible();
@@ -105,6 +109,7 @@ test('Analytics exposes the alexgeslani.com real-data route', async ({ page }) =
 });
 
 test('illustrative analytics stays on its separate identity with a permanent warning', async ({ page }) => {
+  test.skip(!showcaseBuild, 'Illustrative analytics is compiled only into an explicit showcase build');
   await routeWebAnalytics(page);
   await page.goto(pluginUrl + '?view=analytics&domain=web&subject=kungfuclan-demo&range=30d&mode=fixture');
   await expect(page.getByRole('alert')).toHaveText('ILLUSTRATIVE FIXTURE — NOT CURRENT KUNGFUCLAN.COM ANALYTICS');
