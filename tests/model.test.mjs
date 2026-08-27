@@ -18,6 +18,8 @@ import {
   getBenchmarkComparison,
   getMeasuredBenchmarkVisuals,
   getOverviewProjection,
+  getShowcasePortfolio,
+  getShowcaseSkills,
 } from '../src/model.mjs';
 
 describe('ACC product contract', () => {
@@ -226,22 +228,26 @@ describe('ACC product contract', () => {
     }
   });
 
-  it('separates skill provenance, stewardship, publication, and validation', () => {
-    expect(fixtures.skills.length).toBeGreaterThanOrEqual(8);
-    for (const skill of fixtures.skills) {
-      expect(skill.purpose.length).toBeGreaterThan(20);
-      expect(skill).toHaveProperty('provenance');
-      expect(skill).toHaveProperty('stewardship');
-      expect(skill).toHaveProperty('publication');
-      expect(skill).toHaveProperty('validation');
+  it('projects selected operational skill frontmatter without inventing validation authority', () => {
+    const registry = getShowcaseSkills();
+    expect(registry.operationalSkills).toHaveLength(8);
+    expect(registry.showcaseEditions).toEqual([]);
+    for (const skill of registry.operationalSkills) {
+      expect(skill.description.length).toBeGreaterThan(20);
+      expect(skill.version).toBeTruthy();
+      expect(skill.metadataStatus).toBe('frontmatter');
+      expect(skill.validationStatus).toBe('Unknown');
     }
   });
 
-  it('projects named products and capabilities in the portfolio', () => {
-    expect(fixtures.products.map((product) => product.id)).toEqual(expect.arrayContaining([
-      'autobot-command-center', 'jarvis', 'voice-lab', 'web-analytics', 'model-serving', 'benchmark-program',
+  it('separates exact public showcase membership from internal products and capabilities', () => {
+    const portfolio = getShowcasePortfolio();
+    expect(portfolio.githubShowcaseProjects.map((project) => project.id)).toEqual(['jarvis', 'stacklogic', '8-ball']);
+    expect(portfolio.internalProducts.map((product) => product.id)).toEqual(expect.arrayContaining([
+      'autobot-command-center', 'voice-lab', 'web-analytics', 'model-serving', 'benchmark-program',
     ]));
-    expect(new Set(fixtures.products.map((product) => product.kind))).toEqual(new Set(['Product', 'Capability']));
+    expect(portfolio.internalProducts.some((product) => product.id === 'jarvis')).toBe(false);
+    expect(new Set(portfolio.internalProducts.map((product) => product.kind))).toEqual(new Set(['Product', 'Capability']));
   });
 
   it('degrades claims visibly when an authoritative source is stale or missing', () => {
@@ -287,7 +293,7 @@ describe('ACC product contract', () => {
   });
 
   it('limits the registry to authored or materially maintained artifacts', () => {
-    expect(fixtures.skills.every((skill) => skill.provenance.includes('authored') || skill.stewardship.includes('maintained'))).toBe(true);
+    expect(fixtures.skills.every((skill) => skill.metadataStatus === 'frontmatter' && skill.validationStatus === 'Unknown')).toBe(true);
   });
 
   it('round-trips stable query-string deep links including benchmark domain', () => {

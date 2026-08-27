@@ -1,3 +1,8 @@
+import showcaseProjectionSnapshot from './generated/showcase-projection.v1.json' with { type: 'json' };
+import { getPortfolioProjection, getSkillsProjection, validateShowcaseProjection } from './showcase/projection.mjs';
+
+const showcaseProjection = validateShowcaseProjection(showcaseProjectionSnapshot);
+
 export const NAV_ITEMS = [
   { id: 'overview', label: 'Overview' },
   { id: 'portfolio', label: 'Portfolio' },
@@ -44,14 +49,7 @@ export const fixtures = {
       worksNow: ['Responsive product projection', 'Provider-usage snapshots', 'Web analytics destination', 'Evidence-linked benchmark views'],
       evidence: ['Browser acceptance matrix', 'Application test suite', 'Public-safety scanner'], evaluations: [],
     },
-    {
-      id: 'jarvis', name: 'Jarvis Voice Agent', kind: 'Product', state: 'Development', verified: '2026-08-16', source: 'Development acceptance record',
-      value: 'A thin push-to-talk assistant joining local speech, web research, and home-control capabilities behind explicit boundaries.',
-      outcome: 'Development Web and Watch surfaces share the same bounded voice path while production remains frozen for acceptance.',
-      limitation: 'Web Search, Home Assistant, and physical-device behavior must pass the development gate before production promotion.',
-      worksNow: ['Development web client', 'Watch push-to-talk client', 'Local speech path', 'Bounded tool integration'],
-      evidence: ['Development browser checks', 'Voice route acceptance records'], evaluations: ['eval-voice-latency'],
-    },
+
     {
       id: 'voice-lab', name: 'Prime Voice Lab', kind: 'Product', state: 'Human gate', verified: '2026-07-26', source: 'Prime voice benchmark',
       value: 'Reusable intranet-first voice interaction core for tutors, agents, avatars, calls, and meetings.',
@@ -358,16 +356,7 @@ export const fixtures = {
       affectedObjects: [{ type: 'skill', id: 'autobots', label: '/autobots' }],
     },
   ],
-  skills: [
-    { id: 'autobots', name: '/autobots', category: 'Agent orchestration', purpose: 'Runs bounded specialist coding lanes with explicit pause, resume, review, and delivery contracts.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Claude CLI + Codex CLI; isolated transport', repo: 'Local SKILL.md metadata snapshot' },
-    { id: 'dashboard-product-design', name: 'operational-dashboard-product-design', category: 'Product design', purpose: 'Designs evidence-backed command centers that answer durable questions without duplicating operational systems.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Dashboard IA, source authority, desktop/mobile acceptance', repo: 'Local SKILL.md metadata snapshot' },
-    { id: 'local-model-evaluation', name: 'local-model-evaluation', category: 'Model evaluation', purpose: 'Builds frozen, executable comparisons across local and hosted inference conditions.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Local/cloud OpenAI-compatible runtimes; evidence-first', repo: 'Local SKILL.md metadata snapshot' },
-    { id: 'portable-safety-harnesses', name: 'portable-integration-safety-harnesses', category: 'Integration safety', purpose: 'Creates secret-safe integration checks that travel across environments without carrying private infrastructure assumptions.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Portable fixtures, fail-closed checks, redacted evidence', repo: 'Local SKILL.md metadata snapshot' },
-    { id: 'intranet-recovery', name: 'intranet-app-versioning-recovery', category: 'Reliability', purpose: 'Versions, backs up, restore-tests, and safely publishes private application baselines.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Private intranet applications; reversible releases', repo: 'Local SKILL.md metadata snapshot' },
-    { id: 'container-hosting', name: 'macos-container-hosting-operations', category: 'Platform operations', purpose: 'Operates LAN-only container hosting with validated routing, bind-mount safety, and independent-client acceptance.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'macOS container hosts; shared Caddy ingress', repo: 'Local SKILL.md metadata snapshot' },
-    { id: 'event-film', name: 'mixed-media-event-film-production', category: 'Media production', purpose: 'Assembles mixed-source footage into a scene-tagged event film with selective restoration and conservative finishing.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Mixed photo/video/audio; reviewable editorial stages', repo: 'Local SKILL.md metadata snapshot' },
-    { id: 'repository-docs', name: 'repository-documentation-operations', category: 'Documentation', purpose: 'Keeps a repository README aligned with the actual default-branch product and operating state.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Repository-backed products; evidence-based documentation', repo: 'Local SKILL.md metadata snapshot' },
-  ],
+  skills: showcaseProjection.operationalSkills,
 };
 
 for (const condition of fixtures.conditions) {
@@ -520,6 +509,14 @@ export function getVoicePerformance(id = fixtures.voicePerformance.id) {
 
 export function getSourceTrust() {
   return fixtures.sources;
+}
+
+export function getShowcasePortfolio() {
+  return getPortfolioProjection(showcaseProjection, fixtures.products);
+}
+
+export function getShowcaseSkills() {
+  return getSkillsProjection(showcaseProjection);
 }
 
 export function getOverviewProjection() {

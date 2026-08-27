@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "projection:refresh": "node scripts/generate-showcase-projection.mjs",
     "build:analytics-dev": "ACC_ANALYTICS_SHOWCASE=1 node scripts/build.mjs",
     "analytics:compile": "node collector/web-analytics/compiler.mjs",
     "analytics:showcase": "node collector/web-analytics/showcase.mjs",

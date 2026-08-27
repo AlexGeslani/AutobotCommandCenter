@@ -17,7 +17,8 @@ import {
   getRunLineage,
   getEffectiveAvailability,
   getEffectiveProductClaims,
-  getEffectiveSkillClaims,
+  getShowcasePortfolio,
+  getShowcaseSkills,
   getSourceTrust,
   getOverviewProjection,
   buildAccUrl,
@@ -268,7 +269,8 @@ export function registerAutobotCommandCenter() {
   }
 
   function Portfolio({ route, go }) {
-    const product = route.product ? fixtures.products.find((item) => item.id === route.product) : null;
+    const portfolio = getShowcasePortfolio();
+    const product = route.product ? portfolio.internalProducts.find((item) => item.id === route.product) : null;
     if (product) {
       const evaluations = product.evaluations.map((id) => fixtures.evaluations.find((item) => item.id === id)).filter(Boolean);
       const claims = getEffectiveProductClaims(product);
@@ -297,30 +299,50 @@ export function registerAutobotCommandCenter() {
         ),
       );
     }
-    const portfolioGroups = [
-      { id: 'products', eyebrow: 'Built experiences', title: 'Products', items: fixtures.products.filter((item) => item.kind === 'Product') },
-      { id: 'capabilities', eyebrow: 'Reusable foundations', title: 'Capabilities', items: fixtures.products.filter((item) => item.kind === 'Capability') },
-    ];
     return h('div', { className: 'acc-view' },
       h(SectionHeading, { eyebrow: 'Products and capabilities', title: 'Portfolio' }),
-      h('p', { className: 'acc-lede' }, 'A curated map of durable products and reusable capabilities. Each card leads with the outcome, its operating boundary, and named evidence.'),
+      h('p', { className: 'acc-lede' }, 'Public GitHub evidence is refreshed into a frozen, allowlisted projection. Internal products remain a separate durable capability view with no implied public release.'),
       h('div', { className: 'acc-registry-summary', 'aria-label': 'Portfolio summary' },
-        h('div', null, h('strong', null, fixtures.products.length), h('span', null, 'Durable entries')),
-        h('div', null, h('strong', null, portfolioGroups[0].items.length), h('span', null, 'Products')),
-        h('div', null, h('strong', null, portfolioGroups[1].items.length), h('span', null, 'Capabilities')),
+        h('div', null, h('strong', null, portfolio.githubShowcaseProjects.length), h('span', null, 'Public projects')),
+        h('div', null, h('strong', null, portfolio.internalProducts.length), h('span', null, 'Internal entries')),
+        h('div', null, h('strong', null, portfolio.refreshedAt.slice(0, 10)), h('span', null, 'Projection refresh')),
       ),
-      portfolioGroups.map((group) => h('section', { className: 'acc-portfolio-group', key: group.id, 'aria-labelledby': `acc-${group.id}-title` },
-        h('div', { className: 'acc-section-heading' }, h('div', null, h('p', { className: 'acc-eyebrow' }, group.eyebrow), h('h3', { id: `acc-${group.id}-title` }, group.title))),
-        h('div', { className: 'acc-portfolio-grid' }, group.items.map((item) => {
+      h('section', { className: 'acc-portfolio-group', 'aria-labelledby': 'acc-github-showcase-title' },
+        h('div', { className: 'acc-section-heading' }, h('div', null,
+          h('p', { className: 'acc-eyebrow' }, 'Allowlisted public evidence'),
+          h('h3', { id: 'acc-github-showcase-title' }, 'GitHub Showcase Projects'),
+        )),
+        h('div', { className: 'acc-portfolio-grid' }, portfolio.githubShowcaseProjects.map((item) => {
+          const links = [
+            ['Repository', item.repositoryUrl],
+            ['Live demo', item.demoUrl],
+            ['Product brief', item.productBriefUrl],
+            ['Architecture', item.architectureUrl],
+            ['Article / case study', item.relatedArticleUrl],
+          ].filter(([, url]) => url);
+          return h('article', { key: item.id, className: 'acc-portfolio-card acc-showcase-card', 'data-showcase-project': item.id },
+            h('span', { className: 'acc-object-card__top' }, h(Badge, { tone: 'good' }, 'Public'), h('span', { className: 'acc-repository-name' }, item.repository)),
+            h('h3', null, item.name), h('p', null, item.description),
+            h('div', { className: 'acc-card-links' }, links.map(([label, url]) => h('a', { key: label, className: 'acc-card-link', href: url, rel: 'noreferrer' }, label))),
+            h('small', null, `Last refreshed ${portfolio.refreshedAt}`),
+          );
+        })),
+      ),
+      h('section', { className: 'acc-portfolio-group', 'aria-labelledby': 'acc-internal-products-title' },
+        h('div', { className: 'acc-section-heading' }, h('div', null,
+          h('p', { className: 'acc-eyebrow' }, 'Private operating boundary'),
+          h('h3', { id: 'acc-internal-products-title' }, 'Internal Products & Capabilities'),
+        )),
+        h('div', { className: 'acc-portfolio-grid' }, portfolio.internalProducts.map((item) => {
           const claims = getEffectiveProductClaims(item);
           return h('button', { key: item.id, type: 'button', className: 'acc-portfolio-card', onClick: () => go({ view: 'portfolio', product: item.id }) },
-            h('span', { className: 'acc-object-card__top' }, h(Badge, null, item.kind), h(StatusBadge, { state: claims.state.toLowerCase() })),
+            h('span', { className: 'acc-object-card__top' }, h(Badge, null, `Internal · ${item.kind}`), h(StatusBadge, { state: claims.state.toLowerCase() })),
             h('h3', null, item.name), h('p', null, item.value),
             h('div', { className: 'acc-callout' }, h('span', null, 'Landed outcome'), h('strong', null, item.outcome)),
             h('small', null, `${item.source} · verified ${item.verified}`),
           );
         })),
-      )),
+      ),
     );
   }
 
@@ -677,10 +699,14 @@ export function registerAutobotCommandCenter() {
   }
 
   function Skills({ route, go }) {
-    const skill = route.skill ? fixtures.skills.find((item) => item.id === route.skill) : null;
+    const registry = getShowcaseSkills();
+    const skill = route.skill ? registry.operationalSkills.find((item) => item.id === route.skill) : null;
     if (skill) {
-      const claims = getEffectiveSkillClaims(skill);
-      const fields = [['Purpose', skill.purpose], ['Provenance', skill.provenance], ['Stewardship', claims.stewardship], ['Publication', claims.publication], ['Validation', `${skill.validation} · ${skill.lastValidated}`], ['Operating envelope', skill.envelope], ['Metadata source', skill.repo]];
+      const fields = [
+        ['Purpose', skill.description], ['Version', skill.version], ['Category', skill.category],
+        ['License', skill.license || 'Unknown'], ['Platforms', skill.platforms?.join(', ') || 'Unknown'],
+        ['Metadata status', skill.metadataStatus], ['Validation', skill.validationStatus], ['Projection refreshed', registry.refreshedAt],
+      ];
       return h('div', { className: 'acc-view' },
         h('button', { type: 'button', className: 'acc-back', onClick: () => go({ view: 'skills' }) }, '← Skill Registry'),
         h('article', { className: 'acc-detail' }, h('p', { className: 'acc-eyebrow' }, skill.category), h('h2', null, skill.name),
@@ -691,24 +717,33 @@ export function registerAutobotCommandCenter() {
     }
     return h('div', { className: 'acc-view' },
       h(SectionHeading, { eyebrow: 'Durable reusable artifacts', title: 'Skill Registry' }),
-      h('p', { className: 'acc-lede' }, 'A curated projection of authored or materially maintained skills that encode repeatable delivery knowledge. Enable, edit, install, and full inventory actions stay in Hermes.'),
+      h('p', { className: 'acc-lede' }, 'A frozen frontmatter projection of selected operational skills. Enable, edit, install, and full inventory actions stay in Hermes Skills.'),
       h('div', { className: 'acc-registry-summary', 'aria-label': 'Skill registry summary' },
-        h('div', null, h('strong', null, fixtures.skills.length), h('span', null, 'Curated skills')),
-        h('div', null, h('strong', null, fixtures.skills.filter((item) => item.validation === 'validated').length), h('span', null, 'Validated')),
-        h('div', null, h('strong', null, new Set(fixtures.skills.map((item) => item.category)).size), h('span', null, 'Domains')),
+        h('div', null, h('strong', null, registry.operationalSkills.length), h('span', null, 'Operational skills')),
+        h('div', null, h('strong', null, registry.showcaseEditions.length), h('span', null, 'Showcase editions')),
+        h('div', null, h('strong', null, new Set(registry.operationalSkills.map((item) => item.category)).size), h('span', null, 'Domains')),
       ),
-      h('div', { className: 'acc-skill-list' }, fixtures.skills.map((item) => {
-        const claims = getEffectiveSkillClaims(item);
-        return h('button', { type: 'button', key: item.id, className: 'acc-skill-row', onClick: () => go({ view: 'skills', skill: item.id }) },
-          h('span', { className: 'acc-skill-row__identity' }, h('small', null, item.category), h('strong', null, item.name), h('span', { className: 'acc-skill-row__purpose' }, item.purpose)),
+      h('section', { className: 'acc-portfolio-group', 'aria-labelledby': 'acc-showcase-editions-title' },
+        h('div', { className: 'acc-section-heading' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Approved independent releases'), h('h3', { id: 'acc-showcase-editions-title' }, 'Showcase Editions'))),
+        registry.showcaseEditions.length
+          ? h('div', { className: 'acc-skill-list' }, registry.showcaseEditions.map((item) => h('a', { key: item.id, className: 'acc-skill-row', href: item.repositoryUrl, rel: 'noreferrer' },
+            h('span', { className: 'acc-skill-row__identity' }, h('small', null, item.repository), h('strong', null, item.name)),
+            h('span', { className: 'acc-skill-row__states' }, h(Badge, { tone: 'good' }, item.visibility), h(Badge, null, item.independenceStatus), h(Badge, null, item.validationStatus)),
+          )))
+          : h('p', { className: 'acc-empty-state' }, registry.showcaseEmptyState),
+      ),
+      h('section', { className: 'acc-portfolio-group', 'aria-labelledby': 'acc-operational-skills-title' },
+        h('div', { className: 'acc-section-heading' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Selected local frontmatter'), h('h3', { id: 'acc-operational-skills-title' }, 'Operational Skills'))),
+        h('div', { className: 'acc-skill-list' }, registry.operationalSkills.map((item) => h('button', { type: 'button', key: item.id, className: 'acc-skill-row', onClick: () => go({ view: 'skills', skill: item.id }) },
+          h('span', { className: 'acc-skill-row__identity' }, h('small', null, item.category), h('strong', null, item.name), h('span', { className: 'acc-skill-row__purpose' }, item.description)),
           h('span', { className: 'acc-skill-row__states' },
-            h(Badge, null, item.provenance),
-            h(StatusBadge, { state: item.validation }),
-            claims.publication === 'unknown' ? null : h(StatusBadge, { state: claims.publication }),
+            h(Badge, null, `v${item.version}`),
+            h(Badge, null, item.metadataStatus),
+            h(StatusBadge, { state: item.validationStatus.toLowerCase() }),
           ),
-        );
-      })),
-      h('div', { className: 'acc-prototype-note' }, 'This curated prototype snapshot is derived from selected local SKILL.md metadata. Publication and stewardship claims remain withheld until a canonical metadata adapter is connected.'),
+        ))),
+      ),
+      h('div', { className: 'acc-prototype-note' }, registry.boundary),
     );
   }
 

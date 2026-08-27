@@ -108,6 +108,11 @@
 .acc-portfolio-card { display: grid; align-content: start; gap: .75rem; min-height: 260px; padding: 1.1rem; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--acc-panel); }
 .acc-portfolio-card h3, .acc-portfolio-card p { margin: 0; }
 .acc-portfolio-card p { color: var(--color-muted-foreground); line-height: 1.55; }
+.acc-showcase-card { cursor: default; }
+.acc-repository-name { min-width: 0; overflow-wrap: anywhere; color: var(--color-muted-foreground); font: 650 .68rem var(--font-mono, ui-monospace, monospace); text-align: right; }
+.acc-card-links { display: flex; align-items: center; gap: .35rem .7rem; flex-wrap: wrap; margin-top: auto; }
+.acc-card-link { display: inline-flex; align-items: center; min-width: 44px; min-height: 44px; color: var(--acc-cyan); font-size: .76rem; font-weight: 700; text-underline-offset: 3px; }
+.acc-empty-state { margin: 0; padding: 1rem; border: 1px dashed var(--color-border); border-radius: var(--radius); color: var(--color-muted-foreground); background: var(--acc-panel); }
 .acc-callout { display: grid; gap: .2rem; padding: .65rem .75rem; border-left: 2px solid var(--acc-green); background: color-mix(in srgb, var(--acc-green) 5%, transparent); }
 .acc-callout span { color: var(--color-muted-foreground); font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; }
 .acc-registry-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--acc-panel); }

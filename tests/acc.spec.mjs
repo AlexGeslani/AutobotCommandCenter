@@ -192,6 +192,30 @@ test('Hive Mind search returns source-linked QMD results', async ({ page }) => {
   await expect(page.getByText(/reliability-first modernization/i)).toBeVisible();
 });
 
+test('Portfolio and Skills render only the frozen source-backed showcase projection', async ({ page }) => {
+  await page.goto(pluginUrl + '?view=portfolio');
+  const publicProjects = page.getByRole('region', { name: 'GitHub Showcase Projects' });
+  await expect(publicProjects.locator('[data-showcase-project]')).toHaveCount(3);
+  for (const repository of ['AlexGeslani/Jarvis', 'AlexGeslani/StackLogic', 'AlexGeslani/8-Ball']) {
+    await expect(publicProjects.getByText(repository, { exact: true })).toBeVisible();
+  }
+  await expect(publicProjects.getByText('Public', { exact: true })).toHaveCount(3);
+  const jarvis = publicProjects.locator('[data-showcase-project="jarvis"]');
+  await expect(jarvis.getByRole('link', { name: 'Live demo' })).toHaveCount(0);
+  await expect(jarvis.getByRole('link', { name: 'Architecture' })).toBeVisible();
+  const internal = page.getByRole('region', { name: 'Internal Products & Capabilities' });
+  await expect(internal.getByText('Jarvis Voice Agent', { exact: true })).toHaveCount(0);
+
+  await page.goto(pluginUrl + '?view=skills');
+  await expect(page.getByRole('heading', { name: 'Showcase Editions' })).toBeVisible();
+  await expect(page.getByText(/No independently approved public showcase editions/i)).toBeVisible();
+  const operational = page.getByRole('region', { name: 'Operational Skills' });
+  await expect(operational.locator('.acc-skill-row')).toHaveCount(8);
+  await expect(operational.getByText('v3.2.0', { exact: true })).toBeVisible();
+  await expect(operational.getByText('Unknown', { exact: true })).toHaveCount(8);
+  await expect(page.getByText(/projection, not synchronization/i)).toBeVisible();
+});
+
 test('Voice Lab exposes the measured six-route performance visual and reliability boundary', async ({ page }) => {
   await page.goto(pluginUrl + '?view=portfolio&product=voice-lab');
   await expect(page.getByRole('heading', { name: 'Voice runtime comparison' })).toBeVisible();

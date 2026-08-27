@@ -876,7 +876,289 @@
     return Analytics;
   }
 
+  // src/generated/showcase-projection.v1.json
+  var showcase_projection_v1_default = {
+    githubProjects: [
+      {
+        architectureUrl: "https://github.com/AlexGeslani/Jarvis/blob/main/docs/architecture/jarvis-architecture.svg",
+        description: "Local-first voice assistant for the browser and Amazfit Active Max, with bounded speech, reasoning, and playback pipelines.",
+        id: "jarvis",
+        name: "Jarvis",
+        productBriefUrl: "https://github.com/AlexGeslani/Jarvis/blob/main/README.md",
+        repository: "AlexGeslani/Jarvis",
+        repositoryUrl: "https://github.com/AlexGeslani/Jarvis",
+        visibility: "PUBLIC"
+      },
+      {
+        demoUrl: "https://alexgeslani.github.io/StackLogic/",
+        description: "Browser falling-block puzzle with solo and real-time multiplayer, developed with locally run Qwen 3.5 and Qwen 3.6 models.",
+        id: "stacklogic",
+        name: "StackLogic",
+        productBriefUrl: "https://github.com/AlexGeslani/StackLogic/blob/main/README.md",
+        repository: "AlexGeslani/StackLogic",
+        repositoryUrl: "https://github.com/AlexGeslani/StackLogic",
+        visibility: "PUBLIC"
+      },
+      {
+        demoUrl: "https://alexgeslani.github.io/8-Ball/",
+        description: "End-to-end Zepp OS experiment that builds, tests, previews, packages, and delivers an offline 8 Ball app to a physical Amazfit Active Max.",
+        id: "8-ball",
+        name: "8-Ball",
+        productBriefUrl: "https://github.com/AlexGeslani/8-Ball/blob/main/README.md",
+        repository: "AlexGeslani/8-Ball",
+        repositoryUrl: "https://github.com/AlexGeslani/8-Ball",
+        visibility: "PUBLIC"
+      }
+    ],
+    operationalSkills: [
+      {
+        category: "Agent orchestration",
+        description: "Use when a consequential decision benefits from a configured multi-model panel.",
+        id: "autobots",
+        license: "Private",
+        metadataStatus: "frontmatter",
+        name: "autobots",
+        validationStatus: "Unknown",
+        version: "3.2.0"
+      },
+      {
+        category: "Product design",
+        description: "Design outcome-focused operational dashboards and visual control planes that project canonical evidence, integrate with existing host surfaces, support mobile use, and avoid becoming a duplicate Wiki, task manager, or source of truth.",
+        id: "dashboard-product-design",
+        license: "MIT",
+        metadataStatus: "frontmatter",
+        name: "operational-dashboard-product-design",
+        platforms: [
+          "macos",
+          "linux",
+          "windows"
+        ],
+        validationStatus: "Unknown",
+        version: "1.10.0"
+      },
+      {
+        category: "Model evaluation",
+        description: "Build and operate small, frozen, executable model-comparison harnesses across local and cloud OpenAI-compatible runtimes.",
+        id: "local-model-evaluation",
+        license: "MIT",
+        metadataStatus: "frontmatter",
+        name: "local-model-evaluation",
+        platforms: [
+          "macos",
+          "linux"
+        ],
+        validationStatus: "Unknown",
+        version: "1.9.5"
+      },
+      {
+        category: "Integration safety",
+        description: "Use for portable, secret-safe integration safety harnesses.",
+        id: "portable-safety-harnesses",
+        license: "MIT",
+        metadataStatus: "frontmatter",
+        name: "portable-integration-safety-harnesses",
+        platforms: [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        validationStatus: "Unknown",
+        version: "1.7.4"
+      },
+      {
+        category: "Reliability",
+        description: "Version, back up, restore-test, and safely publish private intranet application baselines.",
+        id: "intranet-recovery",
+        license: "MIT",
+        metadataStatus: "frontmatter",
+        name: "intranet-app-versioning-recovery",
+        platforms: [
+          "macos",
+          "linux"
+        ],
+        validationStatus: "Unknown",
+        version: "1.0.0"
+      },
+      {
+        category: "Platform operations",
+        description: "Build, operate, verify, and troubleshoot Docker-compatible container hosting on macOS\u2014especially LAN-only shared web-app labs\u2014with live-state discovery, DNS/network approval gates, validated configuration changes, bind-mount safety, port-binding differential tests, rollback evidence, and independent-client acceptance.",
+        id: "container-hosting",
+        license: "MIT",
+        metadataStatus: "frontmatter",
+        name: "macos-container-hosting-operations",
+        platforms: [
+          "macos"
+        ],
+        validationStatus: "Unknown",
+        version: "1.2.1"
+      },
+      {
+        category: "Media production",
+        description: "Use when assembling mixed-media footage into an event film.",
+        id: "event-film",
+        license: "MIT",
+        metadataStatus: "frontmatter",
+        name: "mixed-media-event-film-production",
+        validationStatus: "Unknown",
+        version: "1.0.0"
+      },
+      {
+        category: "Documentation",
+        description: "Maintain a repository's default-branch README as an accurate product landing page, including canonical links, release-aware screenshots, controls, setup, and rendered verification.",
+        id: "repository-docs",
+        license: "MIT",
+        metadataStatus: "frontmatter",
+        name: "repository-documentation-operations",
+        platforms: [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        validationStatus: "Unknown",
+        version: "1.7.0"
+      }
+    ],
+    refreshedAt: "2026-08-27T12:25:47.515Z",
+    schemaVersion: "showcase-projection-v1",
+    showcaseEditions: []
+  };
+
+  // src/showcase/projection.mjs
+  var PROJECT_ALLOWLIST = /* @__PURE__ */ new Map([
+    ["jarvis", "AlexGeslani/Jarvis"],
+    ["stacklogic", "AlexGeslani/StackLogic"],
+    ["8-ball", "AlexGeslani/8-Ball"]
+  ]);
+  var hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+  function assertObject(value, label, allowedKeys, requiredKeys = allowedKeys) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be an object`);
+    for (const key of Object.keys(value)) {
+      if (!allowedKeys.includes(key)) throw new Error(`${label} contains unknown field ${key}`);
+    }
+    for (const key of requiredKeys) {
+      if (!hasOwn(value, key)) throw new Error(`${label} is missing field ${key}`);
+    }
+    return value;
+  }
+  function assertArray(value, label) {
+    if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
+    return value;
+  }
+  function assertString2(value, label) {
+    if (typeof value !== "string" || !value.trim()) throw new Error(`${label} must be a non-empty string`);
+    return value;
+  }
+  function assertHttpsUrl(value, label) {
+    assertString2(value, label);
+    let url;
+    try {
+      url = new URL(value);
+    } catch {
+      throw new Error(`${label} must be a valid URL`);
+    }
+    if (url.protocol !== "https:" || url.username || url.password) throw new Error(`${label} must be a credential-free HTTPS URL`);
+    return value;
+  }
+  function assertSafeClientStrings(value, label = "projection") {
+    if (typeof value === "string") {
+      if (/\/Users\/|(?:^|\W)(?:authorization|github_token|access_token|readmeBody|privateRepositories)(?:$|\W)/i.test(value)) {
+        throw new Error(`${label} contains an unsafe client-visible path or field`);
+      }
+      return;
+    }
+    if (Array.isArray(value)) return value.forEach((item, index) => assertSafeClientStrings(item, `${label}[${index}]`));
+    if (value && typeof value === "object") {
+      for (const [key, item] of Object.entries(value)) assertSafeClientStrings(item, `${label}.${key}`);
+    }
+  }
+  function validateGithubProject(project, index) {
+    const label = `snapshot.githubProjects[${index}]`;
+    assertObject(project, label, [
+      "id",
+      "name",
+      "repository",
+      "visibility",
+      "repositoryUrl",
+      "description",
+      "demoUrl",
+      "productBriefUrl",
+      "architectureUrl",
+      "relatedArticleUrl"
+    ], ["id", "name", "repository", "visibility", "repositoryUrl", "description", "productBriefUrl"]);
+    const repository = PROJECT_ALLOWLIST.get(project.id);
+    if (!repository || repository !== project.repository) throw new Error(`${label} is outside the repository allowlist`);
+    if (project.visibility !== "PUBLIC") throw new Error(`${label}.visibility must be PUBLIC`);
+    assertString2(project.name, `${label}.name`);
+    assertString2(project.description, `${label}.description`);
+    for (const field of ["repositoryUrl", "productBriefUrl", "demoUrl", "architectureUrl", "relatedArticleUrl"]) {
+      if (project[field] !== void 0) assertHttpsUrl(project[field], `${label}.${field}`);
+    }
+    if (project.repositoryUrl !== `https://github.com/${repository}`) throw new Error(`${label}.repositoryUrl is not canonical`);
+  }
+  function validateOperationalSkill(skill, index) {
+    const label = `snapshot.operationalSkills[${index}]`;
+    assertObject(skill, label, [
+      "id",
+      "name",
+      "description",
+      "version",
+      "category",
+      "license",
+      "platforms",
+      "metadataStatus",
+      "validationStatus"
+    ], ["id", "name", "description", "version", "category", "metadataStatus", "validationStatus"]);
+    for (const field of ["id", "name", "description", "version", "category"]) assertString2(skill[field], `${label}.${field}`);
+    if (skill.license !== void 0) assertString2(skill.license, `${label}.license`);
+    if (skill.platforms !== void 0) assertArray(skill.platforms, `${label}.platforms`).forEach((item, itemIndex) => assertString2(item, `${label}.platforms[${itemIndex}]`));
+    if (skill.metadataStatus !== "frontmatter") throw new Error(`${label}.metadataStatus must be frontmatter`);
+    if (skill.validationStatus !== "Unknown") throw new Error(`${label}.validationStatus requires retained validation authority and must currently be Unknown`);
+  }
+  function validateShowcaseEdition(edition, index) {
+    const label = `snapshot.showcaseEditions[${index}]`;
+    assertObject(edition, label, ["id", "name", "repository", "repositoryUrl", "visibility", "independenceStatus", "validationStatus"]);
+    for (const field of ["id", "name", "repository", "independenceStatus", "validationStatus"]) assertString2(edition[field], `${label}.${field}`);
+    assertHttpsUrl(edition.repositoryUrl, `${label}.repositoryUrl`);
+    if (edition.visibility !== "PUBLIC" || edition.independenceStatus !== "approved-independent") {
+      throw new Error(`${label} must be PUBLIC and independently approved`);
+    }
+  }
+  function validateShowcaseProjection(snapshot) {
+    assertObject(snapshot, "snapshot", ["schemaVersion", "refreshedAt", "githubProjects", "showcaseEditions", "operationalSkills"]);
+    if (snapshot.schemaVersion !== "showcase-projection-v1") throw new Error("Unsupported showcase projection snapshot schema");
+    assertString2(snapshot.refreshedAt, "snapshot.refreshedAt");
+    if (Number.isNaN(Date.parse(snapshot.refreshedAt))) throw new Error("snapshot.refreshedAt must be an ISO timestamp");
+    const projects = assertArray(snapshot.githubProjects, "snapshot.githubProjects");
+    if (projects.length !== PROJECT_ALLOWLIST.size) throw new Error("Snapshot must contain exactly the approved repository allowlist");
+    projects.forEach(validateGithubProject);
+    if (new Set(projects.map((project) => project.id)).size !== PROJECT_ALLOWLIST.size) throw new Error("Snapshot project identities must be unique");
+    assertArray(snapshot.showcaseEditions, "snapshot.showcaseEditions").forEach(validateShowcaseEdition);
+    assertArray(snapshot.operationalSkills, "snapshot.operationalSkills").forEach(validateOperationalSkill);
+    assertSafeClientStrings(snapshot, "snapshot");
+    return snapshot;
+  }
+  function getPortfolioProjection(snapshot, internalProducts) {
+    const checked = validateShowcaseProjection(snapshot);
+    const publicIds = new Set(checked.githubProjects.map((project) => project.id));
+    return {
+      refreshedAt: checked.refreshedAt,
+      githubShowcaseProjects: checked.githubProjects,
+      internalProducts: internalProducts.filter((product) => !publicIds.has(product.id))
+    };
+  }
+  function getSkillsProjection(snapshot) {
+    const checked = validateShowcaseProjection(snapshot);
+    return {
+      refreshedAt: checked.refreshedAt,
+      showcaseEditions: checked.showcaseEditions,
+      showcaseEmptyState: checked.showcaseEditions.length ? null : "No independently approved public showcase editions are allowlisted.",
+      operationalSkills: checked.operationalSkills,
+      boundary: "This is a one-way metadata projection, not synchronization. Editing and enablement remain in Hermes Skills."
+    };
+  }
+
   // src/model.mjs
+  var showcaseProjection = validateShowcaseProjection(showcase_projection_v1_default);
   var NAV_ITEMS = [
     { id: "overview", label: "Overview" },
     { id: "portfolio", label: "Portfolio" },
@@ -927,20 +1209,6 @@
         worksNow: ["Responsive product projection", "Provider-usage snapshots", "Web analytics destination", "Evidence-linked benchmark views"],
         evidence: ["Browser acceptance matrix", "Application test suite", "Public-safety scanner"],
         evaluations: []
-      },
-      {
-        id: "jarvis",
-        name: "Jarvis Voice Agent",
-        kind: "Product",
-        state: "Development",
-        verified: "2026-08-16",
-        source: "Development acceptance record",
-        value: "A thin push-to-talk assistant joining local speech, web research, and home-control capabilities behind explicit boundaries.",
-        outcome: "Development Web and Watch surfaces share the same bounded voice path while production remains frozen for acceptance.",
-        limitation: "Web Search, Home Assistant, and physical-device behavior must pass the development gate before production promotion.",
-        worksNow: ["Development web client", "Watch push-to-talk client", "Local speech path", "Bounded tool integration"],
-        evidence: ["Development browser checks", "Voice route acceptance records"],
-        evaluations: ["eval-voice-latency"]
       },
       {
         id: "voice-lab",
@@ -1466,16 +1734,7 @@
         affectedObjects: [{ type: "skill", id: "autobots", label: "/autobots" }]
       }
     ],
-    skills: [
-      { id: "autobots", name: "/autobots", category: "Agent orchestration", purpose: "Runs bounded specialist coding lanes with explicit pause, resume, review, and delivery contracts.", provenance: "authored here", stewardship: "owned and maintained here", publication: "internal", validation: "validated", lastValidated: "2026-08-16", envelope: "Claude CLI + Codex CLI; isolated transport", repo: "Local SKILL.md metadata snapshot" },
-      { id: "dashboard-product-design", name: "operational-dashboard-product-design", category: "Product design", purpose: "Designs evidence-backed command centers that answer durable questions without duplicating operational systems.", provenance: "authored here", stewardship: "owned and maintained here", publication: "internal", validation: "validated", lastValidated: "2026-08-16", envelope: "Dashboard IA, source authority, desktop/mobile acceptance", repo: "Local SKILL.md metadata snapshot" },
-      { id: "local-model-evaluation", name: "local-model-evaluation", category: "Model evaluation", purpose: "Builds frozen, executable comparisons across local and hosted inference conditions.", provenance: "authored here", stewardship: "owned and maintained here", publication: "internal", validation: "validated", lastValidated: "2026-08-16", envelope: "Local/cloud OpenAI-compatible runtimes; evidence-first", repo: "Local SKILL.md metadata snapshot" },
-      { id: "portable-safety-harnesses", name: "portable-integration-safety-harnesses", category: "Integration safety", purpose: "Creates secret-safe integration checks that travel across environments without carrying private infrastructure assumptions.", provenance: "authored here", stewardship: "owned and maintained here", publication: "internal", validation: "validated", lastValidated: "2026-08-16", envelope: "Portable fixtures, fail-closed checks, redacted evidence", repo: "Local SKILL.md metadata snapshot" },
-      { id: "intranet-recovery", name: "intranet-app-versioning-recovery", category: "Reliability", purpose: "Versions, backs up, restore-tests, and safely publishes private application baselines.", provenance: "authored here", stewardship: "owned and maintained here", publication: "internal", validation: "validated", lastValidated: "2026-08-16", envelope: "Private intranet applications; reversible releases", repo: "Local SKILL.md metadata snapshot" },
-      { id: "container-hosting", name: "macos-container-hosting-operations", category: "Platform operations", purpose: "Operates LAN-only container hosting with validated routing, bind-mount safety, and independent-client acceptance.", provenance: "authored here", stewardship: "owned and maintained here", publication: "internal", validation: "validated", lastValidated: "2026-08-16", envelope: "macOS container hosts; shared Caddy ingress", repo: "Local SKILL.md metadata snapshot" },
-      { id: "event-film", name: "mixed-media-event-film-production", category: "Media production", purpose: "Assembles mixed-source footage into a scene-tagged event film with selective restoration and conservative finishing.", provenance: "authored here", stewardship: "owned and maintained here", publication: "internal", validation: "validated", lastValidated: "2026-08-16", envelope: "Mixed photo/video/audio; reviewable editorial stages", repo: "Local SKILL.md metadata snapshot" },
-      { id: "repository-docs", name: "repository-documentation-operations", category: "Documentation", purpose: "Keeps a repository README aligned with the actual default-branch product and operating state.", provenance: "authored here", stewardship: "owned and maintained here", publication: "internal", validation: "validated", lastValidated: "2026-08-16", envelope: "Repository-backed products; evidence-based documentation", repo: "Local SKILL.md metadata snapshot" }
-    ]
+    skills: showcaseProjection.operationalSkills
   };
   for (const condition of fixtures.conditions) {
     condition.results = fixtures.results.filter((result) => result.conditionId === condition.id);
@@ -1539,11 +1798,6 @@
     if (authority?.invalidatesClaims) return { state: "unknown", worksNow: null };
     return { state: product.state, worksNow: product.worksNow };
   }
-  function getEffectiveSkillClaims(skill) {
-    const authority = fixtures.sources.find((source) => source.id === "skill-meta");
-    if (!authority?.invalidatesClaims) return { stewardship: skill.stewardship, publication: skill.publication };
-    return { stewardship: "unknown", publication: "unknown" };
-  }
   function getLeaderboard(domain, release = RELEASES[domain]) {
     return fixtures.results.filter((result) => result.domain === domain && result.release === release && result.status === "canonical").map((result) => ({ ...result, condition: getCondition(result.conditionId) })).sort((a, b) => b.score - a.score);
   }
@@ -1604,6 +1858,12 @@
   }
   function getSourceTrust() {
     return fixtures.sources;
+  }
+  function getShowcasePortfolio() {
+    return getPortfolioProjection(showcaseProjection, fixtures.products);
+  }
+  function getShowcaseSkills() {
+    return getSkillsProjection(showcaseProjection);
   }
   function getOverviewProjection() {
     return {
@@ -1918,7 +2178,8 @@
       );
     }
     function Portfolio({ route, go }) {
-      const product = route.product ? fixtures.products.find((item) => item.id === route.product) : null;
+      const portfolio = getShowcasePortfolio();
+      const product = route.product ? portfolio.internalProducts.find((item) => item.id === route.product) : null;
       if (product) {
         const evaluations = product.evaluations.map((id) => fixtures.evaluations.find((item) => item.id === id)).filter(Boolean);
         const claims = getEffectiveProductClaims(product);
@@ -1957,39 +2218,68 @@
           )
         );
       }
-      const portfolioGroups = [
-        { id: "products", eyebrow: "Built experiences", title: "Products", items: fixtures.products.filter((item) => item.kind === "Product") },
-        { id: "capabilities", eyebrow: "Reusable foundations", title: "Capabilities", items: fixtures.products.filter((item) => item.kind === "Capability") }
-      ];
       return h(
         "div",
         { className: "acc-view" },
         h(SectionHeading, { eyebrow: "Products and capabilities", title: "Portfolio" }),
-        h("p", { className: "acc-lede" }, "A curated map of durable products and reusable capabilities. Each card leads with the outcome, its operating boundary, and named evidence."),
+        h("p", { className: "acc-lede" }, "Public GitHub evidence is refreshed into a frozen, allowlisted projection. Internal products remain a separate durable capability view with no implied public release."),
         h(
           "div",
           { className: "acc-registry-summary", "aria-label": "Portfolio summary" },
-          h("div", null, h("strong", null, fixtures.products.length), h("span", null, "Durable entries")),
-          h("div", null, h("strong", null, portfolioGroups[0].items.length), h("span", null, "Products")),
-          h("div", null, h("strong", null, portfolioGroups[1].items.length), h("span", null, "Capabilities"))
+          h("div", null, h("strong", null, portfolio.githubShowcaseProjects.length), h("span", null, "Public projects")),
+          h("div", null, h("strong", null, portfolio.internalProducts.length), h("span", null, "Internal entries")),
+          h("div", null, h("strong", null, portfolio.refreshedAt.slice(0, 10)), h("span", null, "Projection refresh"))
         ),
-        portfolioGroups.map((group) => h(
+        h(
           "section",
-          { className: "acc-portfolio-group", key: group.id, "aria-labelledby": `acc-${group.id}-title` },
-          h("div", { className: "acc-section-heading" }, h("div", null, h("p", { className: "acc-eyebrow" }, group.eyebrow), h("h3", { id: `acc-${group.id}-title` }, group.title))),
-          h("div", { className: "acc-portfolio-grid" }, group.items.map((item) => {
+          { className: "acc-portfolio-group", "aria-labelledby": "acc-github-showcase-title" },
+          h("div", { className: "acc-section-heading" }, h(
+            "div",
+            null,
+            h("p", { className: "acc-eyebrow" }, "Allowlisted public evidence"),
+            h("h3", { id: "acc-github-showcase-title" }, "GitHub Showcase Projects")
+          )),
+          h("div", { className: "acc-portfolio-grid" }, portfolio.githubShowcaseProjects.map((item) => {
+            const links = [
+              ["Repository", item.repositoryUrl],
+              ["Live demo", item.demoUrl],
+              ["Product brief", item.productBriefUrl],
+              ["Architecture", item.architectureUrl],
+              ["Article / case study", item.relatedArticleUrl]
+            ].filter(([, url]) => url);
+            return h(
+              "article",
+              { key: item.id, className: "acc-portfolio-card acc-showcase-card", "data-showcase-project": item.id },
+              h("span", { className: "acc-object-card__top" }, h(Badge, { tone: "good" }, "Public"), h("span", { className: "acc-repository-name" }, item.repository)),
+              h("h3", null, item.name),
+              h("p", null, item.description),
+              h("div", { className: "acc-card-links" }, links.map(([label, url]) => h("a", { key: label, className: "acc-card-link", href: url, rel: "noreferrer" }, label))),
+              h("small", null, `Last refreshed ${portfolio.refreshedAt}`)
+            );
+          }))
+        ),
+        h(
+          "section",
+          { className: "acc-portfolio-group", "aria-labelledby": "acc-internal-products-title" },
+          h("div", { className: "acc-section-heading" }, h(
+            "div",
+            null,
+            h("p", { className: "acc-eyebrow" }, "Private operating boundary"),
+            h("h3", { id: "acc-internal-products-title" }, "Internal Products & Capabilities")
+          )),
+          h("div", { className: "acc-portfolio-grid" }, portfolio.internalProducts.map((item) => {
             const claims = getEffectiveProductClaims(item);
             return h(
               "button",
               { key: item.id, type: "button", className: "acc-portfolio-card", onClick: () => go({ view: "portfolio", product: item.id }) },
-              h("span", { className: "acc-object-card__top" }, h(Badge, null, item.kind), h(StatusBadge, { state: claims.state.toLowerCase() })),
+              h("span", { className: "acc-object-card__top" }, h(Badge, null, `Internal \xB7 ${item.kind}`), h(StatusBadge, { state: claims.state.toLowerCase() })),
               h("h3", null, item.name),
               h("p", null, item.value),
               h("div", { className: "acc-callout" }, h("span", null, "Landed outcome"), h("strong", null, item.outcome)),
               h("small", null, `${item.source} \xB7 verified ${item.verified}`)
             );
           }))
-        ))
+        )
       );
     }
     function MetricTabs({ active, onSelect }) {
@@ -2484,10 +2774,19 @@
       );
     }
     function Skills({ route, go }) {
-      const skill = route.skill ? fixtures.skills.find((item) => item.id === route.skill) : null;
+      const registry = getShowcaseSkills();
+      const skill = route.skill ? registry.operationalSkills.find((item) => item.id === route.skill) : null;
       if (skill) {
-        const claims = getEffectiveSkillClaims(skill);
-        const fields = [["Purpose", skill.purpose], ["Provenance", skill.provenance], ["Stewardship", claims.stewardship], ["Publication", claims.publication], ["Validation", `${skill.validation} \xB7 ${skill.lastValidated}`], ["Operating envelope", skill.envelope], ["Metadata source", skill.repo]];
+        const fields = [
+          ["Purpose", skill.description],
+          ["Version", skill.version],
+          ["Category", skill.category],
+          ["License", skill.license || "Unknown"],
+          ["Platforms", skill.platforms?.join(", ") || "Unknown"],
+          ["Metadata status", skill.metadataStatus],
+          ["Validation", skill.validationStatus],
+          ["Projection refreshed", registry.refreshedAt]
+        ];
         return h(
           "div",
           { className: "acc-view" },
@@ -2506,30 +2805,43 @@
         "div",
         { className: "acc-view" },
         h(SectionHeading, { eyebrow: "Durable reusable artifacts", title: "Skill Registry" }),
-        h("p", { className: "acc-lede" }, "A curated projection of authored or materially maintained skills that encode repeatable delivery knowledge. Enable, edit, install, and full inventory actions stay in Hermes."),
+        h("p", { className: "acc-lede" }, "A frozen frontmatter projection of selected operational skills. Enable, edit, install, and full inventory actions stay in Hermes Skills."),
         h(
           "div",
           { className: "acc-registry-summary", "aria-label": "Skill registry summary" },
-          h("div", null, h("strong", null, fixtures.skills.length), h("span", null, "Curated skills")),
-          h("div", null, h("strong", null, fixtures.skills.filter((item) => item.validation === "validated").length), h("span", null, "Validated")),
-          h("div", null, h("strong", null, new Set(fixtures.skills.map((item) => item.category)).size), h("span", null, "Domains"))
+          h("div", null, h("strong", null, registry.operationalSkills.length), h("span", null, "Operational skills")),
+          h("div", null, h("strong", null, registry.showcaseEditions.length), h("span", null, "Showcase editions")),
+          h("div", null, h("strong", null, new Set(registry.operationalSkills.map((item) => item.category)).size), h("span", null, "Domains"))
         ),
-        h("div", { className: "acc-skill-list" }, fixtures.skills.map((item) => {
-          const claims = getEffectiveSkillClaims(item);
-          return h(
+        h(
+          "section",
+          { className: "acc-portfolio-group", "aria-labelledby": "acc-showcase-editions-title" },
+          h("div", { className: "acc-section-heading" }, h("div", null, h("p", { className: "acc-eyebrow" }, "Approved independent releases"), h("h3", { id: "acc-showcase-editions-title" }, "Showcase Editions"))),
+          registry.showcaseEditions.length ? h("div", { className: "acc-skill-list" }, registry.showcaseEditions.map((item) => h(
+            "a",
+            { key: item.id, className: "acc-skill-row", href: item.repositoryUrl, rel: "noreferrer" },
+            h("span", { className: "acc-skill-row__identity" }, h("small", null, item.repository), h("strong", null, item.name)),
+            h("span", { className: "acc-skill-row__states" }, h(Badge, { tone: "good" }, item.visibility), h(Badge, null, item.independenceStatus), h(Badge, null, item.validationStatus))
+          ))) : h("p", { className: "acc-empty-state" }, registry.showcaseEmptyState)
+        ),
+        h(
+          "section",
+          { className: "acc-portfolio-group", "aria-labelledby": "acc-operational-skills-title" },
+          h("div", { className: "acc-section-heading" }, h("div", null, h("p", { className: "acc-eyebrow" }, "Selected local frontmatter"), h("h3", { id: "acc-operational-skills-title" }, "Operational Skills"))),
+          h("div", { className: "acc-skill-list" }, registry.operationalSkills.map((item) => h(
             "button",
             { type: "button", key: item.id, className: "acc-skill-row", onClick: () => go({ view: "skills", skill: item.id }) },
-            h("span", { className: "acc-skill-row__identity" }, h("small", null, item.category), h("strong", null, item.name), h("span", { className: "acc-skill-row__purpose" }, item.purpose)),
+            h("span", { className: "acc-skill-row__identity" }, h("small", null, item.category), h("strong", null, item.name), h("span", { className: "acc-skill-row__purpose" }, item.description)),
             h(
               "span",
               { className: "acc-skill-row__states" },
-              h(Badge, null, item.provenance),
-              h(StatusBadge, { state: item.validation }),
-              claims.publication === "unknown" ? null : h(StatusBadge, { state: claims.publication })
+              h(Badge, null, `v${item.version}`),
+              h(Badge, null, item.metadataStatus),
+              h(StatusBadge, { state: item.validationStatus.toLowerCase() })
             )
-          );
-        })),
-        h("div", { className: "acc-prototype-note" }, "This curated prototype snapshot is derived from selected local SKILL.md metadata. Publication and stewardship claims remain withheld until a canonical metadata adapter is connected.")
+          )))
+        ),
+        h("div", { className: "acc-prototype-note" }, registry.boundary)
       );
     }
     function Evidence({ route, go }) {

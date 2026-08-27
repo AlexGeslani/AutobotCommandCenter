@@ -1,8 +1,12 @@
 import { build } from 'esbuild';
 import { copyFile, cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
+import { validateShowcaseProjection } from '../src/showcase/projection.mjs';
 
 const root = resolve(import.meta.dirname, '..');
+const showcaseSnapshot = JSON.parse(await readFile(resolve(root, 'src/generated/showcase-projection.v1.json'), 'utf8'));
+validateShowcaseProjection(showcaseSnapshot);
+console.log(`Validated frozen showcase projection refreshed ${showcaseSnapshot.refreshedAt} (offline).`);
 const dashboard = resolve(root, '.hermes/plugins/autobot-command-center/dashboard');
 const out = resolve(dashboard, 'dist/index.js');
 const analyticsShowcaseEnabled = process.env.ACC_ANALYTICS_SHOWCASE === '1';

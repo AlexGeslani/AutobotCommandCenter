@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "showcase-projection-policy-v1",
+  "github": {
+    "projects": [
+      {
+        "id": "jarvis",
+        "repository": "AlexGeslani/Jarvis",
+        "pointers": {
+          "productBrief": "README.md",
+          "architecture": "docs/architecture/jarvis-architecture.svg"
+        }
+      },
+      {
+        "id": "stacklogic",
+        "repository": "AlexGeslani/StackLogic",
+        "pointers": {
+          "productBrief": "README.md"
+        }
+      },
+      {
+        "id": "8-ball",
+        "repository": "AlexGeslani/8-Ball",
+        "pointers": {
+          "productBrief": "README.md"
+        }
+      }
+    ]
+  },
+  "skills": {
+    "showcaseEditions": [],
+    "operational": [
+      {
+        "id": "autobots",
+        "category": "Agent orchestration",
+        "source": "autonomous-ai-agents/autobots/SKILL.md"
+      },
+      {
+        "id": "dashboard-product-design",
+        "category": "Product design",
+        "source": "software-development/operational-dashboard-product-design/SKILL.md"
+      },
+      {
+        "id": "local-model-evaluation",
+        "category": "Model evaluation",
+        "source": "mlops-evaluation/local-model-evaluation/SKILL.md"
+      },
+      {
+        "id": "portable-safety-harnesses",
+        "category": "Integration safety",
+        "source": "software-development/portable-integration-safety-harnesses/SKILL.md"
+      },
+      {
+        "id": "intranet-recovery",
+        "category": "Reliability",
+        "source": "devops/intranet-app-versioning-recovery/SKILL.md"
+      },
+      {
+        "id": "container-hosting",
+        "category": "Platform operations",
+        "source": "devops/macos-container-hosting-operations/SKILL.md"
+      },
+      {
+        "id": "event-film",
+        "category": "Media production",
+        "source": "media/mixed-media-event-film-production/SKILL.md"
+      },
+      {
+        "id": "repository-docs",
+        "category": "Documentation",
+        "source": "software-development/repository-documentation-operations/SKILL.md"
+      }
+    ]
+  }
+}
