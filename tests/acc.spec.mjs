@@ -462,6 +462,19 @@ test('mobile detail routes retain an immediate fixture warning', async ({ page }
   expect(await label.evaluate((node) => node.getBoundingClientRect().top)).toBeLessThan(844);
 });
 
+test('mobile benchmark condition controls meet the 44px touch-target floor', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(pluginUrl + '?view=benchmarks');
+  const undersized = await page.locator('.acc-evidence-matrix .acc-table-link, .acc-three-score .acc-table-link').evaluateAll((nodes) => nodes.flatMap((node) => {
+    const rect = node.getBoundingClientRect();
+    const style = getComputedStyle(node);
+    if (style.display === 'none' || style.visibility === 'hidden' || rect.width === 0 || rect.height === 0) return [];
+    if (rect.width + 0.01 >= 44 && rect.height + 0.01 >= 44) return [];
+    return [{ label: node.textContent.trim(), width: rect.width, height: rect.height }];
+  }));
+  expect(undersized).toEqual([]);
+});
+
 test('every visible mobile ACC control meets the 44px touch-target floor', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const routes = [
