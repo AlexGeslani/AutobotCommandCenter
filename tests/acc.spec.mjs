@@ -193,11 +193,11 @@ test('seven-model benchmark draft distinguishes final, partial measured, and ill
   const measuredVisuals = page.getByRole('region', { name: 'Measured benchmark evidence visuals' });
   await expect(measuredVisuals.getByRole('heading', { name: 'Measured suite comparison' })).toBeVisible();
   await expect(measuredVisuals.locator('[data-measured-suite]')).toHaveCount(3);
-  await expect(measuredVisuals.locator('[data-measured-condition]')).toHaveCount(3);
-  await expect(measuredVisuals.locator('[data-measured-suite="instruction"] [data-score-bar]')).toHaveCount(3);
+  await expect(measuredVisuals.locator('[data-measured-condition]')).toHaveCount(4);
+  await expect(measuredVisuals.locator('[data-measured-suite="instruction"] [data-score-bar]')).toHaveCount(4);
   await expect(measuredVisuals.locator('[data-measured-suite="tools"] [data-score-bar]')).toHaveCount(2);
   await expect(measuredVisuals.locator('[data-measured-suite="agent"] [data-score-bar]')).toHaveCount(2);
-  await expect(measuredVisuals.getByRole('cell', { name: /pending/ })).toHaveCount(2);
+  await expect(measuredVisuals.getByRole('cell', { name: /pending/ })).toHaveCount(4);
   await expect(measuredVisuals.getByText('36 / 40 strict prompts', { exact: true })).toBeVisible();
   await expect(measuredVisuals.getByText('Illustrative', { exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
@@ -218,7 +218,11 @@ test('seven-model benchmark draft distinguishes final, partial measured, and ill
   await expect(qwen2b.getByText('22.5', { exact: true })).toBeVisible();
   await expect(qwen2b.getByText('Pending', { exact: true })).toHaveCount(2);
   await expect(qwen2b.getByText('1 verified', { exact: true })).toBeVisible();
-  await expect(comparison.getByText('Illustrative', { exact: true })).toHaveCount(4);
+  const gpu35 = comparison.locator('[data-benchmark-profile="qwen36-35b-heretic-gpu-b"]');
+  await expect(gpu35.getByText('77.5', { exact: true })).toBeVisible();
+  await expect(gpu35.getByText('Pending', { exact: true })).toHaveCount(2);
+  await expect(gpu35.getByText('1 verified', { exact: true })).toBeVisible();
+  await expect(comparison.getByText('Illustrative', { exact: true })).toHaveCount(3);
   await expect(comparison.getByText('Luna’s and Sol’s three suites are final-verified', { exact: false })).toBeVisible();
   await sol.getByRole('button', { name: /GPT-5\.6 Sol/i }).click();
   await expect(page).toHaveURL(/condition=gpt56-sol-max/);

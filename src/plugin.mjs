@@ -450,7 +450,7 @@ export function registerAutobotCommandCenter() {
           ),
         );
       })),
-      h('div', { className: 'acc-prototype-note' }, 'Luna’s and Sol’s three suites are final-verified. Qwen 3.8 2B has a final-verified IFEval score reproduced exactly across two runs; BFCL and tau2 remain Pending and are not treated as zero. The remaining four conditions and all of their scores are explicitly illustrative Dev fixtures.'),
+      h('div', { className: 'acc-prototype-note' }, 'Luna’s and Sol’s three suites are final-verified. Qwen 3.8 2B and GPU Node B’s Qwen3.6 35B Heretic have final-verified IFEval scores; their unfinished BFCL and tau2 lanes remain Pending and are not treated as zero. The remaining three conditions and all of their scores are explicitly illustrative Dev fixtures.'),
     );
   }
 
@@ -472,8 +472,9 @@ export function registerAutobotCommandCenter() {
     const performance = operational.performance;
     const billing = operational.billing;
     const unavailable = 'Not separately reported';
-    const evidenceLabel = operational.evidence === 'verified-repeat' ? 'Verified repeat' : 'Verified aggregate';
+    const evidenceLabel = operational.evidence === 'verified-repeat' ? 'Verified repeat' : operational.evidence === 'verified-partial' ? 'Verified partial' : 'Verified aggregate';
     const runtimeLabels = {
+      hardwareProfile: 'Hardware profile', capturedAt: 'Profile captured', machine: 'Machine', processor: 'Processor', memory: 'Memory', accelerator: 'Accelerator', os: 'Operating system', competingWorkload: 'Competing workload',
       host: 'Host', backend: 'Backend', modelRevision: 'Model revision', quantization: 'Quantization', context: 'Context', outputCap: 'Output cap',
       slots: 'Slots', concurrency: 'Concurrency', retries: 'Retries', thinking: 'Thinking', streaming: 'Streaming',
     };

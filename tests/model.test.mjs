@@ -25,7 +25,7 @@ describe('ACC product contract', () => {
     const comparison = getBenchmarkComparison();
     expect(comparison).toHaveLength(7);
     expect(comparison.map((profile) => profile.conditionId)).toEqual([
-      'gpt56-luna-max', 'gpt56-sol-max', 'qwen38-2b-mlx', 'qwen36-35b-a3b', 'qwen36-27b', 'bonsai-8b', 'qwen35-4b',
+      'gpt56-luna-max', 'gpt56-sol-max', 'qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b', 'qwen36-27b', 'bonsai-8b', 'qwen35-4b',
     ]);
     expect(comparison[0].scores).toMatchObject({
       instruction: { value: 82.5, evidence: 'verified' },
@@ -68,12 +68,26 @@ describe('ACC product contract', () => {
         evidence: 'verified-repeat',
         candidateUsage: { inputTokens: 2596, outputTokens: 123437, totalTokens: 126033, cachedInputTokens: 0, reasoningTokens: null },
         performance: { class: 'local-runtime', successfulResponses: 40, bridgeErrorEvents: 0, latencySeconds: { median: 6.2165, mean: 51.2856, p95: 136.3943 }, endToEndOutputTokensPerSecond: 60.1714 },
-        localRuntime: { backend: 'MLX/Metal', context: '262,144 tokens', concurrency: 1, retries: 0 },
+        localRuntime: { hardwareProfile: 'ark-mac-mini-m2-24gb-20260826', processor: 'Apple M2 · 8-core CPU', memory: '24 GB unified memory', accelerator: 'Apple M2 · 10-core GPU · Metal', os: 'macOS 26.5.2', backend: 'MLX/Metal', context: '262,144 tokens', concurrency: 1, retries: 0 },
       },
     });
     expect(comparison[2].note).toMatch(/two exact matched runs/i);
+    expect(comparison[3]).toMatchObject({
+      conditionId: 'qwen36-35b-heretic-gpu-b', evidence: 'measured',
+      scores: {
+        instruction: { value: 77.5, evidence: 'verified', denominator: '31 / 40 strict prompts' },
+        tools: { value: null, evidence: 'pending' },
+        agent: { value: null, evidence: 'pending' },
+      },
+      operational: {
+        evidence: 'verified-partial',
+        candidateUsage: { inputTokens: 2596, outputTokens: 157506, totalTokens: 160102 },
+        performance: { class: 'local-runtime', successfulResponses: 40, bridgeErrorEvents: 0, latencySeconds: { median: 38.2466, mean: 45.7059, p95: 109.7134 }, endToEndOutputTokensPerSecond: 86.1519 },
+        localRuntime: { hardwareProfile: 'gpu-node-b-hardware-unresolved-20260826', machine: 'Not captured in retained run evidence', processor: 'Not captured', memory: 'Not captured', accelerator: 'Not captured', os: 'Not captured', context: '262,144 total · 131,072 per slot', slots: 2, concurrency: 1, retries: 0 },
+      },
+    });
     expect(comparison.slice(0, 2).every((profile) => profile.operational.pricing.assumption === 'All retained input priced as uncached')).toBe(true);
-    expect(comparison.slice(3).every((profile) => profile.evidence === 'illustrative')).toBe(true);
+    expect(comparison.slice(4).every((profile) => profile.evidence === 'illustrative')).toBe(true);
     expect(comparison.every((profile) => Object.keys(profile.scores).join(',') === 'instruction,tools,agent')).toBe(true);
   });
 
@@ -82,17 +96,18 @@ describe('ACC product contract', () => {
     expect(visual).not.toHaveProperty('overallScore');
     expect(visual).not.toHaveProperty('winner');
     expect(visual.profiles.map((profile) => profile.conditionId)).toEqual([
-      'gpt56-luna-max', 'gpt56-sol-max', 'qwen38-2b-mlx',
+      'gpt56-luna-max', 'gpt56-sol-max', 'qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b',
     ]);
     expect(visual.profiles.map((profile) => profile.coverage)).toEqual([
       { instruction: 'verified', tools: 'verified', agent: 'verified' },
       { instruction: 'verified', tools: 'verified', agent: 'verified' },
       { instruction: 'verified', tools: 'pending', agent: 'pending' },
+      { instruction: 'verified', tools: 'pending', agent: 'pending' },
     ]);
     expect(visual.suites.map((suite) => suite.id)).toEqual(['instruction', 'tools', 'agent']);
     expect(visual.suites.map((suite) => suite.label)).toEqual(['IFEval', 'BFCL V4', 'tau2']);
     expect(visual.suites[0].rows.map((row) => [row.conditionId, row.value])).toEqual([
-      ['gpt56-sol-max', 90], ['gpt56-luna-max', 82.5], ['qwen38-2b-mlx', 22.5],
+      ['gpt56-sol-max', 90], ['gpt56-luna-max', 82.5], ['qwen36-35b-heretic-gpu-b', 77.5], ['qwen38-2b-mlx', 22.5],
     ]);
     expect(visual.suites[1].rows.map((row) => row.conditionId)).toEqual(['gpt56-sol-max', 'gpt56-luna-max']);
     expect(visual.suites[2].rows.map((row) => row.conditionId)).toEqual(['gpt56-sol-max', 'gpt56-luna-max']);

@@ -1044,19 +1044,19 @@
         results: []
       },
       {
-        id: "qwen36-35b-a3b",
+        id: "qwen36-35b-heretic-gpu-b",
         familyId: "qwen36-35b",
-        shortName: "Qwen3.6 35B-A3B \xB7 Q6",
+        shortName: "Qwen3.6 35B Heretic \xB7 Q4_K_M \xB7 MTP-N2",
         provider: "GPU Node B",
-        runtime: "llama.cpp",
-        quantization: "Q6",
-        reasoning: "Direct",
+        runtime: "llama.cpp b9172",
+        quantization: "Q4_K_M Heretic",
+        reasoning: "Thinking on",
         host: "GPU Node B",
-        context: "Example envelope",
-        output: "Example envelope",
+        context: "256K total \xB7 128K per slot",
+        output: "32K cap",
         availability: "unknown",
-        availabilityNote: "Illustrative Dev fixture",
-        fingerprint: "example|qwen3.6-35b-a3b|q6|llamacpp|direct",
+        availabilityNote: "Benchmark evidence is immutable; current runtime availability is tracked separately",
+        fingerprint: "qwen3.6-35b-a3b-heretic|q4-k-m|mtp-n2|llamacpp-b9172|thinking-on|ctx262144|2slots|out32768|gpu-node-b|ootb-intake-v1",
         results: []
       },
       {
@@ -1216,6 +1216,13 @@
             variability: "Matched repeat mean was 51.75s versus 51.29s; all 40 response texts and usage records matched exactly. TTFT, pure decoder throughput, peak RSS, Metal memory, and thermal/power state were not captured."
           },
           localRuntime: {
+            hardwareProfile: "ark-mac-mini-m2-24gb-20260826",
+            capturedAt: "2026-08-26",
+            machine: "Mac mini",
+            processor: "Apple M2 \xB7 8-core CPU",
+            memory: "24 GB unified memory",
+            accelerator: "Apple M2 \xB7 10-core GPU \xB7 Metal",
+            os: "macOS 26.5.2",
             host: "The Ark Mac",
             backend: "MLX/Metal",
             modelRevision: "SiddhJagani/Qwen3.8-2B-mlx-4Bit \xB7 pinned revision",
@@ -1226,7 +1233,8 @@
             concurrency: 1,
             retries: 0,
             thinking: "Off",
-            streaming: "No"
+            streaming: "No",
+            competingWorkload: "One benchmark slot; broader host workload telemetry unavailable"
           },
           outcomes: [
             ["IFEval repeated result", "9 / 40 prompts \xB7 47 / 95 instructions \xB7 identical across two runs"],
@@ -1242,13 +1250,54 @@
         }
       },
       {
-        conditionId: "qwen36-35b-a3b",
-        evidence: "illustrative",
-        note: "Illustrative values only \u2014 used to test comparison density and drill-down behavior before this condition is benchmarked.",
+        conditionId: "qwen36-35b-heretic-gpu-b",
+        evidence: "measured",
+        note: "IFEval is final-verified for the exact GPU Node B Qwen3.6 35B Heretic Q4_K_M MTP-N2 condition. BFCL generation remains in progress and tau2 is queued, so both primary scores remain Pending rather than zero. Hardware identity beyond the retained public-safe host label and runtime/deployment geometry was not captured and is shown as unavailable rather than inferred.",
+        operational: {
+          evidence: "verified-partial",
+          candidateUsage: { inputTokens: 2596, outputTokens: 157506, totalTokens: 160102, cachedInputTokens: null, reasoningTokens: null, retainedBridgeEvents: 40, basis: "Final-verified IFEval \xB7 40 requests" },
+          performance: {
+            class: "local-runtime",
+            successfulResponses: 40,
+            bridgeErrorEvents: 0,
+            latencySeconds: { minimum: 10.696, median: 38.2466, mean: 45.7059, p95: 109.7134, maximum: 159.8997, total: 1828.2351 },
+            endToEndOutputTokensPerSecond: 86.1519,
+            measurementBoundary: "Single-flight bridge end-to-end non-streaming wall time",
+            variability: "This is exact-condition host/runtime evidence, not intrinsic model speed. TTFT, peak RSS, accelerator memory, thermal state, and competing-host workload were not retained."
+          },
+          localRuntime: {
+            hardwareProfile: "gpu-node-b-hardware-unresolved-20260826",
+            capturedAt: "2026-08-26",
+            machine: "Not captured in retained run evidence",
+            processor: "Not captured",
+            memory: "Not captured",
+            accelerator: "Not captured",
+            os: "Not captured",
+            host: "GPU Node B",
+            backend: "llama.cpp b9172 lineage",
+            modelRevision: "Qwen3.6-35B-A3B-Heretic-Q4_K_M-MTP-N2",
+            quantization: "Q4_K_M Heretic \xB7 MTP-N2",
+            context: "262,144 total \xB7 131,072 per slot",
+            outputCap: "32,768 tokens",
+            slots: 2,
+            concurrency: 1,
+            retries: 0,
+            thinking: "On",
+            streaming: "No",
+            competingWorkload: "Requests serialized; broader host workload telemetry unavailable"
+          },
+          outcomes: [
+            ["IFEval final result", "31 / 40 prompts \xB7 86 / 95 instructions"],
+            ["IFEval failures", "0 provider failures \xB7 0 measurement-path failures"],
+            ["Coverage boundary", "BFCL generation in progress; tau2 queued \xB7 scores withheld as Pending"],
+            ["Hardware boundary", "Processor, RAM, accelerator, and OS were not captured in retained run evidence"]
+          ],
+          methodNote: "The displayed score is final-verified IFEval evidence only. BFCL and tau2 are not averaged, estimated, or represented as zero while collection is incomplete."
+        },
         scores: {
-          instruction: { label: "Instruction following", benchmark: "IFEval", value: 77.4, evidence: "illustrative", denominator: "Example metric", detail: [] },
-          tools: { label: "Native tool use", benchmark: "BFCL V4", value: 51.2, evidence: "illustrative", denominator: "Example metric", detail: [] },
-          agent: { label: "Multi-turn agent", benchmark: "tau2", value: 43.8, evidence: "illustrative", denominator: "Example metric", detail: [] }
+          instruction: { label: "Instruction following", benchmark: "IFEval", value: 77.5, evidence: "verified", denominator: "31 / 40 strict prompts", detail: [["Instruction checks", "86 / 95 \xB7 90.5%"], ["Median / mean request", "38.25s / 45.71s"], ["Request p95", "109.71s"], ["Completion tokens", "157,506"], ["End-to-end output throughput", "86.15 tok/s"], ["Final verification", "Passed \xB7 exact model and runtime lineage"]] },
+          tools: { label: "Native tool use", benchmark: "BFCL V4", value: null, evidence: "pending", denominator: "Run in progress \xB7 score withheld", detail: [["Frozen inventory", "261 generated / 150 scored rows"], ["Scoring state", "Generation in progress \xB7 evaluator not yet run"]] },
+          agent: { label: "Multi-turn agent", benchmark: "tau2", value: null, evidence: "pending", denominator: "Queued \xB7 score withheld", detail: [["Frozen inventory", "25 Retail + 25 Telecom"], ["Scoring state", "Queued after BFCL"]] }
         }
       },
       {
@@ -2052,7 +2101,7 @@
             )
           );
         })),
-        h("div", { className: "acc-prototype-note" }, "Luna\u2019s and Sol\u2019s three suites are final-verified. Qwen 3.8 2B has a final-verified IFEval score reproduced exactly across two runs; BFCL and tau2 remain Pending and are not treated as zero. The remaining four conditions and all of their scores are explicitly illustrative Dev fixtures.")
+        h("div", { className: "acc-prototype-note" }, "Luna\u2019s and Sol\u2019s three suites are final-verified. Qwen 3.8 2B and GPU Node B\u2019s Qwen3.6 35B Heretic have final-verified IFEval scores; their unfinished BFCL and tau2 lanes remain Pending and are not treated as zero. The remaining three conditions and all of their scores are explicitly illustrative Dev fixtures.")
       );
     }
     function formatTokenCount(value) {
@@ -2071,8 +2120,16 @@
       const performance = operational.performance;
       const billing = operational.billing;
       const unavailable = "Not separately reported";
-      const evidenceLabel = operational.evidence === "verified-repeat" ? "Verified repeat" : "Verified aggregate";
+      const evidenceLabel = operational.evidence === "verified-repeat" ? "Verified repeat" : operational.evidence === "verified-partial" ? "Verified partial" : "Verified aggregate";
       const runtimeLabels = {
+        hardwareProfile: "Hardware profile",
+        capturedAt: "Profile captured",
+        machine: "Machine",
+        processor: "Processor",
+        memory: "Memory",
+        accelerator: "Accelerator",
+        os: "Operating system",
+        competingWorkload: "Competing workload",
         host: "Host",
         backend: "Backend",
         modelRevision: "Model revision",
