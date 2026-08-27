@@ -125,9 +125,9 @@ export const fixtures = {
       fingerprint: 'gpt-5.6-sol|max|codex-sol-bridge|ootb-intake-v1', results: [],
     },
     {
-      id: 'qwen38-2b-mlx', familyId: 'qwen38-2b', shortName: 'Qwen 3.8 2B Distill · 4-bit MLX', provider: 'The Ark', runtime: 'MLX/Metal', quantization: 'Affine 4-bit · group 64', reasoning: 'Thinking off', host: 'The Ark Mac',
+      id: 'qwen38-2b-mlx', familyId: 'qwen38-2b', shortName: 'Qwen 3.8 2B Distill · 4-bit MLX', provider: 'Edge Node A', runtime: 'MLX/Metal', quantization: 'Affine 4-bit · group 64', reasoning: 'Thinking off', host: 'Edge Node A',
       context: '256K tested', output: '8K cap', availability: 'unknown', availabilityNote: 'Benchmark evidence does not establish current runtime availability',
-      fingerprint: 'ark-qwen38-2b-distill|mlx-metal|affine-4bit-g64|thinking-off|ctx256k|out8k|ootb-intake-v1', results: [],
+      fingerprint: 'edge-node-a|qwen38-2b-distill|mlx-metal|affine-4bit-g64|thinking-off|ctx256k|out8k|ootb-intake-v1', results: [],
     },
     {
       id: 'qwen36-35b-heretic-gpu-b', familyId: 'qwen36-35b', shortName: 'Qwen3.6 35B Heretic · Q4_K_M · MTP-N2', provider: 'GPU Node B', runtime: 'llama.cpp b9172', quantization: 'Q4_K_M Heretic', reasoning: 'Thinking on', host: 'GPU Node B',
@@ -233,8 +233,8 @@ export const fixtures = {
           variability: 'The displayed runtime distribution is BFCL-specific and includes transport, prompt evaluation, and generation. IFEval repeat performance remains in the instruction-score detail. TTFT, pure decoder throughput, peak RSS, Metal memory, and thermal/power state were not captured.',
         },
         localRuntime: {
-          hardwareProfile: 'ark-mac-mini-m2-24gb-20260826', capturedAt: '2026-08-26', machine: 'Mac mini', processor: 'Apple M2 · 8-core CPU', memory: '24 GB unified memory', accelerator: 'Apple M2 · 10-core GPU · Metal', os: 'macOS 26.5.2',
-          host: 'The Ark Mac', backend: 'MLX/Metal', modelRevision: 'SiddhJagani/Qwen3.8-2B-mlx-4Bit · pinned revision',
+          hardwareProfile: 'edge-node-a-mac-mini-m2-24gb-20260826', capturedAt: '2026-08-26', machine: 'Mac mini', processor: 'Apple M2 · 8-core CPU', memory: '24 GB unified memory', accelerator: 'Apple M2 · 10-core GPU · Metal', os: 'macOS 26.5.2',
+          host: 'Edge Node A', backend: 'MLX/Metal', modelRevision: 'SiddhJagani/Qwen3.8-2B-mlx-4Bit · pinned revision',
           quantization: 'Affine 4-bit · group size 64', context: '262,144 tokens', outputCap: '8,192 tokens', slots: 1, concurrency: 1, retries: 0, thinking: 'Off', streaming: 'No',
           competingWorkload: 'One benchmark slot; broader host workload telemetry unavailable',
         },

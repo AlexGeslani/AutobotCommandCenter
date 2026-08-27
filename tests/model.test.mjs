@@ -71,7 +71,7 @@ describe('ACC product contract', () => {
         evidence: 'verified-partial',
         candidateUsage: { inputTokens: 9839500, outputTokens: 1130727, totalTokens: 10970227, cachedInputTokens: 2135136, reasoningTokens: null },
         performance: { class: 'local-runtime', successfulResponses: 1608, bridgeErrorEvents: 0, latencySeconds: { median: 11.6742, mean: 21.2696, p95: 78.2772 }, endToEndOutputTokensPerSecond: 29.4517 },
-        localRuntime: { hardwareProfile: 'ark-mac-mini-m2-24gb-20260826', processor: 'Apple M2 · 8-core CPU', memory: '24 GB unified memory', accelerator: 'Apple M2 · 10-core GPU · Metal', os: 'macOS 26.5.2', backend: 'MLX/Metal', context: '262,144 tokens', concurrency: 1, retries: 0 },
+        localRuntime: { hardwareProfile: 'edge-node-a-mac-mini-m2-24gb-20260826', processor: 'Apple M2 · 8-core CPU', memory: '24 GB unified memory', accelerator: 'Apple M2 · 10-core GPU · Metal', os: 'macOS 26.5.2', backend: 'MLX/Metal', context: '262,144 tokens', concurrency: 1, retries: 0 },
       },
     });
     expect(comparison[2].note).toMatch(/BFCL scored 8\.72%/i);

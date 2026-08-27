@@ -1495,16 +1495,16 @@
         id: "qwen38-2b-mlx",
         familyId: "qwen38-2b",
         shortName: "Qwen 3.8 2B Distill \xB7 4-bit MLX",
-        provider: "The Ark",
+        provider: "Edge Node A",
         runtime: "MLX/Metal",
         quantization: "Affine 4-bit \xB7 group 64",
         reasoning: "Thinking off",
-        host: "The Ark Mac",
+        host: "Edge Node A",
         context: "256K tested",
         output: "8K cap",
         availability: "unknown",
         availabilityNote: "Benchmark evidence does not establish current runtime availability",
-        fingerprint: "ark-qwen38-2b-distill|mlx-metal|affine-4bit-g64|thinking-off|ctx256k|out8k|ootb-intake-v1",
+        fingerprint: "edge-node-a|qwen38-2b-distill|mlx-metal|affine-4bit-g64|thinking-off|ctx256k|out8k|ootb-intake-v1",
         results: []
       },
       {
@@ -1680,14 +1680,14 @@
             variability: "The displayed runtime distribution is BFCL-specific and includes transport, prompt evaluation, and generation. IFEval repeat performance remains in the instruction-score detail. TTFT, pure decoder throughput, peak RSS, Metal memory, and thermal/power state were not captured."
           },
           localRuntime: {
-            hardwareProfile: "ark-mac-mini-m2-24gb-20260826",
+            hardwareProfile: "edge-node-a-mac-mini-m2-24gb-20260826",
             capturedAt: "2026-08-26",
             machine: "Mac mini",
             processor: "Apple M2 \xB7 8-core CPU",
             memory: "24 GB unified memory",
             accelerator: "Apple M2 \xB7 10-core GPU \xB7 Metal",
             os: "macOS 26.5.2",
-            host: "The Ark Mac",
+            host: "Edge Node A",
             backend: "MLX/Metal",
             modelRevision: "SiddhJagani/Qwen3.8-2B-mlx-4Bit \xB7 pinned revision",
             quantization: "Affine 4-bit \xB7 group size 64",
@@ -3138,7 +3138,7 @@
           setMessage(payload.results.length ? `${payload.results.length} source-linked result${payload.results.length === 1 ? "" : "s"}` : "No approved Wiki pages matched this search.");
         } catch {
           setSearchState("error");
-          setMessage("Hive Mind search is unavailable on this device. Open ACC on The Ark to use the local protected bridge.");
+          setMessage("Hive Mind search is unavailable on this device. Open ACC on the approved local host to use the protected bridge.");
         }
       }
       return h(
@@ -3200,7 +3200,7 @@
             result.snippet ? h("pre", { className: "acc-search-result__snippet" }, result.snippet) : null
           )
         )) : null,
-        h("div", { className: "acc-prototype-note" }, "This interface uses a protected server-side bridge inside The Ark Lab. QMD credentials and certificate trust never enter the browser; the ACC dev surface remains trusted-LAN only.")
+        h("div", { className: "acc-prototype-note" }, "This interface uses a protected server-side bridge on an approved local host. Search credentials and certificate trust never enter the browser; the ACC dev surface remains trusted-LAN only.")
       );
     }
     function CommandCenterMark() {

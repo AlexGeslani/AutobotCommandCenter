@@ -10,12 +10,16 @@ async function routeWebAnalytics(page) {
   const realProjection = structuredClone(showcaseProjection);
   realProjection.dataKind = 'real';
   realProjection.subject = { id: 'kungfuclan.com', label: 'Kung Fu Clan', domain: 'web' };
-  realProjection.ranges['30d'].countries.push(
+  const extraCountries = [
     { code: 'ES', requests: 80, edgeResponseBytes: 8000 },
     { code: 'MX', requests: 70, edgeResponseBytes: 7000 },
     { code: 'NZ', requests: 60, edgeResponseBytes: 6000 },
     { code: 'ZA', requests: 50, edgeResponseBytes: 5000 },
-  );
+  ];
+  const sourceCountry = realProjection.ranges['30d'].countries[0];
+  sourceCountry.requests -= extraCountries.reduce((sum, country) => sum + country.requests, 0);
+  sourceCountry.edgeResponseBytes -= extraCountries.reduce((sum, country) => sum + country.edgeResponseBytes, 0);
+  realProjection.ranges['30d'].countries.push(...extraCountries);
   delete realProjection.notice;
   await page.route('**/data/analytics/web/kungfuclan.com.v2.json', async (route) => {
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify(realProjection) });
@@ -223,7 +227,7 @@ test('Portfolio and Skills render only the frozen source-backed showcase project
   const operational = page.getByRole('region', { name: 'Operational Skills' });
   await expect(operational.locator('.acc-skill-row')).toHaveCount(8);
   await expect(operational.getByText('v3.2.0', { exact: true })).toBeVisible();
-  await expect(operational.getByText('Unknown', { exact: true })).toHaveCount(8);
+  await expect(operational.getByText('unknown', { exact: true })).toHaveCount(8);
   await expect(page.getByText(/projection, not synchronization/i)).toBeVisible();
 });
 
@@ -451,6 +455,9 @@ test('valid coding lineage opens its exact canonical result and run', async ({ p
 
 test('runtime-dependent service claims are withheld in overview and portfolio', async ({ page }) => {
   await page.goto(pluginUrl);
+  const runtimeException = page.locator('.acc-overview-exception').filter({ hasText: 'Runtime telemetry' });
+  await expect(runtimeException.getByText('stale', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Open Portfolio' }).click();
   const service = page.getByRole('button', { name: /Local AI Runtime/i });
   await expect(service.getByText('unknown', { exact: true })).toBeVisible();
   await service.click();

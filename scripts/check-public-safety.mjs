@@ -8,15 +8,25 @@ const execFileAsync = promisify(execFile);
 const excludedDirectories = new Set(['.git', 'node_modules', 'artifacts', 'test-results', 'playwright-report', '.ops']);
 const excludedFiles = new Set([
   '.git',
-  'scripts/check-public-safety.mjs',
   'standalone/public/data/provider-usage.v1.json',
   '.hermes/plugins/autobot-command-center/dashboard/dist/data/provider-usage.v1.json',
 ]);
+const privateInfrastructureIdentifiers = [
+  ['The', 'Ark', 'Lab'].join(''),
+  ['The', 'Ark'].join(' '),
+  ['The', 'Ark', 'Lab'].join(' '),
+  ['Tele', 'traan'].join(''),
+  ['Vector', 'Sigma'].join(' '),
+  ['Vector', 'Sigma'].join('-'),
+  ['qmd', 'lan'].join('.'),
+];
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const privateInfrastructurePattern = new RegExp(privateInfrastructureIdentifiers.map(escapeRegExp).join('|'), 'i');
 const rules = [
   ['private IPv4 address', /(?<!\d)(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(?!\d)/],
   ['macOS user path', /\/Users\/[^/\s"']+/],
   ['private LAN hostname', /\b[a-z0-9.-]+\.lan\b/i],
-  ['private infrastructure name', /TheArkLab|Teletraan|Vector[- ]Sigma|qmd\.lan/i],
+  ['private infrastructure name', privateInfrastructurePattern],
   ['private key', /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/],
   ['GitHub token', /\bgh[opsu]_[A-Za-z0-9]{20,}\b/],
   ['OpenAI-style secret', /\bsk-[A-Za-z0-9_-]{20,}\b/],

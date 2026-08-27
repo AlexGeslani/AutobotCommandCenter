@@ -888,7 +888,7 @@ export function registerAutobotCommandCenter() {
         setMessage(payload.results.length ? `${payload.results.length} source-linked result${payload.results.length === 1 ? '' : 's'}` : 'No approved Wiki pages matched this search.');
       } catch {
         setSearchState('error');
-        setMessage('Hive Mind search is unavailable on this device. Open ACC on The Ark to use the local protected bridge.');
+        setMessage('Hive Mind search is unavailable on this device. Open ACC on the approved local host to use the protected bridge.');
       }
     }
 
@@ -931,7 +931,7 @@ export function registerAutobotCommandCenter() {
           result.snippet ? h('pre', { className: 'acc-search-result__snippet' }, result.snippet) : null,
         ),
       )) : null,
-      h('div', { className: 'acc-prototype-note' }, 'This interface uses a protected server-side bridge inside The Ark Lab. QMD credentials and certificate trust never enter the browser; the ACC dev surface remains trusted-LAN only.'),
+      h('div', { className: 'acc-prototype-note' }, 'This interface uses a protected server-side bridge on an approved local host. Search credentials and certificate trust never enter the browser; the ACC dev surface remains trusted-LAN only.'),
     );
   }
 
