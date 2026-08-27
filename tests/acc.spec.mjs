@@ -74,6 +74,17 @@ function captureBrowserErrors(page) {
   return errors;
 }
 
+async function exerciseEverySortHeader(table, labels) {
+  await expect(table.getByRole('columnheader')).toHaveCount(labels.length);
+  for (const label of labels) {
+    const header = table.getByRole('columnheader', { name: new RegExp(`Sort by ${label}`) });
+    const button = header.getByRole('button', { name: `Sort by ${label}` });
+    await button.click();
+    await expect(header).toHaveAttribute('aria-sort', 'ascending');
+    await expect(table.locator('[aria-sort]')).toHaveCount(1);
+  }
+}
+
 test('Overview prioritizes provider headroom and keeps destination summaries compact', async ({ page }) => {
   const browserErrors = captureBrowserErrors(page);
   await page.goto(pluginUrl);
@@ -475,6 +486,81 @@ test('mobile detail routes retain an immediate fixture warning', async ({ page }
   const label = page.getByText('Prototype fixtures', { exact: true });
   await expect(label).toBeVisible();
   expect(await label.evaluate((node) => node.getBoundingClientRect().top)).toBeLessThan(844);
+});
+
+test('every Analytics and Benchmarks data column is stably sortable with accessible state', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page);
+  await page.goto(pluginUrl + '?view=analytics&domain=web&subject=kungfuclan.com&range=30d');
+  await page.getByText('Daily values and gap states', { exact: true }).click();
+
+  const daily = page.getByRole('table', { name: 'Daily traffic exact values' });
+  const countries = page.getByRole('table', { name: 'Authoritative requests by country' });
+  await exerciseEverySortHeader(daily, ['Date', 'State', 'Requests', 'Cloudflare Visits', 'Transfer']);
+  await exerciseEverySortHeader(countries, ['Country', 'Requests', 'Transfer']);
+
+  const countryButton = countries.getByRole('button', { name: 'Sort by Country' });
+  await countryButton.click();
+  const ascendingCountries = await countries.locator('tbody tr').evaluateAll((rows) => rows.map((row) => row.cells[0].textContent.trim()));
+  expect(ascendingCountries).toEqual([...ascendingCountries].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base', numeric: true })));
+  await countryButton.click();
+  const descendingCountries = await countries.locator('tbody tr').evaluateAll((rows) => rows.map((row) => row.cells[0].textContent.trim()));
+  expect(descendingCountries).toEqual([...descendingCountries].sort((a, b) => b.localeCompare(a, 'en', { sensitivity: 'base', numeric: true })));
+
+  const dailyRequests = daily.getByRole('button', { name: 'Sort by Requests' });
+  await dailyRequests.click();
+  const ascendingRequests = await daily.locator('tbody tr').evaluateAll((rows) => rows.map((row) => row.cells[2].textContent.trim()));
+  expect(ascendingRequests.findIndex((value) => value === '—')).toBeGreaterThan(0);
+  expect(ascendingRequests.slice(ascendingRequests.findIndex((value) => value === '—')).every((value) => value === '—')).toBe(true);
+  await dailyRequests.click();
+  const descendingRequests = await daily.locator('tbody tr').evaluateAll((rows) => rows.map((row) => row.cells[2].textContent.trim()));
+  expect(descendingRequests.slice(descendingRequests.findIndex((value) => value === '—')).every((value) => value === '—')).toBe(true);
+
+  await page.goto(pluginUrl + '?view=benchmarks');
+  const coverage = page.getByRole('table', { name: 'Measured evidence coverage' });
+  await exerciseEverySortHeader(coverage, ['Tested condition', 'Instruction following', 'Native tool use', 'Multi-turn agent']);
+  for (const suite of ['IFEval', 'BFCL V4', 'tau2']) {
+    await exerciseEverySortHeader(page.getByRole('table', { name: `${suite} measured suite comparison` }), ['Tested condition', 'Score or completion']);
+  }
+  const comparison = page.getByRole('table', { name: 'Three-score model comparison' });
+  await exerciseEverySortHeader(comparison, ['Tested condition', 'Instruction following', 'Native tool use', 'Multi-turn agent', 'Current average', 'Verified suites']);
+  const agentButton = comparison.getByRole('button', { name: 'Sort by Multi-turn agent' });
+  await agentButton.click();
+  expect(await comparison.locator('[data-benchmark-profile]').evaluateAll((rows) => rows.slice(-2).map((row) => row.getAttribute('data-benchmark-profile')))).toEqual(['qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b']);
+  await agentButton.click();
+  expect(await comparison.locator('[data-benchmark-profile]').evaluateAll((rows) => rows.slice(-2).map((row) => row.getAttribute('data-benchmark-profile')))).toEqual(['qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b']);
+
+  await page.goto(pluginUrl + '?view=benchmarks&domain=tool-use');
+  const leaderboard = page.getByRole('table', { name: 'Tool Use benchmark leaderboard' });
+  await exerciseEverySortHeader(leaderboard, ['Rank', 'Tested condition', 'Score', 'Denominator', 'Release', 'Availability']);
+  const releaseButton = leaderboard.getByRole('button', { name: 'Sort by Release' });
+  await releaseButton.focus();
+  await page.keyboard.press('Enter');
+  await expect(leaderboard.getByRole('columnheader', { name: /Sort by Release/ })).toHaveAttribute('aria-sort', 'ascending');
+  await page.keyboard.press('Space');
+  await expect(leaderboard.getByRole('columnheader', { name: /Sort by Release/ })).toHaveAttribute('aria-sort', 'descending');
+  expect(browserErrors).toEqual([]);
+});
+
+test('mobile sort controls remain visible, touch-safe, and overflow-safe', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const routes = [
+    '?view=analytics&domain=web&subject=kungfuclan.com&range=30d',
+    '?view=benchmarks',
+    '?view=benchmarks&domain=tool-use',
+  ];
+  for (const route of routes) {
+    await page.goto(pluginUrl + route);
+    if (route.startsWith('?view=analytics')) await page.getByText('Daily values and gap states', { exact: true }).click();
+    const controls = page.locator('.acc-sort-button:visible');
+    await expect(controls.first(), route).toBeVisible();
+    expect(await controls.count(), route).toBeGreaterThan(0);
+    const undersized = await controls.evaluateAll((nodes) => nodes.flatMap((node) => {
+      const rect = node.getBoundingClientRect();
+      return rect.width + 0.01 >= 44 && rect.height + 0.01 >= 44 ? [] : [{ label: node.textContent.trim(), width: rect.width, height: rect.height }];
+    }));
+    expect(undersized, route).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), route).toBeLessThanOrEqual(1);
+  }
 });
 
 test('mobile benchmark condition controls meet the 44px touch-target floor', async ({ page }) => {

@@ -2,6 +2,7 @@ import commandCenterMarkUrl from '../standalone/autobot-mark.jpg';
 import voicePerformanceUrl from '../standalone/voice-performance-comparison.png';
 import { loadProviderUsageSnapshot, providerUsageFallback } from './provider-usage/client.mjs';
 import { createAnalyticsView } from './analytics/view.mjs';
+import { createSortingSupport, defineSortColumns } from './sorting.mjs';
 import {
   NAV_ITEMS,
   RELEASES,
@@ -38,6 +39,7 @@ export function registerAutobotCommandCenter() {
   const { React } = SDK;
   const { useEffect, useRef, useState } = SDK.hooks;
   const h = React.createElement;
+  const { useSortableRows, SortableHeader } = createSortingSupport({ React, useState });
 
   function cx(...values) {
     return values.filter(Boolean).join(' ');
@@ -398,11 +400,11 @@ export function registerAutobotCommandCenter() {
     );
   }
 
-  function ThreeScoreValue({ score }) {
+  function ThreeScoreValue({ score, role }) {
     const progress = score.progress;
     const label = score.value != null ? score.value.toFixed(1) : progress?.state === 'queued' ? 'Queued' : progress ? 'In progress' : 'Pending';
     const progressPercent = progress?.total ? (progress.current / progress.total) * 100 : 0;
-    return h('span', { className: cx('acc-three-score__value', score.value == null && 'is-pending', progress && 'has-progress', progress?.state === 'queued' && 'is-queued') },
+    return h('span', { className: cx('acc-three-score__value', score.value == null && 'is-pending', progress && 'has-progress', progress?.state === 'queued' && 'is-queued'), role },
       h('strong', null, label), h('small', null, score.benchmark),
       progress ? h('span', { className: 'acc-suite-progress' },
         h('span', {
@@ -414,8 +416,41 @@ export function registerAutobotCommandCenter() {
     );
   }
 
+  function MeasuredSuiteTable({ suite, go }) {
+    const columns = defineSortColumns('benchmarks.measured-suite', {
+      condition: (row) => row.shortName,
+      result: (row) => row.kind === 'score'
+        ? { kind: 'score', value: row.value }
+        : { kind: 'progress', value: row.barValue },
+    });
+    const sorted = useSortableRows(suite.rows, columns);
+    return h('article', { className: 'acc-measured-suite', 'data-measured-suite': suite.id },
+      h('div', { className: 'acc-measured-suite__head' }, h('h3', null, suite.label), h('small', null, `${suite.rows.filter((row) => row.kind === 'score').length} verified · ${suite.rows.filter((row) => row.evidence === 'in-progress').length} active`)),
+      h('div', { className: 'acc-measured-suite__table', role: 'table', 'aria-label': `${suite.label} measured suite comparison` },
+        h('div', { className: 'acc-measured-suite__columns', role: 'row' }, columns.map((definition) => h(SortableHeader, { key: definition.id, as: 'span', column: definition, sort: sorted.sort, onSort: sorted.onSort }))),
+        h('div', { role: 'rowgroup' }, sorted.rows.map((row) => h('div', { className: cx('acc-measured-score', row.kind === 'progress' && 'is-progress', row.evidence === 'queued' && 'is-queued'), role: 'row', key: row.conditionId, 'data-score-bar': row.conditionId },
+          h('span', { className: 'acc-measured-score__identity', role: 'rowheader' },
+            h('button', { type: 'button', className: 'acc-table-link', onClick: () => go({ view: 'benchmarks', condition: row.conditionId }) }, row.shortName),
+            h('small', null, row.denominator),
+          ),
+          h('span', { className: 'acc-measured-score__result', role: 'cell' },
+            h('strong', { className: 'acc-measured-score__value' }, row.kind === 'score' ? row.value.toFixed(1) : row.evidence === 'queued' ? 'Queued' : `${row.barValue.toFixed(0)}% done`),
+            h('span', { className: 'acc-measured-score__track', 'aria-hidden': 'true' }, h('span', { style: { width: `${row.barValue}%` } })),
+          ),
+        ))),
+      ),
+    );
+  }
+
   function MeasuredBenchmarkVisuals({ go }) {
     const visual = getMeasuredBenchmarkVisuals();
+    const coverageColumns = defineSortColumns('benchmarks.coverage', {
+      condition: (profile) => profile.shortName,
+      instruction: (profile) => profile.coverage.instruction,
+      tools: (profile) => profile.coverage.tools,
+      agent: (profile) => profile.coverage.agent,
+    });
+    const coverageSort = useSortableRows(visual.profiles, coverageColumns);
     return h('section', { className: 'acc-measured-visuals', role: 'region', 'aria-label': 'Measured benchmark evidence visuals' },
       h('div', { className: 'acc-measured-visuals__head' },
         h('div', null, h('p', { className: 'acc-eyebrow' }, 'Verified evidence only'), h('h2', null, 'Measured suite comparison')),
@@ -423,34 +458,13 @@ export function registerAutobotCommandCenter() {
       ),
       h('p', { className: 'acc-measured-visuals__method' }, 'Verified bars use each suite’s native 0–100 score. Amber bars show collection completion only, never provisional capability accuracy. Queued work remains at zero completion; conditions without measured evidence are excluded.'),
       h('div', { className: 'acc-evidence-matrix', role: 'table', 'aria-label': 'Measured evidence coverage' },
-        h('div', { className: 'acc-evidence-matrix__head', role: 'row' },
-          h('span', { role: 'columnheader' }, 'Tested condition'),
-          visual.suites.map((suite) => h('span', { key: suite.id, role: 'columnheader' }, suite.label)),
-        ),
-        visual.profiles.map((profile) => h('div', { className: 'acc-evidence-matrix__row', role: 'row', key: profile.conditionId, 'data-measured-condition': profile.conditionId },
+        h('div', { className: 'acc-evidence-matrix__head', role: 'row' }, coverageColumns.map((definition) => h(SortableHeader, { key: definition.id, as: 'span', column: definition, sort: coverageSort.sort, onSort: coverageSort.onSort }))),
+        h('div', { role: 'rowgroup' }, coverageSort.rows.map((profile) => h('div', { className: 'acc-evidence-matrix__row', role: 'row', key: profile.conditionId, 'data-measured-condition': profile.conditionId },
           h('span', { role: 'rowheader' }, h('button', { type: 'button', className: 'acc-table-link', onClick: () => go({ view: 'benchmarks', condition: profile.conditionId }) }, profile.shortName)),
           visual.suites.map((suite) => h('span', { key: suite.id, role: 'cell', 'aria-label': `${suite.label}: ${profile.coverage[suite.id]}` }, h(StatusBadge, { state: profile.coverage[suite.id] }))),
-        )),
+        ))),
       ),
-      h('div', { className: 'acc-measured-suite-grid' }, visual.suites.map((suite) =>
-        h('article', { className: 'acc-measured-suite', key: suite.id, 'data-measured-suite': suite.id },
-          h('div', { className: 'acc-measured-suite__head' }, h('h3', null, suite.label), h('small', null, `${suite.rows.filter((row) => row.kind === 'score').length} verified · ${suite.rows.filter((row) => row.evidence === 'in-progress').length} active`)),
-          h('ul', null, suite.rows.map((row) => h('li', { key: row.conditionId, 'data-score-bar': row.conditionId },
-            h('button', {
-              type: 'button',
-              className: cx('acc-measured-score', row.kind === 'progress' && 'is-progress', row.evidence === 'queued' && 'is-queued'),
-              'aria-label': row.kind === 'score'
-                ? `${row.shortName}: ${row.value.toFixed(1)} on ${suite.label}; ${row.denominator}`
-                : `${row.shortName}: ${row.denominator}; ${row.evidence}; collection completion only`,
-              onClick: () => go({ view: 'benchmarks', condition: row.conditionId }),
-            },
-            h('span', { className: 'acc-measured-score__identity' }, h('strong', null, row.shortName), h('small', null, row.denominator)),
-            h('span', { className: 'acc-measured-score__value' }, row.kind === 'score' ? row.value.toFixed(1) : row.evidence === 'queued' ? 'Queued' : `${row.barValue.toFixed(0)}% done`),
-            h('span', { className: 'acc-measured-score__track', 'aria-hidden': 'true' }, h('span', { style: { width: `${row.barValue}%` } })),
-            ),
-          ))),
-        ),
-      )),
+      h('div', { className: 'acc-measured-suite-grid' }, visual.suites.map((suite) => h(MeasuredSuiteTable, { key: suite.id, suite, go }))),
       h('p', { className: 'acc-measured-visuals__boundary' }, 'Compare verified capability scores within a suite only. Completion bars are operational progress, not scores. The current suite average below is coverage-labeled and never cross-ranks incomplete with complete conditions.'),
     );
   }
@@ -458,35 +472,44 @@ export function registerAutobotCommandCenter() {
   function ThreeScoreComparison({ go }) {
     const profiles = getBenchmarkComparison();
     const measuredCount = profiles.filter((profile) => profile.evidence === 'measured').length;
+    const columns = defineSortColumns('benchmarks.comparison', {
+      condition: (profile) => profile.condition.shortName,
+      instruction: (profile) => profile.scores.instruction.value,
+      tools: (profile) => profile.scores.tools.value,
+      agent: (profile) => profile.scores.agent.value,
+      average: (profile) => profile.currentAverage.value,
+      evidence: (profile) => Object.values(profile.scores).filter((score) => score.evidence === 'verified').length,
+    });
+    const sorted = useSortableRows(profiles, columns);
     return h('section', { className: 'acc-three-score', role: 'region', 'aria-label': 'Three-score model comparison' },
       h('div', { className: 'acc-three-score__head' },
         h('div', null, h('p', { className: 'acc-eyebrow' }, `${profiles.length} measured conditions at a glance`), h('h2', null, 'Three-score model comparison')),
         h('div', { className: 'acc-chip-list' }, h(Badge, { tone: 'good' }, `${measuredCount} measured`)),
       ),
-      h('div', { className: 'acc-three-score__legend', 'aria-hidden': 'true' },
-        h('span', null, 'Tested condition'), h('span', null, 'Instruction following'), h('span', null, 'Native tool use'), h('span', null, 'Multi-turn agent'), h('span', null, 'Current avg'), h('span', null, 'Evidence'),
+      h('div', { className: 'acc-three-score__table', role: 'table', 'aria-label': 'Three-score model comparison' },
+        h('div', { className: 'acc-three-score__legend', role: 'row' }, columns.map((definition) => h(SortableHeader, { key: definition.id, as: 'span', column: definition, sort: sorted.sort, onSort: sorted.onSort }))),
+        h('div', { className: 'acc-three-score__rows', role: 'rowgroup' }, sorted.rows.map((profile) => {
+          const condition = profile.condition;
+          return h('article', { className: cx('acc-three-score__row', profile.evidence === 'measured' && 'is-measured'), role: 'row', key: profile.conditionId, 'data-benchmark-profile': profile.conditionId },
+            h('div', { className: 'acc-three-score__identity', role: 'rowheader' },
+              h('button', { type: 'button', className: 'acc-table-link', onClick: () => go({ view: 'benchmarks', condition: profile.conditionId }) }, condition.shortName),
+              h('small', null, `${condition.provider} · ${condition.runtime}`),
+            ),
+            h(ThreeScoreValue, { score: profile.scores.instruction, role: 'cell' }),
+            h(ThreeScoreValue, { score: profile.scores.tools, role: 'cell' }),
+            h(ThreeScoreValue, { score: profile.scores.agent, role: 'cell' }),
+            h('div', { className: cx('acc-three-score__average', !profile.currentAverage.complete && 'is-in-progress'), role: 'cell' },
+              h('strong', null, profile.currentAverage.value.toFixed(1)),
+              h('small', null, `${profile.currentAverage.complete ? 'Complete' : 'In progress'} · ${profile.currentAverage.verifiedSuites}/${profile.currentAverage.totalSuites} verified`),
+              h('span', { className: 'acc-three-score__average-track', 'aria-hidden': 'true' }, h('span', { style: { width: `${profile.currentAverage.value}%` } })),
+            ),
+            h('div', { className: 'acc-three-score__evidence', role: 'cell' },
+              h(Badge, { tone: 'good' }, 'Measured'),
+              h('small', null, `${Object.values(profile.scores).filter((score) => score.evidence === 'verified').length} verified`),
+            ),
+          );
+        })),
       ),
-      h('div', { className: 'acc-three-score__rows' }, profiles.map((profile) => {
-        const condition = profile.condition;
-        return h('article', { className: cx('acc-three-score__row', profile.evidence === 'measured' && 'is-measured'), key: profile.conditionId, 'data-benchmark-profile': profile.conditionId },
-          h('div', { className: 'acc-three-score__identity' },
-            h('button', { type: 'button', className: 'acc-table-link', onClick: () => go({ view: 'benchmarks', condition: profile.conditionId }) }, condition.shortName),
-            h('small', null, `${condition.provider} · ${condition.runtime}`),
-          ),
-          h(ThreeScoreValue, { score: profile.scores.instruction }),
-          h(ThreeScoreValue, { score: profile.scores.tools }),
-          h(ThreeScoreValue, { score: profile.scores.agent }),
-          h('div', { className: cx('acc-three-score__average', !profile.currentAverage.complete && 'is-in-progress') },
-            h('strong', null, profile.currentAverage.value.toFixed(1)),
-            h('small', null, `${profile.currentAverage.complete ? 'Complete' : 'In progress'} · ${profile.currentAverage.verifiedSuites}/${profile.currentAverage.totalSuites} verified`),
-            h('span', { className: 'acc-three-score__average-track', 'aria-hidden': 'true' }, h('span', { style: { width: `${profile.currentAverage.value}%` } })),
-          ),
-          h('div', { className: 'acc-three-score__evidence' },
-            h(Badge, { tone: 'good' }, 'Measured'),
-            h('small', null, `${Object.values(profile.scores).filter((score) => score.evidence === 'verified').length} verified`),
-          ),
-        );
-      })),
       h('div', { className: 'acc-prototype-note' }, 'Current average is the equal-weight arithmetic mean of final-verified suite scores available for that exact condition. Amber averages are incomplete and carry explicit coverage; pending suites are excluded rather than treated as zero. Conditions without measured evidence are excluded from this comparison.'),
     );
   }
@@ -678,6 +701,15 @@ export function registerAutobotCommandCenter() {
   function Benchmarks({ route, go }) {
     const isRollup = route.domain === 'rollup';
     const domain = Object.hasOwn(RELEASES, route.domain) ? route.domain : 'tool-use';
+    const leaderboardColumns = defineSortColumns('benchmarks.leaderboard', {
+      rank: (row) => row.canonicalRank,
+      condition: (row) => row.condition.shortName,
+      score: (row) => row.score,
+      denominator: (row) => row.denominator,
+      release: (row) => row.release,
+      availability: (row) => getEffectiveAvailability(row.condition),
+    });
+    const leaderboardSort = useSortableRows(getLeaderboard(domain, RELEASES[domain]).map((row, index) => ({ ...row, canonicalRank: index + 1 })), leaderboardColumns);
     const condition = !isRollup && route.condition ? getCondition(route.condition) : null;
     if (condition) return h(ConditionDetail, { condition, route, go, domain });
     if (!route.domain) return h('div', { className: 'acc-view' },
@@ -693,7 +725,7 @@ export function registerAutobotCommandCenter() {
       h('div', { className: 'acc-toolbar' }, h(MetricTabs, { active: 'rollup', onSelect: (nextDomain) => go({ view: 'benchmarks', domain: nextDomain }) }), h(Badge, null, 'Canonical only')),
       h(CapabilityRollup),
     );
-    const rows = getLeaderboard(domain, RELEASES[domain]);
+    const rows = leaderboardSort.rows;
     const title = domain === 'tool-use' ? 'Tool Use' : domain === 'reasoning' ? 'GPQA Diamond' : 'Offline-safe Coding';
     return h('div', { className: 'acc-view' },
       h(SectionHeading, { eyebrow: 'Model Observatory', title: 'Benchmarks' }),
@@ -702,19 +734,31 @@ export function registerAutobotCommandCenter() {
       h('section', { className: 'acc-ranking-panel', 'aria-labelledby': 'acc-ranking-title' },
         h('div', { className: 'acc-ranking-heading' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Canonical ranking'), h('h2', { id: 'acc-ranking-title' }, title)), h('small', null, 'Higher is better · fixture data')),
         h('div', { className: 'acc-desktop-table' },
-          h('table', null,
-            h('thead', null, h('tr', null, ['Rank', 'Tested condition', 'Score', 'Denominator', 'Release', 'Availability'].map((label) => h('th', { key: label, scope: 'col' }, label)))),
-            h('tbody', null, rows.map((row, index) => h('tr', { key: row.id },
-              h('td', null, `#${index + 1}`),
+          h('table', { 'aria-label': `${title} benchmark leaderboard` },
+            h('thead', null, h('tr', null, leaderboardColumns.map((definition) => h(SortableHeader, { key: definition.id, column: definition, sort: leaderboardSort.sort, onSort: leaderboardSort.onSort })))),
+            h('tbody', null, rows.map((row) => h('tr', { key: row.id },
+              h('td', null, `#${row.canonicalRank}`),
               h('td', null, h('button', { type: 'button', className: 'acc-table-link', onClick: () => go({ view: 'benchmarks', domain, condition: row.conditionId }) }, row.condition.shortName)),
               h('td', { className: 'acc-score-cell' }, `${row.score.toFixed(1)}%`), h('td', null, row.denominator), h('td', null, row.release),
               h('td', null, h(StatusBadge, { state: getEffectiveAvailability(row.condition) })),
             ))),
           ),
         ),
-        h('div', { className: 'acc-mobile-ranking' }, rows.map((row, index) =>
+        h('div', { className: 'acc-mobile-sort-controls', 'aria-label': `${title} leaderboard sort controls` }, leaderboardColumns.map((definition) => {
+          const active = leaderboardSort.sort?.column === definition.id;
+          const direction = active ? leaderboardSort.sort.direction : null;
+          return h('button', {
+            key: definition.id,
+            type: 'button',
+            className: 'acc-sort-button',
+            'aria-label': `Sort by ${definition.label}`,
+            'aria-pressed': active,
+            onClick: () => leaderboardSort.onSort(definition.id),
+          }, h('span', null, definition.label), h('span', { className: 'acc-sort-indicator', 'aria-hidden': 'true' }, direction === 'ascending' ? '↑' : direction === 'descending' ? '↓' : '↕'));
+        })),
+        h('div', { className: 'acc-mobile-ranking' }, rows.map((row) =>
           h('button', { type: 'button', key: row.id, className: 'acc-mobile-row', onClick: () => go({ view: 'benchmarks', domain, condition: row.conditionId }) },
-            h('span', { className: 'acc-rank' }, `#${index + 1}`),
+            h('span', { className: 'acc-rank' }, `#${row.canonicalRank}`),
             h('span', { className: 'acc-mobile-row__identity' }, h('strong', null, row.condition.shortName), h('small', null, `${row.release} · n=${row.denominator}`)),
             h('span', { className: 'acc-score' }, `${row.score.toFixed(1)}%`),
           ),

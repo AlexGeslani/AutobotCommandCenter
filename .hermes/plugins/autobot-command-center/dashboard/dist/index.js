@@ -484,6 +484,127 @@
     return { features, unmapped, maximum };
   }
 
+  // src/sorting.mjs
+  var column = (id, label, type, extra = {}) => Object.freeze({ id, label, type, ...extra });
+  var SORTABLE_TABLES = Object.freeze({
+    "analytics.daily": Object.freeze([
+      column("date", "Date", "date"),
+      column("state", "State", "text"),
+      column("requests", "Requests", "number"),
+      column("visits", "Cloudflare Visits", "number"),
+      column("transfer", "Transfer", "number")
+    ]),
+    "analytics.countries": Object.freeze([
+      column("country", "Country", "text"),
+      column("requests", "Requests", "number"),
+      column("transfer", "Transfer", "number")
+    ]),
+    "benchmarks.coverage": Object.freeze([
+      column("condition", "Tested condition", "text"),
+      column("instruction", "Instruction following", "status", { ranks: { verified: 0, "in-progress": 1, queued: 2 } }),
+      column("tools", "Native tool use", "status", { ranks: { verified: 0, "in-progress": 1, queued: 2 } }),
+      column("agent", "Multi-turn agent", "status", { ranks: { verified: 0, "in-progress": 1, queued: 2 } })
+    ]),
+    "benchmarks.measured-suite": Object.freeze([
+      column("condition", "Tested condition", "text"),
+      column("result", "Score or completion", "grouped-number")
+    ]),
+    "benchmarks.comparison": Object.freeze([
+      column("condition", "Tested condition", "text"),
+      column("instruction", "Instruction following", "number"),
+      column("tools", "Native tool use", "number"),
+      column("agent", "Multi-turn agent", "number"),
+      column("average", "Current average", "number"),
+      column("evidence", "Verified suites", "number")
+    ]),
+    "benchmarks.leaderboard": Object.freeze([
+      column("rank", "Rank", "number"),
+      column("condition", "Tested condition", "text"),
+      column("score", "Score", "number"),
+      column("denominator", "Denominator", "number"),
+      column("release", "Release", "text"),
+      column("availability", "Availability", "text")
+    ])
+  });
+  var MISSING_LABELS = /* @__PURE__ */ new Set(["missing", "pending", "unknown"]);
+  var collator = new Intl.Collator("en", { sensitivity: "base", numeric: true });
+  function isMissing(value) {
+    return value == null || typeof value === "number" && !Number.isFinite(value) || typeof value === "string" && MISSING_LABELS.has(value.trim().toLowerCase());
+  }
+  function compareScalar(left, right, columnDefinition) {
+    if (columnDefinition.type === "number") return Number(left) - Number(right);
+    if (columnDefinition.type === "date") return Date.parse(left) - Date.parse(right);
+    if (columnDefinition.type === "status") {
+      const leftRank = columnDefinition.ranks?.[left] ?? Number.MAX_SAFE_INTEGER;
+      const rightRank = columnDefinition.ranks?.[right] ?? Number.MAX_SAFE_INTEGER;
+      return leftRank - rightRank || collator.compare(String(left), String(right));
+    }
+    return collator.compare(String(left), String(right));
+  }
+  function sortRows(rows, columnDefinition, direction = "ascending") {
+    if (!columnDefinition) return [...rows];
+    const multiplier = direction === "descending" ? -1 : 1;
+    return rows.map((row, index) => ({ row, index, value: columnDefinition.value(row) })).sort((left, right) => {
+      const leftMissing = isMissing(left.value);
+      const rightMissing = isMissing(right.value);
+      if (leftMissing || rightMissing) {
+        if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
+        return left.index - right.index;
+      }
+      if (columnDefinition.type === "grouped-number") {
+        const leftGroup = left.value.kind === "score" ? 0 : left.value.kind === "progress" ? 1 : 2;
+        const rightGroup = right.value.kind === "score" ? 0 : right.value.kind === "progress" ? 1 : 2;
+        if (leftGroup !== rightGroup) return leftGroup - rightGroup;
+        const difference2 = (Number(left.value.value) - Number(right.value.value)) * multiplier;
+        return difference2 || left.index - right.index;
+      }
+      const difference = compareScalar(left.value, right.value, columnDefinition) * multiplier;
+      return difference || left.index - right.index;
+    }).map(({ row }) => row);
+  }
+  function nextSort(current, columnId) {
+    if (!current || current.column !== columnId) return { column: columnId, direction: "ascending" };
+    return { column: columnId, direction: current.direction === "ascending" ? "descending" : "ascending" };
+  }
+  function createSortingSupport({ React, useState }) {
+    const h = React.createElement;
+    function useSortableRows(rows, columns) {
+      const [sort, setSort] = useState(null);
+      const activeColumn = sort ? columns.find((candidate) => candidate.id === sort.column) : null;
+      return {
+        rows: sortRows(rows, activeColumn, sort?.direction),
+        sort,
+        onSort: (columnId) => setSort((current) => nextSort(current, columnId))
+      };
+    }
+    function SortableHeader({ column: definition, sort, onSort, as = "th" }) {
+      const active = sort?.column === definition.id;
+      const direction = active ? sort.direction : null;
+      return h(as, {
+        scope: as === "th" ? "col" : void 0,
+        role: as === "th" ? void 0 : "columnheader",
+        "aria-sort": direction || void 0
+      }, h("button", {
+        type: "button",
+        className: "acc-sort-button",
+        "aria-label": `Sort by ${definition.label}`,
+        onClick: () => onSort(definition.id)
+      }, h("span", null, definition.label), h("span", { className: "acc-sort-indicator", "aria-hidden": "true" }, direction === "ascending" ? "\u2191" : direction === "descending" ? "\u2193" : "\u2195")));
+    }
+    return { useSortableRows, SortableHeader };
+  }
+  function defineSortColumns(tableId, accessors) {
+    const definitions = SORTABLE_TABLES[tableId];
+    if (!definitions) throw new TypeError(`Unknown sortable table: ${tableId}`);
+    for (const definition of definitions) {
+      if (typeof accessors[definition.id] !== "function") throw new TypeError(`Missing sort accessor for ${tableId}.${definition.id}`);
+    }
+    for (const id of Object.keys(accessors)) {
+      if (!definitions.some((definition) => definition.id === id)) throw new TypeError(`Unknown sort accessor for ${tableId}.${id}`);
+    }
+    return definitions.map((definition) => ({ ...definition, value: accessors[definition.id] }));
+  }
+
   // src/analytics/view.mjs
   var RANGE_LABELS = { "1d": "1 day", "7d": "7 days", "30d": "30 days" };
   var ANALYTICS_SHOWCASE_ENABLED = false;
@@ -529,6 +650,7 @@
     return { maximum, ticks: [0, 0.25, 0.5, 0.75, 1].map((fraction) => maximum * fraction) };
   }
   function createAnalyticsView({ React, h, useEffect, useState, Badge, StatusBadge, SectionHeading, ProviderUsage }) {
+    const { useSortableRows, SortableHeader } = createSortingSupport({ React, useState });
     function SourceCard({ eyebrow, title, status, description, action, onClick }) {
       return h(
         "article",
@@ -613,6 +735,14 @@
       const rightInset = 22;
       const verticalInset = 22;
       const { maximum, ticks } = projectTrafficScale(range.daily);
+      const dailyColumns = defineSortColumns("analytics.daily", {
+        date: (day) => day.date,
+        state: (day) => day.state,
+        requests: (day) => day.requests,
+        visits: (day) => day.visits,
+        transfer: (day) => day.edgeResponseBytes
+      });
+      const dailySort = useSortableRows([...range.daily].reverse(), dailyColumns);
       const xFor = (index) => leftInset + index * (width - leftInset - rightInset) / Math.max(range.daily.length - 1, 1);
       const yFor = (value) => height - verticalInset - value / maximum * (height - 2 * verticalInset);
       const segments = [];
@@ -649,11 +779,11 @@
           h("summary", null, "Daily values and gap states"),
           h("div", { className: "acc-analytics-daily-table" }, h(
             "table",
-            null,
-            h("thead", null, h("tr", null, ["Date", "State", "Requests", "Cloudflare Visits", "Transfer"].map((label) => h("th", { key: label, scope: "col" }, label)))),
-            h("tbody", null, [...range.daily].reverse().map((day) => h(
+            { "aria-label": "Daily traffic exact values" },
+            h("thead", null, h("tr", null, dailyColumns.map((definition) => h(SortableHeader, { key: definition.id, column: definition, sort: dailySort.sort, onSort: dailySort.onSort })))),
+            h("tbody", null, dailySort.rows.map((day) => h(
               "tr",
-              { key: day.date },
+              { key: day.date, "data-daily-row": day.date },
               h("td", null, day.date),
               h("td", null, day.state.replace("_", " ")),
               h("td", null, day.requests == null ? "\u2014" : formatNumber(day.requests)),
@@ -713,7 +843,13 @@
     function CountryTable({ range }) {
       const [expanded, setExpanded] = useState(false);
       const projection = projectCountryRows(range.countries);
-      const rows = expanded ? projection.allRows : projection.defaultRows;
+      const countryColumns = defineSortColumns("analytics.countries", {
+        country: (row) => countryName(row.code),
+        requests: (row) => row.requests,
+        transfer: (row) => row.edgeResponseBytes
+      });
+      const countrySort = useSortableRows(projection.allRows, countryColumns);
+      const rows = expanded ? countrySort.rows : countrySort.rows.slice(0, 10);
       return h(
         "section",
         { className: "acc-analytics-panel acc-country-table", "aria-labelledby": "acc-country-table-title" },
@@ -726,13 +862,7 @@
         projection.allRows.length ? h("div", { className: "acc-country-table__frame" }, h(
           "table",
           { "aria-label": "Authoritative requests by country" },
-          h("thead", null, h(
-            "tr",
-            null,
-            h("th", { scope: "col" }, "Country"),
-            h("th", { scope: "col" }, "Requests"),
-            h("th", { scope: "col" }, "Transfer")
-          )),
+          h("thead", null, h("tr", null, countryColumns.map((definition) => h(SortableHeader, { key: definition.id, column: definition, sort: countrySort.sort, onSort: countrySort.onSort })))),
           h("tbody", null, rows.map((row) => h(
             "tr",
             { key: row.code, "data-country-row": row.code },
@@ -1914,6 +2044,7 @@
     const { React } = SDK;
     const { useEffect, useRef, useState } = SDK.hooks;
     const h = React.createElement;
+    const { useSortableRows, SortableHeader } = createSortingSupport({ React, useState });
     function cx(...values) {
       return values.filter(Boolean).join(" ");
     }
@@ -2353,13 +2484,13 @@
         )
       );
     }
-    function ThreeScoreValue({ score }) {
+    function ThreeScoreValue({ score, role }) {
       const progress = score.progress;
       const label = score.value != null ? score.value.toFixed(1) : progress?.state === "queued" ? "Queued" : progress ? "In progress" : "Pending";
       const progressPercent = progress?.total ? progress.current / progress.total * 100 : 0;
       return h(
         "span",
-        { className: cx("acc-three-score__value", score.value == null && "is-pending", progress && "has-progress", progress?.state === "queued" && "is-queued") },
+        { className: cx("acc-three-score__value", score.value == null && "is-pending", progress && "has-progress", progress?.state === "queued" && "is-queued"), role },
         h("strong", null, label),
         h("small", null, score.benchmark),
         progress ? h(
@@ -2377,8 +2508,48 @@
         ) : null
       );
     }
+    function MeasuredSuiteTable({ suite, go }) {
+      const columns = defineSortColumns("benchmarks.measured-suite", {
+        condition: (row) => row.shortName,
+        result: (row) => row.kind === "score" ? { kind: "score", value: row.value } : { kind: "progress", value: row.barValue }
+      });
+      const sorted = useSortableRows(suite.rows, columns);
+      return h(
+        "article",
+        { className: "acc-measured-suite", "data-measured-suite": suite.id },
+        h("div", { className: "acc-measured-suite__head" }, h("h3", null, suite.label), h("small", null, `${suite.rows.filter((row) => row.kind === "score").length} verified \xB7 ${suite.rows.filter((row) => row.evidence === "in-progress").length} active`)),
+        h(
+          "div",
+          { className: "acc-measured-suite__table", role: "table", "aria-label": `${suite.label} measured suite comparison` },
+          h("div", { className: "acc-measured-suite__columns", role: "row" }, columns.map((definition) => h(SortableHeader, { key: definition.id, as: "span", column: definition, sort: sorted.sort, onSort: sorted.onSort }))),
+          h("div", { role: "rowgroup" }, sorted.rows.map((row) => h(
+            "div",
+            { className: cx("acc-measured-score", row.kind === "progress" && "is-progress", row.evidence === "queued" && "is-queued"), role: "row", key: row.conditionId, "data-score-bar": row.conditionId },
+            h(
+              "span",
+              { className: "acc-measured-score__identity", role: "rowheader" },
+              h("button", { type: "button", className: "acc-table-link", onClick: () => go({ view: "benchmarks", condition: row.conditionId }) }, row.shortName),
+              h("small", null, row.denominator)
+            ),
+            h(
+              "span",
+              { className: "acc-measured-score__result", role: "cell" },
+              h("strong", { className: "acc-measured-score__value" }, row.kind === "score" ? row.value.toFixed(1) : row.evidence === "queued" ? "Queued" : `${row.barValue.toFixed(0)}% done`),
+              h("span", { className: "acc-measured-score__track", "aria-hidden": "true" }, h("span", { style: { width: `${row.barValue}%` } }))
+            )
+          )))
+        )
+      );
+    }
     function MeasuredBenchmarkVisuals({ go }) {
       const visual = getMeasuredBenchmarkVisuals();
+      const coverageColumns = defineSortColumns("benchmarks.coverage", {
+        condition: (profile) => profile.shortName,
+        instruction: (profile) => profile.coverage.instruction,
+        tools: (profile) => profile.coverage.tools,
+        agent: (profile) => profile.coverage.agent
+      });
+      const coverageSort = useSortableRows(visual.profiles, coverageColumns);
       return h(
         "section",
         { className: "acc-measured-visuals", role: "region", "aria-label": "Measured benchmark evidence visuals" },
@@ -2392,48 +2563,30 @@
         h(
           "div",
           { className: "acc-evidence-matrix", role: "table", "aria-label": "Measured evidence coverage" },
-          h(
-            "div",
-            { className: "acc-evidence-matrix__head", role: "row" },
-            h("span", { role: "columnheader" }, "Tested condition"),
-            visual.suites.map((suite) => h("span", { key: suite.id, role: "columnheader" }, suite.label))
-          ),
-          visual.profiles.map((profile) => h(
+          h("div", { className: "acc-evidence-matrix__head", role: "row" }, coverageColumns.map((definition) => h(SortableHeader, { key: definition.id, as: "span", column: definition, sort: coverageSort.sort, onSort: coverageSort.onSort }))),
+          h("div", { role: "rowgroup" }, coverageSort.rows.map((profile) => h(
             "div",
             { className: "acc-evidence-matrix__row", role: "row", key: profile.conditionId, "data-measured-condition": profile.conditionId },
             h("span", { role: "rowheader" }, h("button", { type: "button", className: "acc-table-link", onClick: () => go({ view: "benchmarks", condition: profile.conditionId }) }, profile.shortName)),
             visual.suites.map((suite) => h("span", { key: suite.id, role: "cell", "aria-label": `${suite.label}: ${profile.coverage[suite.id]}` }, h(StatusBadge, { state: profile.coverage[suite.id] })))
-          ))
+          )))
         ),
-        h("div", { className: "acc-measured-suite-grid" }, visual.suites.map(
-          (suite) => h(
-            "article",
-            { className: "acc-measured-suite", key: suite.id, "data-measured-suite": suite.id },
-            h("div", { className: "acc-measured-suite__head" }, h("h3", null, suite.label), h("small", null, `${suite.rows.filter((row) => row.kind === "score").length} verified \xB7 ${suite.rows.filter((row) => row.evidence === "in-progress").length} active`)),
-            h("ul", null, suite.rows.map((row) => h(
-              "li",
-              { key: row.conditionId, "data-score-bar": row.conditionId },
-              h(
-                "button",
-                {
-                  type: "button",
-                  className: cx("acc-measured-score", row.kind === "progress" && "is-progress", row.evidence === "queued" && "is-queued"),
-                  "aria-label": row.kind === "score" ? `${row.shortName}: ${row.value.toFixed(1)} on ${suite.label}; ${row.denominator}` : `${row.shortName}: ${row.denominator}; ${row.evidence}; collection completion only`,
-                  onClick: () => go({ view: "benchmarks", condition: row.conditionId })
-                },
-                h("span", { className: "acc-measured-score__identity" }, h("strong", null, row.shortName), h("small", null, row.denominator)),
-                h("span", { className: "acc-measured-score__value" }, row.kind === "score" ? row.value.toFixed(1) : row.evidence === "queued" ? "Queued" : `${row.barValue.toFixed(0)}% done`),
-                h("span", { className: "acc-measured-score__track", "aria-hidden": "true" }, h("span", { style: { width: `${row.barValue}%` } }))
-              )
-            )))
-          )
-        )),
+        h("div", { className: "acc-measured-suite-grid" }, visual.suites.map((suite) => h(MeasuredSuiteTable, { key: suite.id, suite, go }))),
         h("p", { className: "acc-measured-visuals__boundary" }, "Compare verified capability scores within a suite only. Completion bars are operational progress, not scores. The current suite average below is coverage-labeled and never cross-ranks incomplete with complete conditions.")
       );
     }
     function ThreeScoreComparison({ go }) {
       const profiles = getBenchmarkComparison();
       const measuredCount = profiles.filter((profile) => profile.evidence === "measured").length;
+      const columns = defineSortColumns("benchmarks.comparison", {
+        condition: (profile) => profile.condition.shortName,
+        instruction: (profile) => profile.scores.instruction.value,
+        tools: (profile) => profile.scores.tools.value,
+        agent: (profile) => profile.scores.agent.value,
+        average: (profile) => profile.currentAverage.value,
+        evidence: (profile) => Object.values(profile.scores).filter((score) => score.evidence === "verified").length
+      });
+      const sorted = useSortableRows(profiles, columns);
       return h(
         "section",
         { className: "acc-three-score", role: "region", "aria-label": "Three-score model comparison" },
@@ -2445,43 +2598,38 @@
         ),
         h(
           "div",
-          { className: "acc-three-score__legend", "aria-hidden": "true" },
-          h("span", null, "Tested condition"),
-          h("span", null, "Instruction following"),
-          h("span", null, "Native tool use"),
-          h("span", null, "Multi-turn agent"),
-          h("span", null, "Current avg"),
-          h("span", null, "Evidence")
+          { className: "acc-three-score__table", role: "table", "aria-label": "Three-score model comparison" },
+          h("div", { className: "acc-three-score__legend", role: "row" }, columns.map((definition) => h(SortableHeader, { key: definition.id, as: "span", column: definition, sort: sorted.sort, onSort: sorted.onSort }))),
+          h("div", { className: "acc-three-score__rows", role: "rowgroup" }, sorted.rows.map((profile) => {
+            const condition = profile.condition;
+            return h(
+              "article",
+              { className: cx("acc-three-score__row", profile.evidence === "measured" && "is-measured"), role: "row", key: profile.conditionId, "data-benchmark-profile": profile.conditionId },
+              h(
+                "div",
+                { className: "acc-three-score__identity", role: "rowheader" },
+                h("button", { type: "button", className: "acc-table-link", onClick: () => go({ view: "benchmarks", condition: profile.conditionId }) }, condition.shortName),
+                h("small", null, `${condition.provider} \xB7 ${condition.runtime}`)
+              ),
+              h(ThreeScoreValue, { score: profile.scores.instruction, role: "cell" }),
+              h(ThreeScoreValue, { score: profile.scores.tools, role: "cell" }),
+              h(ThreeScoreValue, { score: profile.scores.agent, role: "cell" }),
+              h(
+                "div",
+                { className: cx("acc-three-score__average", !profile.currentAverage.complete && "is-in-progress"), role: "cell" },
+                h("strong", null, profile.currentAverage.value.toFixed(1)),
+                h("small", null, `${profile.currentAverage.complete ? "Complete" : "In progress"} \xB7 ${profile.currentAverage.verifiedSuites}/${profile.currentAverage.totalSuites} verified`),
+                h("span", { className: "acc-three-score__average-track", "aria-hidden": "true" }, h("span", { style: { width: `${profile.currentAverage.value}%` } }))
+              ),
+              h(
+                "div",
+                { className: "acc-three-score__evidence", role: "cell" },
+                h(Badge, { tone: "good" }, "Measured"),
+                h("small", null, `${Object.values(profile.scores).filter((score) => score.evidence === "verified").length} verified`)
+              )
+            );
+          }))
         ),
-        h("div", { className: "acc-three-score__rows" }, profiles.map((profile) => {
-          const condition = profile.condition;
-          return h(
-            "article",
-            { className: cx("acc-three-score__row", profile.evidence === "measured" && "is-measured"), key: profile.conditionId, "data-benchmark-profile": profile.conditionId },
-            h(
-              "div",
-              { className: "acc-three-score__identity" },
-              h("button", { type: "button", className: "acc-table-link", onClick: () => go({ view: "benchmarks", condition: profile.conditionId }) }, condition.shortName),
-              h("small", null, `${condition.provider} \xB7 ${condition.runtime}`)
-            ),
-            h(ThreeScoreValue, { score: profile.scores.instruction }),
-            h(ThreeScoreValue, { score: profile.scores.tools }),
-            h(ThreeScoreValue, { score: profile.scores.agent }),
-            h(
-              "div",
-              { className: cx("acc-three-score__average", !profile.currentAverage.complete && "is-in-progress") },
-              h("strong", null, profile.currentAverage.value.toFixed(1)),
-              h("small", null, `${profile.currentAverage.complete ? "Complete" : "In progress"} \xB7 ${profile.currentAverage.verifiedSuites}/${profile.currentAverage.totalSuites} verified`),
-              h("span", { className: "acc-three-score__average-track", "aria-hidden": "true" }, h("span", { style: { width: `${profile.currentAverage.value}%` } }))
-            ),
-            h(
-              "div",
-              { className: "acc-three-score__evidence" },
-              h(Badge, { tone: "good" }, "Measured"),
-              h("small", null, `${Object.values(profile.scores).filter((score) => score.evidence === "verified").length} verified`)
-            )
-          );
-        })),
         h("div", { className: "acc-prototype-note" }, "Current average is the equal-weight arithmetic mean of final-verified suite scores available for that exact condition. Amber averages are incomplete and carry explicit coverage; pending suites are excluded rather than treated as zero. Conditions without measured evidence are excluded from this comparison.")
       );
     }
@@ -2751,6 +2899,15 @@
     function Benchmarks({ route, go }) {
       const isRollup = route.domain === "rollup";
       const domain = Object.hasOwn(RELEASES, route.domain) ? route.domain : "tool-use";
+      const leaderboardColumns = defineSortColumns("benchmarks.leaderboard", {
+        rank: (row) => row.canonicalRank,
+        condition: (row) => row.condition.shortName,
+        score: (row) => row.score,
+        denominator: (row) => row.denominator,
+        release: (row) => row.release,
+        availability: (row) => getEffectiveAvailability(row.condition)
+      });
+      const leaderboardSort = useSortableRows(getLeaderboard(domain, RELEASES[domain]).map((row, index) => ({ ...row, canonicalRank: index + 1 })), leaderboardColumns);
       const condition = !isRollup && route.condition ? getCondition(route.condition) : null;
       if (condition) return h(ConditionDetail, { condition, route, go, domain });
       if (!route.domain) return h(
@@ -2770,7 +2927,7 @@
         h("div", { className: "acc-toolbar" }, h(MetricTabs, { active: "rollup", onSelect: (nextDomain) => go({ view: "benchmarks", domain: nextDomain }) }), h(Badge, null, "Canonical only")),
         h(CapabilityRollup)
       );
-      const rows = getLeaderboard(domain, RELEASES[domain]);
+      const rows = leaderboardSort.rows;
       const title = domain === "tool-use" ? "Tool Use" : domain === "reasoning" ? "GPQA Diamond" : "Offline-safe Coding";
       return h(
         "div",
@@ -2787,12 +2944,12 @@
             { className: "acc-desktop-table" },
             h(
               "table",
-              null,
-              h("thead", null, h("tr", null, ["Rank", "Tested condition", "Score", "Denominator", "Release", "Availability"].map((label) => h("th", { key: label, scope: "col" }, label)))),
-              h("tbody", null, rows.map((row, index) => h(
+              { "aria-label": `${title} benchmark leaderboard` },
+              h("thead", null, h("tr", null, leaderboardColumns.map((definition) => h(SortableHeader, { key: definition.id, column: definition, sort: leaderboardSort.sort, onSort: leaderboardSort.onSort })))),
+              h("tbody", null, rows.map((row) => h(
                 "tr",
                 { key: row.id },
-                h("td", null, `#${index + 1}`),
+                h("td", null, `#${row.canonicalRank}`),
                 h("td", null, h("button", { type: "button", className: "acc-table-link", onClick: () => go({ view: "benchmarks", domain, condition: row.conditionId }) }, row.condition.shortName)),
                 h("td", { className: "acc-score-cell" }, `${row.score.toFixed(1)}%`),
                 h("td", null, row.denominator),
@@ -2801,11 +2958,23 @@
               )))
             )
           ),
+          h("div", { className: "acc-mobile-sort-controls", "aria-label": `${title} leaderboard sort controls` }, leaderboardColumns.map((definition) => {
+            const active = leaderboardSort.sort?.column === definition.id;
+            const direction = active ? leaderboardSort.sort.direction : null;
+            return h("button", {
+              key: definition.id,
+              type: "button",
+              className: "acc-sort-button",
+              "aria-label": `Sort by ${definition.label}`,
+              "aria-pressed": active,
+              onClick: () => leaderboardSort.onSort(definition.id)
+            }, h("span", null, definition.label), h("span", { className: "acc-sort-indicator", "aria-hidden": "true" }, direction === "ascending" ? "\u2191" : direction === "descending" ? "\u2193" : "\u2195"));
+          })),
           h("div", { className: "acc-mobile-ranking" }, rows.map(
-            (row, index) => h(
+            (row) => h(
               "button",
               { type: "button", key: row.id, className: "acc-mobile-row", onClick: () => go({ view: "benchmarks", domain, condition: row.conditionId }) },
-              h("span", { className: "acc-rank" }, `#${index + 1}`),
+              h("span", { className: "acc-rank" }, `#${row.canonicalRank}`),
               h("span", { className: "acc-mobile-row__identity" }, h("strong", null, row.condition.shortName), h("small", null, `${row.release} \xB7 n=${row.denominator}`)),
               h("span", { className: "acc-score" }, `${row.score.toFixed(1)}%`)
             )

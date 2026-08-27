@@ -1,6 +1,7 @@
 import { loadWebAnalyticsProjection } from './client.mjs';
 import { projectCurrentWebAnalyticsCoverage } from './schema.mjs';
 import { buildWorldTrafficModel } from './world-map.mjs';
+import { createSortingSupport, defineSortColumns } from '../sorting.mjs';
 
 const RANGE_LABELS = { '1d': '1 day', '7d': '7 days', '30d': '30 days' };
 const ANALYTICS_SHOWCASE_ENABLED = globalThis.__ACC_ANALYTICS_SHOWCASE__ === true;
@@ -56,6 +57,8 @@ export function projectTrafficScale(daily) {
 }
 
 export function createAnalyticsView({ React, h, useEffect, useState, Badge, StatusBadge, SectionHeading, ProviderUsage }) {
+  const { useSortableRows, SortableHeader } = createSortingSupport({ React, useState });
+
   function SourceCard({ eyebrow, title, status, description, action, onClick }) {
     return h('article', { className: 'acc-analytics-source-card' },
       h('div', { className: 'acc-analytics-source-card__head' },
@@ -126,6 +129,14 @@ export function createAnalyticsView({ React, h, useEffect, useState, Badge, Stat
     const rightInset = 22;
     const verticalInset = 22;
     const { maximum, ticks } = projectTrafficScale(range.daily);
+    const dailyColumns = defineSortColumns('analytics.daily', {
+      date: (day) => day.date,
+      state: (day) => day.state,
+      requests: (day) => day.requests,
+      visits: (day) => day.visits,
+      transfer: (day) => day.edgeResponseBytes,
+    });
+    const dailySort = useSortableRows([...range.daily].reverse(), dailyColumns);
     const xFor = (index) => leftInset + (index * (width - leftInset - rightInset)) / Math.max(range.daily.length - 1, 1);
     const yFor = (value) => height - verticalInset - ((value / maximum) * (height - (2 * verticalInset)));
     const segments = [];
@@ -149,9 +160,9 @@ export function createAnalyticsView({ React, h, useEffect, useState, Badge, Stat
       h('div', { className: 'acc-traffic-axis' }, h('span', null, range.startDate), h('span', null, range.endDate)),
       h('details', { className: 'acc-analytics-daily' },
         h('summary', null, 'Daily values and gap states'),
-        h('div', { className: 'acc-analytics-daily-table' }, h('table', null,
-          h('thead', null, h('tr', null, ['Date', 'State', 'Requests', 'Cloudflare Visits', 'Transfer'].map((label) => h('th', { key: label, scope: 'col' }, label)))),
-          h('tbody', null, [...range.daily].reverse().map((day) => h('tr', { key: day.date },
+        h('div', { className: 'acc-analytics-daily-table' }, h('table', { 'aria-label': 'Daily traffic exact values' },
+          h('thead', null, h('tr', null, dailyColumns.map((definition) => h(SortableHeader, { key: definition.id, column: definition, sort: dailySort.sort, onSort: dailySort.onSort })))),
+          h('tbody', null, dailySort.rows.map((day) => h('tr', { key: day.date, 'data-daily-row': day.date },
             h('td', null, day.date), h('td', null, day.state.replace('_', ' ')), h('td', null, day.requests == null ? '—' : formatNumber(day.requests)), h('td', null, day.visits == null ? '—' : formatNumber(day.visits)), h('td', null, day.edgeResponseBytes == null ? '—' : formatBytes(day.edgeResponseBytes)),
           ))),
         )),
@@ -199,18 +210,20 @@ export function createAnalyticsView({ React, h, useEffect, useState, Badge, Stat
   function CountryTable({ range }) {
     const [expanded, setExpanded] = useState(false);
     const projection = projectCountryRows(range.countries);
-    const rows = expanded ? projection.allRows : projection.defaultRows;
+    const countryColumns = defineSortColumns('analytics.countries', {
+      country: (row) => countryName(row.code),
+      requests: (row) => row.requests,
+      transfer: (row) => row.edgeResponseBytes,
+    });
+    const countrySort = useSortableRows(projection.allRows, countryColumns);
+    const rows = expanded ? countrySort.rows : countrySort.rows.slice(0, 10);
     return h('section', { className: 'acc-analytics-panel acc-country-table', 'aria-labelledby': 'acc-country-table-title' },
       h('div', { className: 'acc-analytics-panel__head' },
         h('div', null, h('p', { className: 'acc-eyebrow' }, 'Authoritative geography'), h('h2', { id: 'acc-country-table-title' }, 'Requests by country')),
         h('small', null, `${rows.length} of ${projection.allRows.length} shown`),
       ),
       projection.allRows.length ? h('div', { className: 'acc-country-table__frame' }, h('table', { 'aria-label': 'Authoritative requests by country' },
-        h('thead', null, h('tr', null,
-          h('th', { scope: 'col' }, 'Country'),
-          h('th', { scope: 'col' }, 'Requests'),
-          h('th', { scope: 'col' }, 'Transfer'),
-        )),
+        h('thead', null, h('tr', null, countryColumns.map((definition) => h(SortableHeader, { key: definition.id, column: definition, sort: countrySort.sort, onSort: countrySort.onSort })))),
         h('tbody', null, rows.map((row) => h('tr', { key: row.code, 'data-country-row': row.code },
           h('th', { scope: 'row' }, `${countryName(row.code)} · ${row.code}`),
           h('td', null, formatNumber(row.requests)),
