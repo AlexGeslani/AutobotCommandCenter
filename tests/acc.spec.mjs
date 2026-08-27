@@ -59,17 +59,40 @@ async function routeHiveMind(page) {
   }
 }
 
-test('ten-second facts are visible and primary IA is bounded', async ({ page }) => {
+function captureBrowserErrors(page) {
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`));
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(`console: ${message.text()}`);
+  });
+  return errors;
+}
+
+test('Overview prioritizes provider headroom and keeps destination summaries compact', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page);
   await page.goto(pluginUrl);
   await expect(page.getByRole('heading', { name: 'Autobot Command Center' })).toBeVisible();
   await expect(page.locator('img.acc-command-mark')).toHaveAttribute('src', /^data:image\/jpeg;base64,/);
   if (pluginUrl === '/') await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/autobot-mark.jpg?v=1');
+
+  const overview = page.locator('.acc-overview');
+  const sections = overview.locator(':scope > section');
+  await expect(sections.first().getByRole('heading', { name: 'Provider usage' })).toBeVisible();
+  await expect(sections.nth(1).getByRole('heading', { name: 'Source exceptions' })).toBeVisible();
+  await expect(sections.nth(2).getByRole('heading', { name: 'Explore details' })).toBeVisible();
   await expect(page.getByText('Recently landed', { exact: true })).toBeVisible();
-  await expect(page.getByText('Durable capabilities', { exact: true })).toBeVisible();
-  await expect(page.getByText('Model leaders', { exact: true })).toBeVisible();
-  await expect(page.getByText('Decision pending', { exact: true })).toBeVisible();
+  await expect(page.getByText('Durable capabilities', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Model leaders', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Decision pending', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Open Portfolio' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open Analytics' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open Benchmarks' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open Skills' })).toBeVisible();
+
   const localNav = page.getByRole('navigation', { name: 'Command Center sections' });
   await expect(localNav.getByRole('button')).toHaveCount(6);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  expect(browserErrors).toEqual([]);
 });
 
 test('Analytics exposes scalable domains and a truthful KFC real-data route', async ({ page }) => {
@@ -165,7 +188,19 @@ test('Voice Lab comparison is readable without mobile horizontal overflow', asyn
 });
 
 test('seven-model benchmark draft distinguishes final, partial measured, and illustrative evidence', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page);
   await page.goto(pluginUrl + '?view=benchmarks');
+  const measuredVisuals = page.getByRole('region', { name: 'Measured benchmark evidence visuals' });
+  await expect(measuredVisuals.getByRole('heading', { name: 'Measured suite comparison' })).toBeVisible();
+  await expect(measuredVisuals.locator('[data-measured-suite]')).toHaveCount(3);
+  await expect(measuredVisuals.locator('[data-measured-condition]')).toHaveCount(3);
+  await expect(measuredVisuals.locator('[data-measured-suite="instruction"] [data-score-bar]')).toHaveCount(3);
+  await expect(measuredVisuals.locator('[data-measured-suite="tools"] [data-score-bar]')).toHaveCount(2);
+  await expect(measuredVisuals.locator('[data-measured-suite="agent"] [data-score-bar]')).toHaveCount(2);
+  await expect(measuredVisuals.getByRole('cell', { name: /pending/ })).toHaveCount(2);
+  await expect(measuredVisuals.getByText('36 / 40 strict prompts', { exact: true })).toBeVisible();
+  await expect(measuredVisuals.getByText('Illustrative', { exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   await expect(page.getByRole('heading', { name: 'Three-score model comparison' })).toBeVisible();
   const comparison = page.getByRole('region', { name: 'Three-score model comparison' });
   await expect(comparison.locator('[data-benchmark-profile]')).toHaveCount(7);
@@ -237,6 +272,7 @@ test('seven-model benchmark draft distinguishes final, partial measured, and ill
   await expect(qwenOperations.getByText('60.17 tok/s', { exact: true })).toBeVisible();
   await expect(qwenOperations.getByText('MLX/Metal', { exact: true })).toBeVisible();
   await expect(qwenOperations.getByText('Verified repeat', { exact: true })).toBeVisible();
+  expect(browserErrors).toEqual([]);
 });
 
 test('leaderboard opens exact tested condition then run evidence', async ({ page }) => {

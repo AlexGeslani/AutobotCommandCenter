@@ -13,11 +13,13 @@ import {
   getLeaderboard,
   getCapabilityRollup,
   getBenchmarkComparison,
+  getMeasuredBenchmarkVisuals,
   getRunLineage,
   getEffectiveAvailability,
   getEffectiveProductClaims,
   getEffectiveSkillClaims,
   getSourceTrust,
+  getOverviewProjection,
   buildAccUrl,
   parseAccUrl,
   canonicalizeAccRoute,
@@ -219,64 +221,48 @@ export function registerAutobotCommandCenter() {
   }
 
   function Overview({ go, providerUsage }) {
-    const leaders = ['tool-use', 'reasoning', 'coding'].map((domain) => ({
-      domain,
-      row: getLeaderboard(domain)[0],
-    }));
-    const pending = fixtures.evaluations.filter((evaluation) => evaluation.stage === 'Running' || evaluation.stage === 'Verifying');
-    const durableProducts = ['autobot-command-center', 'jarvis', 'model-serving', 'benchmark-program']
-      .map((id) => fixtures.products.find((product) => product.id === id))
-      .filter(Boolean);
+    const overview = getOverviewProjection();
     return h('div', { className: 'acc-view acc-overview' },
-      h('section', { className: 'acc-section' },
-        h(SectionHeading, { eyebrow: 'Changed outcomes', title: 'Recently landed' }),
-        h('div', { className: 'acc-feature-grid' },
-          h('article', { className: 'acc-feature-card acc-feature-card--hero' },
-            h(Badge, { tone: 'good' }, 'Verified outcome'),
-            h('h3', null, 'Condition-aware benchmark lineage'),
-            h('p', null, 'Canonical scores now resolve to an exact tested condition, frozen release, and supporting run evidence.'),
-            h('button', { type: 'button', className: 'acc-link-button', onClick: () => go({ view: 'benchmarks' }) }, 'Inspect benchmark evidence'),
+      h(ProviderUsage, { snapshot: providerUsage, go, compact: true }),
+      h('section', { className: 'acc-section acc-overview-exceptions' },
+        h(SectionHeading, {
+          eyebrow: 'Claim boundaries',
+          title: 'Source exceptions',
+          action: h(Badge, { tone: overview.sourceExceptions.length ? 'warn' : 'good' }, overview.sourceExceptions.length ? `${overview.sourceExceptions.length} need attention` : 'All claim-safe'),
+        }),
+        h('div', { className: 'acc-overview-exception-list' }, overview.sourceExceptions.map((source) =>
+          h('article', { className: 'acc-overview-exception', key: source.id },
+            h(StatusBadge, { state: source.state }),
+            h('div', null, h('strong', null, source.label), h('small', null, `${source.authority} · ${source.freshness}`)),
           ),
-          h('article', { className: 'acc-feature-card' },
-            h(Badge, null, 'Product milestone'),
-            h('h3', null, 'Voice Lab acceptance envelope'),
-            h('p', null, 'The reusable voice core has a defined acceptance owner and rejects non-speech inputs.'),
-            h('button', { type: 'button', className: 'acc-link-button', onClick: () => go({ view: 'portfolio', product: 'voice-lab' }) }, 'Open Voice Lab'),
+        )),
+      ),
+      h('section', { className: 'acc-section acc-overview-destinations' },
+        h(SectionHeading, { eyebrow: 'Focused destinations', title: 'Explore details' }),
+        h('div', { className: 'acc-overview-destination-strip' }, overview.destinations.map((destination) =>
+          h('button', {
+            key: destination.id,
+            type: 'button',
+            className: 'acc-overview-destination',
+            'aria-label': `Open ${destination.label}`,
+            onClick: () => go({ view: destination.id }),
+          }, h('strong', null, destination.label), h('small', null, destination.summary), h('span', { 'aria-hidden': true }, '→')),
+        )),
+      ),
+      h('section', { className: 'acc-section acc-overview-landed' },
+        h(SectionHeading, { eyebrow: 'Changed outcomes', title: 'Recently landed' }),
+        h('div', { className: 'acc-overview-landed__list' },
+          h('button', { type: 'button', className: 'acc-overview-landed__item', onClick: () => go({ view: 'benchmarks' }) },
+            h(Badge, { tone: 'good' }, 'Verified'),
+            h('span', null, h('strong', null, 'Condition-aware benchmark lineage'), h('small', null, 'Exact condition, frozen release, and run evidence')),
+            h('span', { 'aria-hidden': true }, '→'),
+          ),
+          h('button', { type: 'button', className: 'acc-overview-landed__item', onClick: () => go({ view: 'portfolio', product: 'voice-lab' }) },
+            h(Badge, null, 'Milestone'),
+            h('span', null, h('strong', null, 'Voice Lab acceptance envelope'), h('small', null, 'Named acceptance owner and non-speech rejection')),
+            h('span', { 'aria-hidden': true }, '→'),
           ),
         ),
-      ),
-      h(ProviderUsage, { snapshot: providerUsage, go, compact: true }),
-      h('section', { className: 'acc-section' },
-        h(SectionHeading, { eyebrow: 'Durable objects', title: 'Durable capabilities' }),
-        h('div', { className: 'acc-card-grid' }, durableProducts.map((product) => {
-          const claims = getEffectiveProductClaims(product);
-          return h('button', { key: product.id, type: 'button', className: 'acc-object-card', onClick: () => go({ view: 'portfolio', product: product.id }) },
-            h('span', { className: 'acc-object-card__top' }, h(Badge, null, product.kind), h(StatusBadge, { state: claims.state.toLowerCase() })),
-            h('strong', null, product.name),
-            h('span', null, product.outcome),
-            h('small', null, `Verified ${product.verified} · ${product.source}`),
-          );
-        })),
-      ),
-      h('section', { className: 'acc-section' },
-        h(SectionHeading, { eyebrow: 'Separate capability areas', title: 'Model leaders' }),
-        h('div', { className: 'acc-leader-grid' }, leaders.map(({ domain, row }) =>
-          h('button', { key: domain, type: 'button', className: 'acc-leader-card', onClick: () => go({ view: 'benchmarks', domain, condition: row.conditionId }) },
-            h('span', { className: 'acc-leader-card__domain' }, domain === 'tool-use' ? 'Tool use' : domain === 'reasoning' ? 'GPQA Diamond' : 'Offline-safe coding'),
-            h('strong', null, row.condition.shortName),
-            h('span', { className: 'acc-score' }, `${row.score.toFixed(1)}%`),
-            h('small', null, `${row.release} · n=${row.denominator}`),
-          ),
-        )),
-      ),
-      h('section', { className: 'acc-section' },
-        h(SectionHeading, { eyebrow: 'Named decisions only', title: 'Decision pending' }),
-        h('div', { className: 'acc-evaluation-list' }, pending.map((evaluation) =>
-          h('button', { key: evaluation.id, type: 'button', className: 'acc-evaluation-row', onClick: () => go({ view: 'evidence', evaluation: evaluation.id }) },
-            h('span', null, h(StatusBadge, { state: evaluation.findingStatus }), h('strong', null, evaluation.title), h('small', null, evaluation.question)),
-            h(Meter, { value: evaluation.progress, label: evaluation.title }),
-          ),
-        )),
       ),
     );
   }
@@ -394,6 +380,45 @@ export function registerAutobotCommandCenter() {
     const label = score.value == null ? 'Pending' : score.value.toFixed(1);
     return h('span', { className: cx('acc-three-score__value', score.value == null && 'is-pending') },
       h('strong', null, label), h('small', null, score.benchmark),
+    );
+  }
+
+  function MeasuredBenchmarkVisuals({ go }) {
+    const visual = getMeasuredBenchmarkVisuals();
+    return h('section', { className: 'acc-measured-visuals', role: 'region', 'aria-label': 'Measured benchmark evidence visuals' },
+      h('div', { className: 'acc-measured-visuals__head' },
+        h('div', null, h('p', { className: 'acc-eyebrow' }, 'Verified evidence only'), h('h2', null, 'Measured suite comparison')),
+        h('div', { className: 'acc-chip-list' }, h(Badge, { tone: 'good' }, `${visual.profiles.length} measured conditions`), h(Badge, null, 'No blended score')),
+      ),
+      h('p', { className: 'acc-measured-visuals__method' }, 'Each panel uses its suite’s native 0–100 score. Pending suites remain visible in coverage but are never plotted as zero; illustrative fixtures are excluded.'),
+      h('div', { className: 'acc-evidence-matrix', role: 'table', 'aria-label': 'Measured evidence coverage' },
+        h('div', { className: 'acc-evidence-matrix__head', role: 'row' },
+          h('span', { role: 'columnheader' }, 'Tested condition'),
+          visual.suites.map((suite) => h('span', { key: suite.id, role: 'columnheader' }, suite.label)),
+        ),
+        visual.profiles.map((profile) => h('div', { className: 'acc-evidence-matrix__row', role: 'row', key: profile.conditionId, 'data-measured-condition': profile.conditionId },
+          h('span', { role: 'rowheader' }, h('button', { type: 'button', className: 'acc-table-link', onClick: () => go({ view: 'benchmarks', condition: profile.conditionId }) }, profile.shortName)),
+          visual.suites.map((suite) => h('span', { key: suite.id, role: 'cell', 'aria-label': `${suite.label}: ${profile.coverage[suite.id]}` }, h(StatusBadge, { state: profile.coverage[suite.id] }))),
+        )),
+      ),
+      h('div', { className: 'acc-measured-suite-grid' }, visual.suites.map((suite) =>
+        h('article', { className: 'acc-measured-suite', key: suite.id, 'data-measured-suite': suite.id },
+          h('div', { className: 'acc-measured-suite__head' }, h('h3', null, suite.label), h('small', null, `${suite.rows.length} measured score${suite.rows.length === 1 ? '' : 's'}`)),
+          h('ul', null, suite.rows.map((row) => h('li', { key: row.conditionId, 'data-score-bar': row.conditionId },
+            h('button', {
+              type: 'button',
+              className: 'acc-measured-score',
+              'aria-label': `${row.shortName}: ${row.value.toFixed(1)} on ${suite.label}; ${row.denominator}`,
+              onClick: () => go({ view: 'benchmarks', condition: row.conditionId }),
+            },
+            h('span', { className: 'acc-measured-score__identity' }, h('strong', null, row.shortName), h('small', null, row.denominator)),
+            h('span', { className: 'acc-measured-score__value' }, row.value.toFixed(1)),
+            h('span', { className: 'acc-measured-score__track', 'aria-hidden': 'true' }, h('span', { style: { width: `${row.value}%` } })),
+            ),
+          ))),
+        ),
+      )),
+      h('p', { className: 'acc-measured-visuals__boundary' }, 'Compare within a suite only. This view does not declare a universal winner, average the suites, or promote missing evidence.'),
     );
   }
 
@@ -607,6 +632,7 @@ export function registerAutobotCommandCenter() {
       h(SectionHeading, { eyebrow: 'Model Observatory', title: 'Benchmarks' }),
       h('p', { className: 'acc-lede' }, 'Compare every tested model through the same three operational scores, then open a condition for suite-level evidence and caveats.'),
       h('div', { className: 'acc-toolbar' }, h(MetricTabs, { active: 'comparison', onSelect: (nextDomain) => go({ view: 'benchmarks', domain: nextDomain }) }), h(Badge, { tone: 'warn' }, 'Dev draft')),
+      h(MeasuredBenchmarkVisuals, { go }),
       h(ThreeScoreComparison, { go }),
     );
     if (isRollup) return h('div', { className: 'acc-view' },

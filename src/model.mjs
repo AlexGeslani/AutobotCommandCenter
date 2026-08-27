@@ -363,6 +363,34 @@ export function getBenchmarkComparison(conditionId = null) {
   return conditionId ? profiles.find((profile) => profile.conditionId === conditionId) || null : profiles;
 }
 
+export function getMeasuredBenchmarkVisuals() {
+  const suiteOrder = ['instruction', 'tools', 'agent'];
+  const measured = getBenchmarkComparison().filter((profile) => profile.evidence === 'measured');
+  return {
+    profiles: measured.map((profile) => ({
+      conditionId: profile.conditionId,
+      shortName: profile.condition.shortName,
+      provider: profile.condition.provider,
+      runtime: profile.condition.runtime,
+      coverage: Object.fromEntries(suiteOrder.map((suiteId) => [suiteId, profile.scores[suiteId].evidence])),
+    })),
+    suites: suiteOrder.map((suiteId) => ({
+      id: suiteId,
+      label: measured[0].scores[suiteId].benchmark,
+      rows: measured
+        .map((profile) => ({
+          conditionId: profile.conditionId,
+          shortName: profile.condition.shortName,
+          value: profile.scores[suiteId].value,
+          denominator: profile.scores[suiteId].denominator,
+          evidence: profile.scores[suiteId].evidence,
+        }))
+        .filter((row) => row.value != null && row.evidence === 'verified')
+        .sort((a, b) => b.value - a.value),
+    })),
+  };
+}
+
 export function getFamily(id) {
   return fixtures.modelFamilies.find((family) => family.id === id) || null;
 }
@@ -466,6 +494,19 @@ export function getVoicePerformance(id = fixtures.voicePerformance.id) {
 
 export function getSourceTrust() {
   return fixtures.sources;
+}
+
+export function getOverviewProjection() {
+  return {
+    sectionOrder: ['provider-usage', 'source-exceptions', 'destinations', 'recently-landed'],
+    sourceExceptions: getSourceTrust().filter((source) => source.invalidatesClaims),
+    destinations: [
+      { id: 'portfolio', label: 'Portfolio', summary: 'Products and durable capabilities' },
+      { id: 'analytics', label: 'Analytics', summary: 'Traffic, service usage, and coverage' },
+      { id: 'benchmarks', label: 'Benchmarks', summary: 'Measured model evidence' },
+      { id: 'skills', label: 'Skills', summary: 'Reusable delivery knowledge' },
+    ],
+  };
 }
 
 export function buildAccUrl(state = {}, basePath = '/autobot-command-center') {

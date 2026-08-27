@@ -16,6 +16,8 @@ import {
   canonicalizeAccRoute,
   getVoicePerformance,
   getBenchmarkComparison,
+  getMeasuredBenchmarkVisuals,
+  getOverviewProjection,
 } from '../src/model.mjs';
 
 describe('ACC product contract', () => {
@@ -75,6 +77,30 @@ describe('ACC product contract', () => {
     expect(comparison.every((profile) => Object.keys(profile.scores).join(',') === 'instruction,tools,agent')).toBe(true);
   });
 
+  it('builds per-suite visuals from measured evidence only and preserves missing coverage', () => {
+    const visual = getMeasuredBenchmarkVisuals();
+    expect(visual).not.toHaveProperty('overallScore');
+    expect(visual).not.toHaveProperty('winner');
+    expect(visual.profiles.map((profile) => profile.conditionId)).toEqual([
+      'gpt56-luna-max', 'gpt56-sol-max', 'qwen38-2b-mlx',
+    ]);
+    expect(visual.profiles.map((profile) => profile.coverage)).toEqual([
+      { instruction: 'verified', tools: 'verified', agent: 'verified' },
+      { instruction: 'verified', tools: 'verified', agent: 'verified' },
+      { instruction: 'verified', tools: 'pending', agent: 'pending' },
+    ]);
+    expect(visual.suites.map((suite) => suite.id)).toEqual(['instruction', 'tools', 'agent']);
+    expect(visual.suites.map((suite) => suite.label)).toEqual(['IFEval', 'BFCL V4', 'tau2']);
+    expect(visual.suites[0].rows.map((row) => [row.conditionId, row.value])).toEqual([
+      ['gpt56-sol-max', 90], ['gpt56-luna-max', 82.5], ['qwen38-2b-mlx', 22.5],
+    ]);
+    expect(visual.suites[1].rows.map((row) => row.conditionId)).toEqual(['gpt56-sol-max', 'gpt56-luna-max']);
+    expect(visual.suites[2].rows.map((row) => row.conditionId)).toEqual(['gpt56-sol-max', 'gpt56-luna-max']);
+    expect(visual.suites[0].rows[0].denominator).toBe('36 / 40 strict prompts');
+    expect(visual.suites.flatMap((suite) => suite.rows).every((row) => row.value != null && row.evidence === 'verified')).toBe(true);
+    expect(JSON.stringify(visual)).not.toMatch(/illustrative/i);
+  });
+
   it('projects the measured Prime voice comparison as exact route evidence', () => {
     const snapshot = getVoicePerformance();
     expect(snapshot.id).toBe('voice-performance-2026-07-26');
@@ -89,6 +115,25 @@ describe('ACC product contract', () => {
     expect(NAV_ITEMS.map((item) => item.label)).toEqual([
       'Overview', 'Portfolio', 'Analytics', 'Benchmarks', 'Skill Registry', 'Hive Mind',
     ]);
+  });
+
+  it('prioritizes provider headroom and keeps Overview destination summaries compact', () => {
+    const overview = getOverviewProjection();
+    expect(overview.sectionOrder).toEqual([
+      'provider-usage', 'source-exceptions', 'destinations', 'recently-landed',
+    ]);
+    expect(overview.sourceExceptions.map((source) => source.id)).toEqual([
+      'runtime', 'skill-meta',
+    ]);
+    expect(overview.destinations).toEqual([
+      { id: 'portfolio', label: 'Portfolio', summary: 'Products and durable capabilities' },
+      { id: 'analytics', label: 'Analytics', summary: 'Traffic, service usage, and coverage' },
+      { id: 'benchmarks', label: 'Benchmarks', summary: 'Measured model evidence' },
+      { id: 'skills', label: 'Skills', summary: 'Reusable delivery knowledge' },
+    ]);
+    expect(overview.sectionOrder).not.toEqual(expect.arrayContaining([
+      'durable-capabilities', 'model-leaders', 'decision-pending',
+    ]));
   });
 
   it('round-trips analytics domain, subject, range, and fixture mode', () => {
