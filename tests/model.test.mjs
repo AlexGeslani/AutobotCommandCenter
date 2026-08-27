@@ -23,11 +23,11 @@ import {
 } from '../src/model.mjs';
 
 describe('ACC product contract', () => {
-  it('presents seven model conditions through the three-score benchmark standard', () => {
+  it('presents only measured model conditions through the three-score benchmark standard', () => {
     const comparison = getBenchmarkComparison();
-    expect(comparison).toHaveLength(7);
+    expect(comparison).toHaveLength(4);
     expect(comparison.map((profile) => profile.conditionId)).toEqual([
-      'gpt56-luna-max', 'gpt56-sol-max', 'qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b', 'qwen36-27b', 'bonsai-8b', 'qwen35-4b',
+      'gpt56-luna-max', 'gpt56-sol-max', 'qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b',
     ]);
     expect(comparison[0].scores).toMatchObject({
       instruction: { value: 82.5, evidence: 'verified' },
@@ -61,25 +61,27 @@ describe('ACC product contract', () => {
     });
     expect(comparison[2]).toMatchObject({
       conditionId: 'qwen38-2b-mlx', evidence: 'measured',
+      currentAverage: { value: 15.61, verifiedSuites: 2, totalSuites: 3, complete: false },
       scores: {
         instruction: { value: 22.5, evidence: 'verified', denominator: '9 / 40 strict prompts' },
-        tools: { value: null, evidence: 'pending' },
-        agent: { value: null, evidence: 'pending' },
+        tools: { value: 8.72, evidence: 'verified', denominator: '150 / 150 frozen scored cases' },
+        agent: { value: null, evidence: 'pending', progress: { current: 23, total: 50, state: 'in-progress' } },
       },
       operational: {
-        evidence: 'verified-repeat',
-        candidateUsage: { inputTokens: 2596, outputTokens: 123437, totalTokens: 126033, cachedInputTokens: 0, reasoningTokens: null },
-        performance: { class: 'local-runtime', successfulResponses: 40, bridgeErrorEvents: 0, latencySeconds: { median: 6.2165, mean: 51.2856, p95: 136.3943 }, endToEndOutputTokensPerSecond: 60.1714 },
+        evidence: 'verified-partial',
+        candidateUsage: { inputTokens: 9839500, outputTokens: 1130727, totalTokens: 10970227, cachedInputTokens: 2135136, reasoningTokens: null },
+        performance: { class: 'local-runtime', successfulResponses: 1608, bridgeErrorEvents: 0, latencySeconds: { median: 11.6742, mean: 21.2696, p95: 78.2772 }, endToEndOutputTokensPerSecond: 29.4517 },
         localRuntime: { hardwareProfile: 'ark-mac-mini-m2-24gb-20260826', processor: 'Apple M2 · 8-core CPU', memory: '24 GB unified memory', accelerator: 'Apple M2 · 10-core GPU · Metal', os: 'macOS 26.5.2', backend: 'MLX/Metal', context: '262,144 tokens', concurrency: 1, retries: 0 },
       },
     });
-    expect(comparison[2].note).toMatch(/two exact matched runs/i);
+    expect(comparison[2].note).toMatch(/BFCL scored 8\.72%/i);
     expect(comparison[3]).toMatchObject({
       conditionId: 'qwen36-35b-heretic-gpu-b', evidence: 'measured',
+      currentAverage: { value: 77.5, verifiedSuites: 1, totalSuites: 3, complete: false },
       scores: {
         instruction: { value: 77.5, evidence: 'verified', denominator: '31 / 40 strict prompts' },
-        tools: { value: null, evidence: 'pending' },
-        agent: { value: null, evidence: 'pending' },
+        tools: { value: null, evidence: 'pending', progress: { current: 180, total: 261, state: 'in-progress' } },
+        agent: { value: null, evidence: 'pending', progress: { current: 0, total: 50, state: 'queued' } },
       },
       operational: {
         evidence: 'verified-partial',
@@ -89,7 +91,9 @@ describe('ACC product contract', () => {
       },
     });
     expect(comparison.slice(0, 2).every((profile) => profile.operational.pricing.assumption === 'All retained input priced as uncached')).toBe(true);
-    expect(comparison.slice(4).every((profile) => profile.evidence === 'illustrative')).toBe(true);
+    expect(comparison.map((profile) => profile.currentAverage.value)).toEqual([58.8, 69.52, 15.61, 77.5]);
+    expect(comparison.every((profile) => profile.evidence === 'measured')).toBe(true);
+    expect(comparison.some((profile) => profile.evidence === 'illustrative')).toBe(false);
     expect(comparison.every((profile) => Object.keys(profile.scores).join(',') === 'instruction,tools,agent')).toBe(true);
   });
 
@@ -103,18 +107,24 @@ describe('ACC product contract', () => {
     expect(visual.profiles.map((profile) => profile.coverage)).toEqual([
       { instruction: 'verified', tools: 'verified', agent: 'verified' },
       { instruction: 'verified', tools: 'verified', agent: 'verified' },
-      { instruction: 'verified', tools: 'pending', agent: 'pending' },
-      { instruction: 'verified', tools: 'pending', agent: 'pending' },
+      { instruction: 'verified', tools: 'verified', agent: 'in-progress' },
+      { instruction: 'verified', tools: 'in-progress', agent: 'queued' },
     ]);
     expect(visual.suites.map((suite) => suite.id)).toEqual(['instruction', 'tools', 'agent']);
     expect(visual.suites.map((suite) => suite.label)).toEqual(['IFEval', 'BFCL V4', 'tau2']);
     expect(visual.suites[0].rows.map((row) => [row.conditionId, row.value])).toEqual([
       ['gpt56-sol-max', 90], ['gpt56-luna-max', 82.5], ['qwen36-35b-heretic-gpu-b', 77.5], ['qwen38-2b-mlx', 22.5],
     ]);
-    expect(visual.suites[1].rows.map((row) => row.conditionId)).toEqual(['gpt56-sol-max', 'gpt56-luna-max']);
-    expect(visual.suites[2].rows.map((row) => row.conditionId)).toEqual(['gpt56-sol-max', 'gpt56-luna-max']);
+    expect(visual.suites[1].rows.map((row) => row.conditionId)).toEqual(['gpt56-sol-max', 'gpt56-luna-max', 'qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b']);
+    expect(visual.suites[2].rows.map((row) => row.conditionId)).toEqual(['gpt56-sol-max', 'gpt56-luna-max', 'qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b']);
     expect(visual.suites[0].rows[0].denominator).toBe('36 / 40 strict prompts');
-    expect(visual.suites.flatMap((suite) => suite.rows).every((row) => row.value != null && row.evidence === 'verified')).toBe(true);
+    expect(visual.suites[1].rows.at(-1)).toMatchObject({ kind: 'progress', evidence: 'in-progress', progress: { current: 180, total: 261 } });
+    expect(visual.suites[1].rows.at(-1).barValue).toBeCloseTo(69.0, 1);
+    expect(visual.suites[2].rows.slice(-2)).toMatchObject([
+      { conditionId: 'qwen38-2b-mlx', kind: 'progress', evidence: 'in-progress', barValue: 46, progress: { current: 23, total: 50 } },
+      { conditionId: 'qwen36-35b-heretic-gpu-b', kind: 'progress', evidence: 'queued', barValue: 0, progress: { current: 0, total: 50 } },
+    ]);
+    expect(visual.suites.flatMap((suite) => suite.rows).filter((row) => row.kind === 'score').every((row) => row.value != null && row.evidence === 'verified')).toBe(true);
     expect(JSON.stringify(visual)).not.toMatch(/illustrative/i);
   });
 

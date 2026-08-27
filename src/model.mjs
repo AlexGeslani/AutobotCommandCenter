@@ -221,16 +221,16 @@ export const fixtures = {
       },
     },
     {
-      conditionId: 'qwen38-2b-mlx', evidence: 'measured', note: 'IFEval is final-verified across two exact matched runs: both scored 9 / 40 strict prompts and 47 / 95 instructions, with 40 / 40 response texts matching exactly. BFCL and tau2 were not run, so their primary scores remain Pending rather than zero. The local performance figures describe the exact 4-bit MLX/Metal condition; non-streaming wall time includes transport, prompt evaluation, and generation.',
+      conditionId: 'qwen38-2b-mlx', evidence: 'measured', note: 'IFEval and BFCL are final-verified for the exact 4-bit MLX/Metal condition. IFEval repeated exactly at 9 / 40 strict prompts and 47 / 95 instructions; BFCL scored 8.72% across the frozen 150-case selection after all 261 required rows were generated. tau2 Retail is active at 23 / 25 completed simulations in the captured progress snapshot; Telecom remains queued, so the tau2 primary score stays Pending rather than zero.',
       operational: {
-        evidence: 'verified-repeat',
-        candidateUsage: { inputTokens: 2596, outputTokens: 123437, totalTokens: 126033, cachedInputTokens: 0, reasoningTokens: null, retainedBridgeEvents: 40, basis: 'Latest matched repeat · 40 requests' },
+        evidence: 'verified-partial',
+        candidateUsage: { inputTokens: 9839500, outputTokens: 1130727, totalTokens: 10970227, cachedInputTokens: 2135136, reasoningTokens: null, retainedBridgeEvents: 1648, basis: 'Final-verified IFEval matched repeat plus final-verified BFCL · incomplete tau2 usage excluded' },
         performance: {
-          class: 'local-runtime', successfulResponses: 40, bridgeErrorEvents: 0,
-          latencySeconds: { minimum: 0.9922, median: 6.2165, mean: 51.2856, p95: 136.3943, maximum: 144.2473, total: 2051.4235 },
-          endToEndOutputTokensPerSecond: 60.1714,
-          measurementBoundary: 'Client end-to-end non-streaming request wall time',
-          variability: 'Matched repeat mean was 51.75s versus 51.29s; all 40 response texts and usage records matched exactly. TTFT, pure decoder throughput, peak RSS, Metal memory, and thermal/power state were not captured.',
+          class: 'local-runtime', successfulResponses: 1608, bridgeErrorEvents: 0,
+          latencySeconds: { minimum: 1.2452, median: 11.6742, mean: 21.2696, p95: 78.2772, maximum: 367.2935, total: 34201.4525 },
+          endToEndOutputTokensPerSecond: 29.4517,
+          measurementBoundary: 'BFCL bridge end-to-end non-streaming request wall time across all retained prerequisite and scored requests',
+          variability: 'The displayed runtime distribution is BFCL-specific and includes transport, prompt evaluation, and generation. IFEval repeat performance remains in the instruction-score detail. TTFT, pure decoder throughput, peak RSS, Metal memory, and thermal/power state were not captured.',
         },
         localRuntime: {
           hardwareProfile: 'ark-mac-mini-m2-24gb-20260826', capturedAt: '2026-08-26', machine: 'Mac mini', processor: 'Apple M2 · 8-core CPU', memory: '24 GB unified memory', accelerator: 'Apple M2 · 10-core GPU · Metal', os: 'macOS 26.5.2',
@@ -241,18 +241,20 @@ export const fixtures = {
         outcomes: [
           ['IFEval repeated result', '9 / 40 prompts · 47 / 95 instructions · identical across two runs'],
           ['Repeat consistency', '40 / 40 exact response-text matches · 40 / 40 exact usage matches'],
-          ['Coverage boundary', 'BFCL and tau2 not run · scores withheld as Pending'],
+          ['BFCL final result', '8.72% · 261 / 261 generated · 150 / 150 scored · final verification passed'],
+          ['BFCL custody', '1,608 / 1,608 bridge requests succeeded · 0 transport errors · 0 retries'],
+          ['tau2 progress snapshot', '23 / 50 frozen tasks completed · Retail 23 / 25 · Telecom queued · score withheld as Pending'],
         ],
-        methodNote: 'Local performance is specific to this host, runtime, quantization, context/output envelope, serial slot, and warm-state collection. Pure generation speed and resource peaks were unavailable in the retained evidence.',
+        methodNote: 'Local performance is specific to this host, runtime, quantization, context/output envelope, serial slot, and warm-state collection. Candidate usage includes only final-verified IFEval and BFCL evidence; incomplete tau2 usage is excluded. Pure generation speed and resource peaks were unavailable in the retained evidence.',
       },
       scores: {
         instruction: { label: 'Instruction following', benchmark: 'IFEval', value: 22.5, evidence: 'verified', denominator: '9 / 40 strict prompts', detail: [['Instruction checks', '47 / 95 · 49.5%'], ['Matched repeats', '2 · identical scores'], ['Exact response matches', '40 / 40'], ['Repeat mean / p95', '51.29s / 136.39s'], ['Completion tokens', '123,437'], ['Final verification', 'Passed · both runs']] },
-        tools: { label: 'Native tool use', benchmark: 'BFCL V4', value: null, evidence: 'pending', denominator: 'Not run · score withheld', detail: [['Admission observation', 'Native tool call not emitted'], ['Scoring state', 'Pending full frozen inventory']] },
-        agent: { label: 'Multi-turn agent', benchmark: 'tau2', value: null, evidence: 'pending', denominator: 'Not run · score withheld', detail: [['Scoring state', 'Pending full frozen inventory']] },
+        tools: { label: 'Native tool use', benchmark: 'BFCL V4', value: 8.72, evidence: 'verified', denominator: '150 / 150 frozen scored cases', detail: [['Generated traces', '261 / 261'], ['Non-live AST', '39.17%'], ['Live', '0.00%'], ['Multi-turn tools', '1.25%'], ['Memory', '7.14%'], ['Bridge requests', '1,608 / 1,608 succeeded · 0 transport errors · 0 retries'], ['Latency median / mean / p95', '11.67s / 21.27s / 78.28s'], ['Final verification', 'Passed']] },
+        agent: { label: 'Multi-turn agent', benchmark: 'tau2', value: null, evidence: 'pending', denominator: 'Retail 23 / 25 live · score withheld', progress: { current: 23, total: 50, label: '23 / 50 frozen tasks · Retail 23 / 25', state: 'in-progress', capturedAt: '2026-08-27T21:29:24Z' }, detail: [['Frozen inventory', '25 Retail + 25 Telecom'], ['Completed simulations', 'Retail 23 / 25 · 23 / 50 total'], ['Harness errors', '0 observed in current progress artifact'], ['Telecom', 'Queued after Retail'], ['Scoring state', 'Pending full frozen inventory and final verification']] },
       },
     },
     {
-      conditionId: 'qwen36-35b-heretic-gpu-b', evidence: 'measured', note: 'IFEval is final-verified for the exact GPU Node B Qwen3.6 35B Heretic Q4_K_M MTP-N2 condition. BFCL generation remains in progress and tau2 is queued, so both primary scores remain Pending rather than zero. Hardware identity beyond the retained public-safe host label and runtime/deployment geometry was not captured and is shown as unavailable rather than inferred.',
+      conditionId: 'qwen36-35b-heretic-gpu-b', evidence: 'measured', note: 'IFEval is final-verified for the exact GPU Node B Qwen3.6 35B Heretic Q4_K_M MTP-N2 condition. The live BFCL controller had generated 180 / 261 required rows in the captured 2026-08-27 progress snapshot and remained active; tau2 is queued. Both unfinished primary scores remain Pending rather than zero. Hardware identity beyond the retained public-safe host label and runtime/deployment geometry was not captured and is shown as unavailable rather than inferred.',
       operational: {
         evidence: 'verified-partial',
         candidateUsage: { inputTokens: 2596, outputTokens: 157506, totalTokens: 160102, cachedInputTokens: null, reasoningTokens: null, retainedBridgeEvents: 40, basis: 'Final-verified IFEval · 40 requests' },
@@ -271,39 +273,16 @@ export const fixtures = {
         outcomes: [
           ['IFEval final result', '31 / 40 prompts · 86 / 95 instructions'],
           ['IFEval failures', '0 provider failures · 0 measurement-path failures'],
-          ['Coverage boundary', 'BFCL generation in progress; tau2 queued · scores withheld as Pending'],
+          ['BFCL progress snapshot', '180 / 261 required rows generated · controller active · score withheld as Pending'],
+          ['Coverage boundary', 'BFCL scoring incomplete; tau2 queued · unfinished scores are not estimated or represented as zero'],
           ['Hardware boundary', 'Processor, RAM, accelerator, and OS were not captured in retained run evidence'],
         ],
         methodNote: 'The displayed score is final-verified IFEval evidence only. BFCL and tau2 are not averaged, estimated, or represented as zero while collection is incomplete.',
       },
       scores: {
         instruction: { label: 'Instruction following', benchmark: 'IFEval', value: 77.5, evidence: 'verified', denominator: '31 / 40 strict prompts', detail: [['Instruction checks', '86 / 95 · 90.5%'], ['Median / mean request', '38.25s / 45.71s'], ['Request p95', '109.71s'], ['Completion tokens', '157,506'], ['End-to-end output throughput', '86.15 tok/s'], ['Final verification', 'Passed · exact model and runtime lineage']] },
-        tools: { label: 'Native tool use', benchmark: 'BFCL V4', value: null, evidence: 'pending', denominator: 'Run in progress · score withheld', detail: [['Frozen inventory', '261 generated / 150 scored rows'], ['Scoring state', 'Generation in progress · evaluator not yet run']] },
-        agent: { label: 'Multi-turn agent', benchmark: 'tau2', value: null, evidence: 'pending', denominator: 'Queued · score withheld', detail: [['Frozen inventory', '25 Retail + 25 Telecom'], ['Scoring state', 'Queued after BFCL']] },
-      },
-    },
-    {
-      conditionId: 'qwen36-27b', evidence: 'illustrative', note: 'Illustrative values only — used to test comparison density and drill-down behavior before this condition is benchmarked.',
-      scores: {
-        instruction: { label: 'Instruction following', benchmark: 'IFEval', value: 74.1, evidence: 'illustrative', denominator: 'Example metric', detail: [] },
-        tools: { label: 'Native tool use', benchmark: 'BFCL V4', value: 47.6, evidence: 'illustrative', denominator: 'Example metric', detail: [] },
-        agent: { label: 'Multi-turn agent', benchmark: 'tau2', value: 46.5, evidence: 'illustrative', denominator: 'Example metric', detail: [] },
-      },
-    },
-    {
-      conditionId: 'bonsai-8b', evidence: 'illustrative', note: 'Illustrative values only — used to test comparison density and drill-down behavior before this condition is benchmarked.',
-      scores: {
-        instruction: { label: 'Instruction following', benchmark: 'IFEval', value: 68.3, evidence: 'illustrative', denominator: 'Example metric', detail: [] },
-        tools: { label: 'Native tool use', benchmark: 'BFCL V4', value: 35.7, evidence: 'illustrative', denominator: 'Example metric', detail: [] },
-        agent: { label: 'Multi-turn agent', benchmark: 'tau2', value: 38.9, evidence: 'illustrative', denominator: 'Example metric', detail: [] },
-      },
-    },
-    {
-      conditionId: 'qwen35-4b', evidence: 'illustrative', note: 'Illustrative values only — used to test comparison density and drill-down behavior before this condition is benchmarked.',
-      scores: {
-        instruction: { label: 'Instruction following', benchmark: 'IFEval', value: 61.8, evidence: 'illustrative', denominator: 'Example metric', detail: [] },
-        tools: { label: 'Native tool use', benchmark: 'BFCL V4', value: 28.4, evidence: 'illustrative', denominator: 'Example metric', detail: [] },
-        agent: { label: 'Multi-turn agent', benchmark: 'tau2', value: 31.6, evidence: 'illustrative', denominator: 'Example metric', detail: [] },
+        tools: { label: 'Native tool use', benchmark: 'BFCL V4', value: null, evidence: 'pending', denominator: '180 / 261 generated at snapshot · score withheld', progress: { current: 180, total: 261, label: '180 / 261 required rows generated', state: 'in-progress', capturedAt: '2026-08-27T21:30:56Z' }, detail: [['Frozen inventory', '261 generated / 150 scored rows'], ['Progress snapshot', '180 / 261 generated · captured 2026-08-27'], ['Current workload', 'Multi-turn long-context'], ['Scoring state', 'Generation in progress · evaluator not yet run']] },
+        agent: { label: 'Multi-turn agent', benchmark: 'tau2', value: null, evidence: 'pending', denominator: 'Queued · score withheld', progress: { current: 0, total: 50, label: '0 / 50 tasks · queued after BFCL', state: 'queued', capturedAt: '2026-08-27' }, detail: [['Frozen inventory', '25 Retail + 25 Telecom'], ['Progress snapshot', '0 / 50 · queued'], ['Scoring state', 'Queued after BFCL']] },
       },
     },
   ],
@@ -374,7 +353,22 @@ export function getCondition(id) {
 }
 
 export function getBenchmarkComparison(conditionId = null) {
-  const profiles = fixtures.benchmarkComparison.map((profile) => ({ ...profile, condition: getCondition(profile.conditionId) }));
+  const profiles = fixtures.benchmarkComparison.map((profile) => {
+    const verifiedScores = Object.values(profile.scores).filter((score) => score.evidence === 'verified' && score.value != null);
+    const currentAverage = verifiedScores.length
+      ? Number((verifiedScores.reduce((sum, score) => sum + score.value, 0) / verifiedScores.length).toFixed(2))
+      : null;
+    return {
+      ...profile,
+      condition: getCondition(profile.conditionId),
+      currentAverage: {
+        value: currentAverage,
+        verifiedSuites: verifiedScores.length,
+        totalSuites: Object.keys(profile.scores).length,
+        complete: verifiedScores.length === Object.keys(profile.scores).length,
+      },
+    };
+  });
   return conditionId ? profiles.find((profile) => profile.conditionId === conditionId) || null : profiles;
 }
 
@@ -387,21 +381,27 @@ export function getMeasuredBenchmarkVisuals() {
       shortName: profile.condition.shortName,
       provider: profile.condition.provider,
       runtime: profile.condition.runtime,
-      coverage: Object.fromEntries(suiteOrder.map((suiteId) => [suiteId, profile.scores[suiteId].evidence])),
+      coverage: Object.fromEntries(suiteOrder.map((suiteId) => [suiteId, profile.scores[suiteId].progress?.state || profile.scores[suiteId].evidence])),
     })),
     suites: suiteOrder.map((suiteId) => ({
       id: suiteId,
       label: measured[0].scores[suiteId].benchmark,
       rows: measured
-        .map((profile) => ({
-          conditionId: profile.conditionId,
-          shortName: profile.condition.shortName,
-          value: profile.scores[suiteId].value,
-          denominator: profile.scores[suiteId].denominator,
-          evidence: profile.scores[suiteId].evidence,
-        }))
-        .filter((row) => row.value != null && row.evidence === 'verified')
-        .sort((a, b) => b.value - a.value),
+        .map((profile) => {
+          const score = profile.scores[suiteId];
+          if (score.value != null && score.evidence === 'verified') return {
+            conditionId: profile.conditionId, shortName: profile.condition.shortName, value: score.value, barValue: score.value,
+            denominator: score.denominator, evidence: 'verified', kind: 'score', progress: null,
+          };
+          if (score.progress) return {
+            conditionId: profile.conditionId, shortName: profile.condition.shortName, value: null,
+            barValue: score.progress.total ? (score.progress.current / score.progress.total) * 100 : 0,
+            denominator: score.progress.label, evidence: score.progress.state, kind: 'progress', progress: score.progress,
+          };
+          return null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => (a.kind === b.kind ? b.barValue - a.barValue : a.kind === 'score' ? -1 : 1)),
     })),
   };
 }

@@ -1536,18 +1536,18 @@
       {
         conditionId: "qwen38-2b-mlx",
         evidence: "measured",
-        note: "IFEval is final-verified across two exact matched runs: both scored 9 / 40 strict prompts and 47 / 95 instructions, with 40 / 40 response texts matching exactly. BFCL and tau2 were not run, so their primary scores remain Pending rather than zero. The local performance figures describe the exact 4-bit MLX/Metal condition; non-streaming wall time includes transport, prompt evaluation, and generation.",
+        note: "IFEval and BFCL are final-verified for the exact 4-bit MLX/Metal condition. IFEval repeated exactly at 9 / 40 strict prompts and 47 / 95 instructions; BFCL scored 8.72% across the frozen 150-case selection after all 261 required rows were generated. tau2 Retail is active at 23 / 25 completed simulations in the captured progress snapshot; Telecom remains queued, so the tau2 primary score stays Pending rather than zero.",
         operational: {
-          evidence: "verified-repeat",
-          candidateUsage: { inputTokens: 2596, outputTokens: 123437, totalTokens: 126033, cachedInputTokens: 0, reasoningTokens: null, retainedBridgeEvents: 40, basis: "Latest matched repeat \xB7 40 requests" },
+          evidence: "verified-partial",
+          candidateUsage: { inputTokens: 9839500, outputTokens: 1130727, totalTokens: 10970227, cachedInputTokens: 2135136, reasoningTokens: null, retainedBridgeEvents: 1648, basis: "Final-verified IFEval matched repeat plus final-verified BFCL \xB7 incomplete tau2 usage excluded" },
           performance: {
             class: "local-runtime",
-            successfulResponses: 40,
+            successfulResponses: 1608,
             bridgeErrorEvents: 0,
-            latencySeconds: { minimum: 0.9922, median: 6.2165, mean: 51.2856, p95: 136.3943, maximum: 144.2473, total: 2051.4235 },
-            endToEndOutputTokensPerSecond: 60.1714,
-            measurementBoundary: "Client end-to-end non-streaming request wall time",
-            variability: "Matched repeat mean was 51.75s versus 51.29s; all 40 response texts and usage records matched exactly. TTFT, pure decoder throughput, peak RSS, Metal memory, and thermal/power state were not captured."
+            latencySeconds: { minimum: 1.2452, median: 11.6742, mean: 21.2696, p95: 78.2772, maximum: 367.2935, total: 34201.4525 },
+            endToEndOutputTokensPerSecond: 29.4517,
+            measurementBoundary: "BFCL bridge end-to-end non-streaming request wall time across all retained prerequisite and scored requests",
+            variability: "The displayed runtime distribution is BFCL-specific and includes transport, prompt evaluation, and generation. IFEval repeat performance remains in the instruction-score detail. TTFT, pure decoder throughput, peak RSS, Metal memory, and thermal/power state were not captured."
           },
           localRuntime: {
             hardwareProfile: "ark-mac-mini-m2-24gb-20260826",
@@ -1573,20 +1573,22 @@
           outcomes: [
             ["IFEval repeated result", "9 / 40 prompts \xB7 47 / 95 instructions \xB7 identical across two runs"],
             ["Repeat consistency", "40 / 40 exact response-text matches \xB7 40 / 40 exact usage matches"],
-            ["Coverage boundary", "BFCL and tau2 not run \xB7 scores withheld as Pending"]
+            ["BFCL final result", "8.72% \xB7 261 / 261 generated \xB7 150 / 150 scored \xB7 final verification passed"],
+            ["BFCL custody", "1,608 / 1,608 bridge requests succeeded \xB7 0 transport errors \xB7 0 retries"],
+            ["tau2 progress snapshot", "23 / 50 frozen tasks completed \xB7 Retail 23 / 25 \xB7 Telecom queued \xB7 score withheld as Pending"]
           ],
-          methodNote: "Local performance is specific to this host, runtime, quantization, context/output envelope, serial slot, and warm-state collection. Pure generation speed and resource peaks were unavailable in the retained evidence."
+          methodNote: "Local performance is specific to this host, runtime, quantization, context/output envelope, serial slot, and warm-state collection. Candidate usage includes only final-verified IFEval and BFCL evidence; incomplete tau2 usage is excluded. Pure generation speed and resource peaks were unavailable in the retained evidence."
         },
         scores: {
           instruction: { label: "Instruction following", benchmark: "IFEval", value: 22.5, evidence: "verified", denominator: "9 / 40 strict prompts", detail: [["Instruction checks", "47 / 95 \xB7 49.5%"], ["Matched repeats", "2 \xB7 identical scores"], ["Exact response matches", "40 / 40"], ["Repeat mean / p95", "51.29s / 136.39s"], ["Completion tokens", "123,437"], ["Final verification", "Passed \xB7 both runs"]] },
-          tools: { label: "Native tool use", benchmark: "BFCL V4", value: null, evidence: "pending", denominator: "Not run \xB7 score withheld", detail: [["Admission observation", "Native tool call not emitted"], ["Scoring state", "Pending full frozen inventory"]] },
-          agent: { label: "Multi-turn agent", benchmark: "tau2", value: null, evidence: "pending", denominator: "Not run \xB7 score withheld", detail: [["Scoring state", "Pending full frozen inventory"]] }
+          tools: { label: "Native tool use", benchmark: "BFCL V4", value: 8.72, evidence: "verified", denominator: "150 / 150 frozen scored cases", detail: [["Generated traces", "261 / 261"], ["Non-live AST", "39.17%"], ["Live", "0.00%"], ["Multi-turn tools", "1.25%"], ["Memory", "7.14%"], ["Bridge requests", "1,608 / 1,608 succeeded \xB7 0 transport errors \xB7 0 retries"], ["Latency median / mean / p95", "11.67s / 21.27s / 78.28s"], ["Final verification", "Passed"]] },
+          agent: { label: "Multi-turn agent", benchmark: "tau2", value: null, evidence: "pending", denominator: "Retail 23 / 25 live \xB7 score withheld", progress: { current: 23, total: 50, label: "23 / 50 frozen tasks \xB7 Retail 23 / 25", state: "in-progress", capturedAt: "2026-08-27T21:29:24Z" }, detail: [["Frozen inventory", "25 Retail + 25 Telecom"], ["Completed simulations", "Retail 23 / 25 \xB7 23 / 50 total"], ["Harness errors", "0 observed in current progress artifact"], ["Telecom", "Queued after Retail"], ["Scoring state", "Pending full frozen inventory and final verification"]] }
         }
       },
       {
         conditionId: "qwen36-35b-heretic-gpu-b",
         evidence: "measured",
-        note: "IFEval is final-verified for the exact GPU Node B Qwen3.6 35B Heretic Q4_K_M MTP-N2 condition. BFCL generation remains in progress and tau2 is queued, so both primary scores remain Pending rather than zero. Hardware identity beyond the retained public-safe host label and runtime/deployment geometry was not captured and is shown as unavailable rather than inferred.",
+        note: "IFEval is final-verified for the exact GPU Node B Qwen3.6 35B Heretic Q4_K_M MTP-N2 condition. The live BFCL controller had generated 180 / 261 required rows in the captured 2026-08-27 progress snapshot and remained active; tau2 is queued. Both unfinished primary scores remain Pending rather than zero. Hardware identity beyond the retained public-safe host label and runtime/deployment geometry was not captured and is shown as unavailable rather than inferred.",
         operational: {
           evidence: "verified-partial",
           candidateUsage: { inputTokens: 2596, outputTokens: 157506, totalTokens: 160102, cachedInputTokens: null, reasoningTokens: null, retainedBridgeEvents: 40, basis: "Final-verified IFEval \xB7 40 requests" },
@@ -1623,45 +1625,16 @@
           outcomes: [
             ["IFEval final result", "31 / 40 prompts \xB7 86 / 95 instructions"],
             ["IFEval failures", "0 provider failures \xB7 0 measurement-path failures"],
-            ["Coverage boundary", "BFCL generation in progress; tau2 queued \xB7 scores withheld as Pending"],
+            ["BFCL progress snapshot", "180 / 261 required rows generated \xB7 controller active \xB7 score withheld as Pending"],
+            ["Coverage boundary", "BFCL scoring incomplete; tau2 queued \xB7 unfinished scores are not estimated or represented as zero"],
             ["Hardware boundary", "Processor, RAM, accelerator, and OS were not captured in retained run evidence"]
           ],
           methodNote: "The displayed score is final-verified IFEval evidence only. BFCL and tau2 are not averaged, estimated, or represented as zero while collection is incomplete."
         },
         scores: {
           instruction: { label: "Instruction following", benchmark: "IFEval", value: 77.5, evidence: "verified", denominator: "31 / 40 strict prompts", detail: [["Instruction checks", "86 / 95 \xB7 90.5%"], ["Median / mean request", "38.25s / 45.71s"], ["Request p95", "109.71s"], ["Completion tokens", "157,506"], ["End-to-end output throughput", "86.15 tok/s"], ["Final verification", "Passed \xB7 exact model and runtime lineage"]] },
-          tools: { label: "Native tool use", benchmark: "BFCL V4", value: null, evidence: "pending", denominator: "Run in progress \xB7 score withheld", detail: [["Frozen inventory", "261 generated / 150 scored rows"], ["Scoring state", "Generation in progress \xB7 evaluator not yet run"]] },
-          agent: { label: "Multi-turn agent", benchmark: "tau2", value: null, evidence: "pending", denominator: "Queued \xB7 score withheld", detail: [["Frozen inventory", "25 Retail + 25 Telecom"], ["Scoring state", "Queued after BFCL"]] }
-        }
-      },
-      {
-        conditionId: "qwen36-27b",
-        evidence: "illustrative",
-        note: "Illustrative values only \u2014 used to test comparison density and drill-down behavior before this condition is benchmarked.",
-        scores: {
-          instruction: { label: "Instruction following", benchmark: "IFEval", value: 74.1, evidence: "illustrative", denominator: "Example metric", detail: [] },
-          tools: { label: "Native tool use", benchmark: "BFCL V4", value: 47.6, evidence: "illustrative", denominator: "Example metric", detail: [] },
-          agent: { label: "Multi-turn agent", benchmark: "tau2", value: 46.5, evidence: "illustrative", denominator: "Example metric", detail: [] }
-        }
-      },
-      {
-        conditionId: "bonsai-8b",
-        evidence: "illustrative",
-        note: "Illustrative values only \u2014 used to test comparison density and drill-down behavior before this condition is benchmarked.",
-        scores: {
-          instruction: { label: "Instruction following", benchmark: "IFEval", value: 68.3, evidence: "illustrative", denominator: "Example metric", detail: [] },
-          tools: { label: "Native tool use", benchmark: "BFCL V4", value: 35.7, evidence: "illustrative", denominator: "Example metric", detail: [] },
-          agent: { label: "Multi-turn agent", benchmark: "tau2", value: 38.9, evidence: "illustrative", denominator: "Example metric", detail: [] }
-        }
-      },
-      {
-        conditionId: "qwen35-4b",
-        evidence: "illustrative",
-        note: "Illustrative values only \u2014 used to test comparison density and drill-down behavior before this condition is benchmarked.",
-        scores: {
-          instruction: { label: "Instruction following", benchmark: "IFEval", value: 61.8, evidence: "illustrative", denominator: "Example metric", detail: [] },
-          tools: { label: "Native tool use", benchmark: "BFCL V4", value: 28.4, evidence: "illustrative", denominator: "Example metric", detail: [] },
-          agent: { label: "Multi-turn agent", benchmark: "tau2", value: 31.6, evidence: "illustrative", denominator: "Example metric", detail: [] }
+          tools: { label: "Native tool use", benchmark: "BFCL V4", value: null, evidence: "pending", denominator: "180 / 261 generated at snapshot \xB7 score withheld", progress: { current: 180, total: 261, label: "180 / 261 required rows generated", state: "in-progress", capturedAt: "2026-08-27T21:30:56Z" }, detail: [["Frozen inventory", "261 generated / 150 scored rows"], ["Progress snapshot", "180 / 261 generated \xB7 captured 2026-08-27"], ["Current workload", "Multi-turn long-context"], ["Scoring state", "Generation in progress \xB7 evaluator not yet run"]] },
+          agent: { label: "Multi-turn agent", benchmark: "tau2", value: null, evidence: "pending", denominator: "Queued \xB7 score withheld", progress: { current: 0, total: 50, label: "0 / 50 tasks \xB7 queued after BFCL", state: "queued", capturedAt: "2026-08-27" }, detail: [["Frozen inventory", "25 Retail + 25 Telecom"], ["Progress snapshot", "0 / 50 \xB7 queued"], ["Scoring state", "Queued after BFCL"]] }
         }
       }
     ],
@@ -1748,7 +1721,20 @@
     return fixtures.conditions.find((condition) => condition.id === id) || null;
   }
   function getBenchmarkComparison(conditionId = null) {
-    const profiles = fixtures.benchmarkComparison.map((profile) => ({ ...profile, condition: getCondition(profile.conditionId) }));
+    const profiles = fixtures.benchmarkComparison.map((profile) => {
+      const verifiedScores = Object.values(profile.scores).filter((score) => score.evidence === "verified" && score.value != null);
+      const currentAverage = verifiedScores.length ? Number((verifiedScores.reduce((sum, score) => sum + score.value, 0) / verifiedScores.length).toFixed(2)) : null;
+      return {
+        ...profile,
+        condition: getCondition(profile.conditionId),
+        currentAverage: {
+          value: currentAverage,
+          verifiedSuites: verifiedScores.length,
+          totalSuites: Object.keys(profile.scores).length,
+          complete: verifiedScores.length === Object.keys(profile.scores).length
+        }
+      };
+    });
     return conditionId ? profiles.find((profile) => profile.conditionId === conditionId) || null : profiles;
   }
   function getMeasuredBenchmarkVisuals() {
@@ -1760,18 +1746,35 @@
         shortName: profile.condition.shortName,
         provider: profile.condition.provider,
         runtime: profile.condition.runtime,
-        coverage: Object.fromEntries(suiteOrder.map((suiteId) => [suiteId, profile.scores[suiteId].evidence]))
+        coverage: Object.fromEntries(suiteOrder.map((suiteId) => [suiteId, profile.scores[suiteId].progress?.state || profile.scores[suiteId].evidence]))
       })),
       suites: suiteOrder.map((suiteId) => ({
         id: suiteId,
         label: measured[0].scores[suiteId].benchmark,
-        rows: measured.map((profile) => ({
-          conditionId: profile.conditionId,
-          shortName: profile.condition.shortName,
-          value: profile.scores[suiteId].value,
-          denominator: profile.scores[suiteId].denominator,
-          evidence: profile.scores[suiteId].evidence
-        })).filter((row) => row.value != null && row.evidence === "verified").sort((a, b) => b.value - a.value)
+        rows: measured.map((profile) => {
+          const score = profile.scores[suiteId];
+          if (score.value != null && score.evidence === "verified") return {
+            conditionId: profile.conditionId,
+            shortName: profile.condition.shortName,
+            value: score.value,
+            barValue: score.value,
+            denominator: score.denominator,
+            evidence: "verified",
+            kind: "score",
+            progress: null
+          };
+          if (score.progress) return {
+            conditionId: profile.conditionId,
+            shortName: profile.condition.shortName,
+            value: null,
+            barValue: score.progress.total ? score.progress.current / score.progress.total * 100 : 0,
+            denominator: score.progress.label,
+            evidence: score.progress.state,
+            kind: "progress",
+            progress: score.progress
+          };
+          return null;
+        }).filter(Boolean).sort((a, b) => a.kind === b.kind ? b.barValue - a.barValue : a.kind === "score" ? -1 : 1)
       }))
     };
   }
@@ -1918,7 +1921,7 @@
       return h("span", { className: `acc-badge acc-badge--${tone}` }, children);
     }
     function StatusBadge({ state }) {
-      const tone = state === "fresh" || state === "canonical" || state === "validated" || state === "available" || state === "verified" ? "good" : state === "stale" || state === "provisional" || state === "unknown" || state === "pending" || state === "blocked" ? "warn" : state === "missing" || state === "unavailable" || state === "failed" ? "bad" : "neutral";
+      const tone = state === "fresh" || state === "canonical" || state === "validated" || state === "available" || state === "verified" ? "good" : state === "stale" || state === "provisional" || state === "unknown" || state === "pending" || state === "in-progress" || state === "queued" || state === "blocked" ? "warn" : state === "missing" || state === "unavailable" || state === "failed" ? "bad" : "neutral";
       return h(Badge, { tone }, String(state).replaceAll("-", " "));
     }
     function SectionHeading({ eyebrow, title, action }) {
@@ -2351,12 +2354,27 @@
       );
     }
     function ThreeScoreValue({ score }) {
-      const label = score.value == null ? "Pending" : score.value.toFixed(1);
+      const progress = score.progress;
+      const label = score.value != null ? score.value.toFixed(1) : progress?.state === "queued" ? "Queued" : progress ? "In progress" : "Pending";
+      const progressPercent = progress?.total ? progress.current / progress.total * 100 : 0;
       return h(
         "span",
-        { className: cx("acc-three-score__value", score.value == null && "is-pending") },
+        { className: cx("acc-three-score__value", score.value == null && "is-pending", progress && "has-progress", progress?.state === "queued" && "is-queued") },
         h("strong", null, label),
-        h("small", null, score.benchmark)
+        h("small", null, score.benchmark),
+        progress ? h(
+          "span",
+          { className: "acc-suite-progress" },
+          h("span", {
+            className: "acc-suite-progress__track",
+            role: "progressbar",
+            "aria-label": `${score.benchmark} ${progress.label}`,
+            "aria-valuemin": 0,
+            "aria-valuemax": progress.total,
+            "aria-valuenow": progress.current
+          }, h("span", { style: { width: `${progressPercent}%` } })),
+          h("small", null, progress.label)
+        ) : null
       );
     }
     function MeasuredBenchmarkVisuals({ go }) {
@@ -2368,9 +2386,9 @@
           "div",
           { className: "acc-measured-visuals__head" },
           h("div", null, h("p", { className: "acc-eyebrow" }, "Verified evidence only"), h("h2", null, "Measured suite comparison")),
-          h("div", { className: "acc-chip-list" }, h(Badge, { tone: "good" }, `${visual.profiles.length} measured conditions`), h(Badge, null, "No blended score"))
+          h("div", { className: "acc-chip-list" }, h(Badge, { tone: "good" }, `${visual.profiles.length} measured conditions`), h(Badge, null, "Coverage-labeled average"))
         ),
-        h("p", { className: "acc-measured-visuals__method" }, "Each panel uses its suite\u2019s native 0\u2013100 score. Pending suites remain visible in coverage but are never plotted as zero; illustrative fixtures are excluded."),
+        h("p", { className: "acc-measured-visuals__method" }, "Verified bars use each suite\u2019s native 0\u2013100 score. Amber bars show collection completion only, never provisional capability accuracy. Queued work remains at zero completion; conditions without measured evidence are excluded."),
         h(
           "div",
           { className: "acc-evidence-matrix", role: "table", "aria-label": "Measured evidence coverage" },
@@ -2391,7 +2409,7 @@
           (suite) => h(
             "article",
             { className: "acc-measured-suite", key: suite.id, "data-measured-suite": suite.id },
-            h("div", { className: "acc-measured-suite__head" }, h("h3", null, suite.label), h("small", null, `${suite.rows.length} measured score${suite.rows.length === 1 ? "" : "s"}`)),
+            h("div", { className: "acc-measured-suite__head" }, h("h3", null, suite.label), h("small", null, `${suite.rows.filter((row) => row.kind === "score").length} verified \xB7 ${suite.rows.filter((row) => row.evidence === "in-progress").length} active`)),
             h("ul", null, suite.rows.map((row) => h(
               "li",
               { key: row.conditionId, "data-score-bar": row.conditionId },
@@ -2399,32 +2417,31 @@
                 "button",
                 {
                   type: "button",
-                  className: "acc-measured-score",
-                  "aria-label": `${row.shortName}: ${row.value.toFixed(1)} on ${suite.label}; ${row.denominator}`,
+                  className: cx("acc-measured-score", row.kind === "progress" && "is-progress", row.evidence === "queued" && "is-queued"),
+                  "aria-label": row.kind === "score" ? `${row.shortName}: ${row.value.toFixed(1)} on ${suite.label}; ${row.denominator}` : `${row.shortName}: ${row.denominator}; ${row.evidence}; collection completion only`,
                   onClick: () => go({ view: "benchmarks", condition: row.conditionId })
                 },
                 h("span", { className: "acc-measured-score__identity" }, h("strong", null, row.shortName), h("small", null, row.denominator)),
-                h("span", { className: "acc-measured-score__value" }, row.value.toFixed(1)),
-                h("span", { className: "acc-measured-score__track", "aria-hidden": "true" }, h("span", { style: { width: `${row.value}%` } }))
+                h("span", { className: "acc-measured-score__value" }, row.kind === "score" ? row.value.toFixed(1) : row.evidence === "queued" ? "Queued" : `${row.barValue.toFixed(0)}% done`),
+                h("span", { className: "acc-measured-score__track", "aria-hidden": "true" }, h("span", { style: { width: `${row.barValue}%` } }))
               )
             )))
           )
         )),
-        h("p", { className: "acc-measured-visuals__boundary" }, "Compare within a suite only. This view does not declare a universal winner, average the suites, or promote missing evidence.")
+        h("p", { className: "acc-measured-visuals__boundary" }, "Compare verified capability scores within a suite only. Completion bars are operational progress, not scores. The current suite average below is coverage-labeled and never cross-ranks incomplete with complete conditions.")
       );
     }
     function ThreeScoreComparison({ go }) {
       const profiles = getBenchmarkComparison();
       const measuredCount = profiles.filter((profile) => profile.evidence === "measured").length;
-      const illustrativeCount = profiles.length - measuredCount;
       return h(
         "section",
         { className: "acc-three-score", role: "region", "aria-label": "Three-score model comparison" },
         h(
           "div",
           { className: "acc-three-score__head" },
-          h("div", null, h("p", { className: "acc-eyebrow" }, `${profiles.length} tested conditions at a glance`), h("h2", null, "Three-score model comparison")),
-          h("div", { className: "acc-chip-list" }, h(Badge, { tone: "good" }, `${measuredCount} measured`), h(Badge, null, `${illustrativeCount} illustrative`))
+          h("div", null, h("p", { className: "acc-eyebrow" }, `${profiles.length} measured conditions at a glance`), h("h2", null, "Three-score model comparison")),
+          h("div", { className: "acc-chip-list" }, h(Badge, { tone: "good" }, `${measuredCount} measured`))
         ),
         h(
           "div",
@@ -2433,6 +2450,7 @@
           h("span", null, "Instruction following"),
           h("span", null, "Native tool use"),
           h("span", null, "Multi-turn agent"),
+          h("span", null, "Current avg"),
           h("span", null, "Evidence")
         ),
         h("div", { className: "acc-three-score__rows" }, profiles.map((profile) => {
@@ -2451,13 +2469,20 @@
             h(ThreeScoreValue, { score: profile.scores.agent }),
             h(
               "div",
+              { className: cx("acc-three-score__average", !profile.currentAverage.complete && "is-in-progress") },
+              h("strong", null, profile.currentAverage.value.toFixed(1)),
+              h("small", null, `${profile.currentAverage.complete ? "Complete" : "In progress"} \xB7 ${profile.currentAverage.verifiedSuites}/${profile.currentAverage.totalSuites} verified`),
+              h("span", { className: "acc-three-score__average-track", "aria-hidden": "true" }, h("span", { style: { width: `${profile.currentAverage.value}%` } }))
+            ),
+            h(
+              "div",
               { className: "acc-three-score__evidence" },
-              profile.evidence === "measured" ? h(Badge, { tone: "good" }, "Measured") : h(Badge, null, "Illustrative"),
-              h("small", null, profile.evidence === "measured" ? `${Object.values(profile.scores).filter((score) => score.evidence === "verified").length} verified` : "Layout fixture")
+              h(Badge, { tone: "good" }, "Measured"),
+              h("small", null, `${Object.values(profile.scores).filter((score) => score.evidence === "verified").length} verified`)
             )
           );
         })),
-        h("div", { className: "acc-prototype-note" }, "Luna\u2019s and Sol\u2019s three suites are final-verified. Qwen 3.8 2B and GPU Node B\u2019s Qwen3.6 35B Heretic have final-verified IFEval scores; their unfinished BFCL and tau2 lanes remain Pending and are not treated as zero. The remaining three conditions and all of their scores are explicitly illustrative Dev fixtures.")
+        h("div", { className: "acc-prototype-note" }, "Current average is the equal-weight arithmetic mean of final-verified suite scores available for that exact condition. Amber averages are incomplete and carry explicit coverage; pending suites are excluded rather than treated as zero. Conditions without measured evidence are excluded from this comparison.")
       );
     }
     function formatTokenCount(value) {
@@ -2591,8 +2616,17 @@
           h("div", null, h("p", { className: "acc-eyebrow" }, "Benchmark standard"), h("h3", { id: "acc-core-score-title" }, "Three core scores")),
           profile.evidence === "measured" ? h(Badge, { tone: "good" }, "Measured evidence") : h(Badge, null, "Illustrative fixture")
         ),
+        h(
+          "div",
+          { className: cx("acc-current-average", !profile.currentAverage.complete && "is-in-progress") },
+          h("div", null, h("span", null, "Current suite average"), h("strong", null, profile.currentAverage.value.toFixed(1))),
+          h("small", null, `${profile.currentAverage.complete ? "Complete" : "In progress"} \xB7 ${profile.currentAverage.verifiedSuites}/${profile.currentAverage.totalSuites} final-verified suites \xB7 pending suites excluded`),
+          h("span", { className: "acc-current-average__track", "aria-hidden": "true" }, h("span", { style: { width: `${profile.currentAverage.value}%` } }))
+        ),
         h("div", { className: "acc-core-score-grid" }, suiteOrder.map((suiteId) => {
           const score = profile.scores[suiteId];
+          const progress = score.progress;
+          const progressPercent = progress?.total ? progress.current / progress.total * 100 : 0;
           return h(
             "article",
             { className: cx("acc-core-score-card", score.value == null && "is-pending"), key: suiteId },
@@ -2600,10 +2634,22 @@
               "div",
               { className: "acc-core-score-card__head" },
               h("div", null, h("span", null, score.label), h("small", null, score.benchmark)),
-              h(StatusBadge, { state: score.evidence })
+              h(StatusBadge, { state: progress?.state || score.evidence })
             ),
-            h("strong", { className: "acc-core-score-card__value" }, score.value == null ? "Pending" : score.value.toFixed(1)),
+            h("strong", { className: "acc-core-score-card__value" }, score.value != null ? score.value.toFixed(1) : progress?.state === "queued" ? "Queued" : progress ? "In progress" : "Pending"),
             h("small", { className: "acc-core-score-card__denominator" }, score.denominator),
+            progress ? h(
+              "div",
+              { className: cx("acc-core-progress", progress.state === "queued" && "is-queued") },
+              h("span", {
+                role: "progressbar",
+                "aria-label": `${score.benchmark} ${progress.label}`,
+                "aria-valuemin": 0,
+                "aria-valuemax": progress.total,
+                "aria-valuenow": progress.current
+              }, h("span", { style: { width: `${progressPercent}%` } })),
+              h("small", null, `${progressPercent.toFixed(1)}% collection complete \xB7 ${progress.label}`)
+            ) : null,
             score.detail.length ? h("dl", null, score.detail.map(([label, value]) => h("div", { key: label }, h("dt", null, label), h("dd", null, value)))) : null
           );
         })),

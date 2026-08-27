@@ -50,7 +50,7 @@ export function registerAutobotCommandCenter() {
   function StatusBadge({ state }) {
     const tone = state === 'fresh' || state === 'canonical' || state === 'validated' || state === 'available' || state === 'verified'
       ? 'good'
-      : state === 'stale' || state === 'provisional' || state === 'unknown' || state === 'pending' || state === 'blocked'
+      : state === 'stale' || state === 'provisional' || state === 'unknown' || state === 'pending' || state === 'in-progress' || state === 'queued' || state === 'blocked'
         ? 'warn'
         : state === 'missing' || state === 'unavailable' || state === 'failed'
           ? 'bad'
@@ -399,9 +399,18 @@ export function registerAutobotCommandCenter() {
   }
 
   function ThreeScoreValue({ score }) {
-    const label = score.value == null ? 'Pending' : score.value.toFixed(1);
-    return h('span', { className: cx('acc-three-score__value', score.value == null && 'is-pending') },
+    const progress = score.progress;
+    const label = score.value != null ? score.value.toFixed(1) : progress?.state === 'queued' ? 'Queued' : progress ? 'In progress' : 'Pending';
+    const progressPercent = progress?.total ? (progress.current / progress.total) * 100 : 0;
+    return h('span', { className: cx('acc-three-score__value', score.value == null && 'is-pending', progress && 'has-progress', progress?.state === 'queued' && 'is-queued') },
       h('strong', null, label), h('small', null, score.benchmark),
+      progress ? h('span', { className: 'acc-suite-progress' },
+        h('span', {
+          className: 'acc-suite-progress__track', role: 'progressbar', 'aria-label': `${score.benchmark} ${progress.label}`,
+          'aria-valuemin': 0, 'aria-valuemax': progress.total, 'aria-valuenow': progress.current,
+        }, h('span', { style: { width: `${progressPercent}%` } })),
+        h('small', null, progress.label),
+      ) : null,
     );
   }
 
@@ -410,9 +419,9 @@ export function registerAutobotCommandCenter() {
     return h('section', { className: 'acc-measured-visuals', role: 'region', 'aria-label': 'Measured benchmark evidence visuals' },
       h('div', { className: 'acc-measured-visuals__head' },
         h('div', null, h('p', { className: 'acc-eyebrow' }, 'Verified evidence only'), h('h2', null, 'Measured suite comparison')),
-        h('div', { className: 'acc-chip-list' }, h(Badge, { tone: 'good' }, `${visual.profiles.length} measured conditions`), h(Badge, null, 'No blended score')),
+        h('div', { className: 'acc-chip-list' }, h(Badge, { tone: 'good' }, `${visual.profiles.length} measured conditions`), h(Badge, null, 'Coverage-labeled average')),
       ),
-      h('p', { className: 'acc-measured-visuals__method' }, 'Each panel uses its suite’s native 0–100 score. Pending suites remain visible in coverage but are never plotted as zero; illustrative fixtures are excluded.'),
+      h('p', { className: 'acc-measured-visuals__method' }, 'Verified bars use each suite’s native 0–100 score. Amber bars show collection completion only, never provisional capability accuracy. Queued work remains at zero completion; conditions without measured evidence are excluded.'),
       h('div', { className: 'acc-evidence-matrix', role: 'table', 'aria-label': 'Measured evidence coverage' },
         h('div', { className: 'acc-evidence-matrix__head', role: 'row' },
           h('span', { role: 'columnheader' }, 'Tested condition'),
@@ -425,36 +434,37 @@ export function registerAutobotCommandCenter() {
       ),
       h('div', { className: 'acc-measured-suite-grid' }, visual.suites.map((suite) =>
         h('article', { className: 'acc-measured-suite', key: suite.id, 'data-measured-suite': suite.id },
-          h('div', { className: 'acc-measured-suite__head' }, h('h3', null, suite.label), h('small', null, `${suite.rows.length} measured score${suite.rows.length === 1 ? '' : 's'}`)),
+          h('div', { className: 'acc-measured-suite__head' }, h('h3', null, suite.label), h('small', null, `${suite.rows.filter((row) => row.kind === 'score').length} verified · ${suite.rows.filter((row) => row.evidence === 'in-progress').length} active`)),
           h('ul', null, suite.rows.map((row) => h('li', { key: row.conditionId, 'data-score-bar': row.conditionId },
             h('button', {
               type: 'button',
-              className: 'acc-measured-score',
-              'aria-label': `${row.shortName}: ${row.value.toFixed(1)} on ${suite.label}; ${row.denominator}`,
+              className: cx('acc-measured-score', row.kind === 'progress' && 'is-progress', row.evidence === 'queued' && 'is-queued'),
+              'aria-label': row.kind === 'score'
+                ? `${row.shortName}: ${row.value.toFixed(1)} on ${suite.label}; ${row.denominator}`
+                : `${row.shortName}: ${row.denominator}; ${row.evidence}; collection completion only`,
               onClick: () => go({ view: 'benchmarks', condition: row.conditionId }),
             },
             h('span', { className: 'acc-measured-score__identity' }, h('strong', null, row.shortName), h('small', null, row.denominator)),
-            h('span', { className: 'acc-measured-score__value' }, row.value.toFixed(1)),
-            h('span', { className: 'acc-measured-score__track', 'aria-hidden': 'true' }, h('span', { style: { width: `${row.value}%` } })),
+            h('span', { className: 'acc-measured-score__value' }, row.kind === 'score' ? row.value.toFixed(1) : row.evidence === 'queued' ? 'Queued' : `${row.barValue.toFixed(0)}% done`),
+            h('span', { className: 'acc-measured-score__track', 'aria-hidden': 'true' }, h('span', { style: { width: `${row.barValue}%` } })),
             ),
           ))),
         ),
       )),
-      h('p', { className: 'acc-measured-visuals__boundary' }, 'Compare within a suite only. This view does not declare a universal winner, average the suites, or promote missing evidence.'),
+      h('p', { className: 'acc-measured-visuals__boundary' }, 'Compare verified capability scores within a suite only. Completion bars are operational progress, not scores. The current suite average below is coverage-labeled and never cross-ranks incomplete with complete conditions.'),
     );
   }
 
   function ThreeScoreComparison({ go }) {
     const profiles = getBenchmarkComparison();
     const measuredCount = profiles.filter((profile) => profile.evidence === 'measured').length;
-    const illustrativeCount = profiles.length - measuredCount;
     return h('section', { className: 'acc-three-score', role: 'region', 'aria-label': 'Three-score model comparison' },
       h('div', { className: 'acc-three-score__head' },
-        h('div', null, h('p', { className: 'acc-eyebrow' }, `${profiles.length} tested conditions at a glance`), h('h2', null, 'Three-score model comparison')),
-        h('div', { className: 'acc-chip-list' }, h(Badge, { tone: 'good' }, `${measuredCount} measured`), h(Badge, null, `${illustrativeCount} illustrative`)),
+        h('div', null, h('p', { className: 'acc-eyebrow' }, `${profiles.length} measured conditions at a glance`), h('h2', null, 'Three-score model comparison')),
+        h('div', { className: 'acc-chip-list' }, h(Badge, { tone: 'good' }, `${measuredCount} measured`)),
       ),
       h('div', { className: 'acc-three-score__legend', 'aria-hidden': 'true' },
-        h('span', null, 'Tested condition'), h('span', null, 'Instruction following'), h('span', null, 'Native tool use'), h('span', null, 'Multi-turn agent'), h('span', null, 'Evidence'),
+        h('span', null, 'Tested condition'), h('span', null, 'Instruction following'), h('span', null, 'Native tool use'), h('span', null, 'Multi-turn agent'), h('span', null, 'Current avg'), h('span', null, 'Evidence'),
       ),
       h('div', { className: 'acc-three-score__rows' }, profiles.map((profile) => {
         const condition = profile.condition;
@@ -466,13 +476,18 @@ export function registerAutobotCommandCenter() {
           h(ThreeScoreValue, { score: profile.scores.instruction }),
           h(ThreeScoreValue, { score: profile.scores.tools }),
           h(ThreeScoreValue, { score: profile.scores.agent }),
+          h('div', { className: cx('acc-three-score__average', !profile.currentAverage.complete && 'is-in-progress') },
+            h('strong', null, profile.currentAverage.value.toFixed(1)),
+            h('small', null, `${profile.currentAverage.complete ? 'Complete' : 'In progress'} · ${profile.currentAverage.verifiedSuites}/${profile.currentAverage.totalSuites} verified`),
+            h('span', { className: 'acc-three-score__average-track', 'aria-hidden': 'true' }, h('span', { style: { width: `${profile.currentAverage.value}%` } })),
+          ),
           h('div', { className: 'acc-three-score__evidence' },
-            profile.evidence === 'measured' ? h(Badge, { tone: 'good' }, 'Measured') : h(Badge, null, 'Illustrative'),
-            h('small', null, profile.evidence === 'measured' ? `${Object.values(profile.scores).filter((score) => score.evidence === 'verified').length} verified` : 'Layout fixture'),
+            h(Badge, { tone: 'good' }, 'Measured'),
+            h('small', null, `${Object.values(profile.scores).filter((score) => score.evidence === 'verified').length} verified`),
           ),
         );
       })),
-      h('div', { className: 'acc-prototype-note' }, 'Luna’s and Sol’s three suites are final-verified. Qwen 3.8 2B and GPU Node B’s Qwen3.6 35B Heretic have final-verified IFEval scores; their unfinished BFCL and tau2 lanes remain Pending and are not treated as zero. The remaining three conditions and all of their scores are explicitly illustrative Dev fixtures.'),
+      h('div', { className: 'acc-prototype-note' }, 'Current average is the equal-weight arithmetic mean of final-verified suite scores available for that exact condition. Amber averages are incomplete and carry explicit coverage; pending suites are excluded rather than treated as zero. Conditions without measured evidence are excluded from this comparison.'),
     );
   }
 
@@ -563,14 +578,28 @@ export function registerAutobotCommandCenter() {
         h('div', null, h('p', { className: 'acc-eyebrow' }, 'Benchmark standard'), h('h3', { id: 'acc-core-score-title' }, 'Three core scores')),
         profile.evidence === 'measured' ? h(Badge, { tone: 'good' }, 'Measured evidence') : h(Badge, null, 'Illustrative fixture'),
       ),
+      h('div', { className: cx('acc-current-average', !profile.currentAverage.complete && 'is-in-progress') },
+        h('div', null, h('span', null, 'Current suite average'), h('strong', null, profile.currentAverage.value.toFixed(1))),
+        h('small', null, `${profile.currentAverage.complete ? 'Complete' : 'In progress'} · ${profile.currentAverage.verifiedSuites}/${profile.currentAverage.totalSuites} final-verified suites · pending suites excluded`),
+        h('span', { className: 'acc-current-average__track', 'aria-hidden': 'true' }, h('span', { style: { width: `${profile.currentAverage.value}%` } })),
+      ),
       h('div', { className: 'acc-core-score-grid' }, suiteOrder.map((suiteId) => {
         const score = profile.scores[suiteId];
+        const progress = score.progress;
+        const progressPercent = progress?.total ? (progress.current / progress.total) * 100 : 0;
         return h('article', { className: cx('acc-core-score-card', score.value == null && 'is-pending'), key: suiteId },
           h('div', { className: 'acc-core-score-card__head' },
-            h('div', null, h('span', null, score.label), h('small', null, score.benchmark)), h(StatusBadge, { state: score.evidence }),
+            h('div', null, h('span', null, score.label), h('small', null, score.benchmark)), h(StatusBadge, { state: progress?.state || score.evidence }),
           ),
-          h('strong', { className: 'acc-core-score-card__value' }, score.value == null ? 'Pending' : score.value.toFixed(1)),
+          h('strong', { className: 'acc-core-score-card__value' }, score.value != null ? score.value.toFixed(1) : progress?.state === 'queued' ? 'Queued' : progress ? 'In progress' : 'Pending'),
           h('small', { className: 'acc-core-score-card__denominator' }, score.denominator),
+          progress ? h('div', { className: cx('acc-core-progress', progress.state === 'queued' && 'is-queued') },
+            h('span', {
+              role: 'progressbar', 'aria-label': `${score.benchmark} ${progress.label}`, 'aria-valuemin': 0,
+              'aria-valuemax': progress.total, 'aria-valuenow': progress.current,
+            }, h('span', { style: { width: `${progressPercent}%` } })),
+            h('small', null, `${progressPercent.toFixed(1)}% collection complete · ${progress.label}`),
+          ) : null,
           score.detail.length ? h('dl', null, score.detail.map(([label, value]) => h('div', { key: label }, h('dt', null, label), h('dd', null, value)))) : null,
         );
       })),
