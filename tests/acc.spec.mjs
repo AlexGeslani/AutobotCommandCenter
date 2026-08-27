@@ -164,8 +164,83 @@ test('Voice Lab comparison is readable without mobile horizontal overflow', asyn
   await expect(page.locator('.acc-voice-desktop')).toBeHidden();
 });
 
-test('leaderboard opens exact tested condition then run evidence', async ({ page }) => {
+test('seven-model benchmark draft distinguishes final, partial measured, and illustrative evidence', async ({ page }) => {
   await page.goto(pluginUrl + '?view=benchmarks');
+  await expect(page.getByRole('heading', { name: 'Three-score model comparison' })).toBeVisible();
+  const comparison = page.getByRole('region', { name: 'Three-score model comparison' });
+  await expect(comparison.locator('[data-benchmark-profile]')).toHaveCount(7);
+  const luna = comparison.locator('[data-benchmark-profile="gpt56-luna-max"]');
+  await expect(luna.getByText('82.5', { exact: true })).toBeVisible();
+  await expect(luna.getByText('45.9', { exact: true })).toBeVisible();
+  await expect(luna.getByText('48.0', { exact: true })).toBeVisible();
+  await expect(luna.getByText('3 verified', { exact: true })).toBeVisible();
+  const sol = comparison.locator('[data-benchmark-profile="gpt56-sol-max"]');
+  await expect(sol.getByText('90.0', { exact: true })).toBeVisible();
+  await expect(sol.getByText('48.5', { exact: true })).toBeVisible();
+  await expect(sol.getByText('70.0', { exact: true })).toBeVisible();
+  await expect(sol.getByText('3 verified', { exact: true })).toBeVisible();
+  const qwen2b = comparison.locator('[data-benchmark-profile="qwen38-2b-mlx"]');
+  await expect(qwen2b.getByText('22.5', { exact: true })).toBeVisible();
+  await expect(qwen2b.getByText('Pending', { exact: true })).toHaveCount(2);
+  await expect(qwen2b.getByText('1 verified', { exact: true })).toBeVisible();
+  await expect(comparison.getByText('Illustrative', { exact: true })).toHaveCount(4);
+  await expect(comparison.getByText('Luna’s and Sol’s three suites are final-verified', { exact: false })).toBeVisible();
+  await sol.getByRole('button', { name: /GPT-5\.6 Sol/i }).click();
+  await expect(page).toHaveURL(/condition=gpt56-sol-max/);
+  await expect(page.getByRole('heading', { name: 'GPT-5.6 Sol · Max' })).toBeVisible();
+  await expect(page.getByText('69.52% equal-weight macro', { exact: false })).toBeVisible();
+  const solOperations = page.getByRole('region', { name: 'Operational benchmark footprint' });
+  await expect(solOperations.getByText('22.64M', { exact: true })).toBeVisible();
+  await expect(solOperations.getByText('1.85M', { exact: true })).toBeVisible();
+  await expect(solOperations.getByText('24.49M', { exact: true })).toBeVisible();
+  await expect(solOperations.getByText('$127.58', { exact: true })).toBeVisible();
+  await expect(solOperations.getByText('$0.23', { exact: true })).toBeVisible();
+  await expect(solOperations.getByText('Marginal API charge', { exact: true })).toBeVisible();
+  await expect(solOperations.getByText('$0', { exact: true })).toBeVisible();
+  await expect(solOperations.getByText('API-equivalent estimate (not billed)', { exact: true })).toBeVisible();
+  await expect(solOperations.getByRole('heading', { name: 'Frontier route performance' })).toBeVisible();
+  await expect(solOperations.getByText('13.34s', { exact: true })).toBeVisible();
+  await expect(solOperations.getByText('35.58s', { exact: true })).toBeVisible();
+  await expect(solOperations.getByText('30.26 tok/s', { exact: true })).toBeVisible();
+  await page.goto(pluginUrl + '?view=benchmarks');
+  await luna.getByRole('button', { name: /GPT-5\.6 Luna/i }).click();
+  await expect(page).toHaveURL(/condition=gpt56-luna-max/);
+  await expect(page.getByRole('heading', { name: 'GPT-5.6 Luna · Max' })).toBeVisible();
+  await expect(page.getByText('Non-live AST', { exact: true })).toBeVisible();
+  await expect(page.getByText('12 / 25 · 48.0%', { exact: true })).toHaveCount(2);
+  await expect(page.getByText('acc-tau2-fixed-judge-v1.1 · GPT-5.5 Low', { exact: true })).toBeVisible();
+  const lunaOperations = page.getByRole('region', { name: 'Operational benchmark footprint' });
+  await expect(lunaOperations.getByText('18.55M', { exact: true })).toBeVisible();
+  await expect(lunaOperations.getByText('1.60M', { exact: true })).toBeVisible();
+  await expect(lunaOperations.getByText('20.15M', { exact: true })).toBeVisible();
+  await expect(lunaOperations.getByText('$5.63', { exact: true })).toBeVisible();
+  await expect(lunaOperations.getByText('$0.12', { exact: true })).toBeVisible();
+  await expect(lunaOperations.getByText('Cached input', { exact: true })).toBeVisible();
+  await expect(lunaOperations.getByText('Not separately reported', { exact: true })).toHaveCount(2);
+  await expect(lunaOperations.getByRole('heading', { name: 'Frontier route performance' })).toBeVisible();
+  await expect(lunaOperations.getByText('8.85s', { exact: true })).toBeVisible();
+  await expect(lunaOperations.getByText('21.88s', { exact: true })).toBeVisible();
+  await expect(lunaOperations.getByText('42.21 tok/s', { exact: true })).toBeVisible();
+  await page.goto(pluginUrl + '?view=benchmarks');
+  await qwen2b.getByRole('button', { name: /Qwen 3\.8 2B Distill/i }).click();
+  await expect(page).toHaveURL(/condition=qwen38-2b-mlx/);
+  await expect(page.getByRole('heading', { name: 'Qwen 3.8 2B Distill · 4-bit MLX' })).toBeVisible();
+  await expect(page.getByText('9 / 40 strict prompts', { exact: true })).toBeVisible();
+  await expect(page.getByText('Not run · score withheld', { exact: true })).toHaveCount(2);
+  const qwenOperations = page.getByRole('region', { name: 'Operational benchmark footprint' });
+  await expect(qwenOperations.getByText('2.60K', { exact: true })).toBeVisible();
+  await expect(qwenOperations.getByText('123.44K', { exact: true })).toBeVisible();
+  await expect(qwenOperations.getByText('126.03K', { exact: true })).toBeVisible();
+  await expect(qwenOperations.getByRole('heading', { name: 'Local runtime performance' })).toBeVisible();
+  await expect(qwenOperations.getByText('51.29s', { exact: true })).toBeVisible();
+  await expect(qwenOperations.getByText('136.39s', { exact: true })).toBeVisible();
+  await expect(qwenOperations.getByText('60.17 tok/s', { exact: true })).toBeVisible();
+  await expect(qwenOperations.getByText('MLX/Metal', { exact: true })).toBeVisible();
+  await expect(qwenOperations.getByText('Verified repeat', { exact: true })).toBeVisible();
+});
+
+test('leaderboard opens exact tested condition then run evidence', async ({ page }) => {
+  await page.goto(pluginUrl + '?view=benchmarks&domain=tool-use');
   await page.getByRole('button', { name: /Qwen3\.6 35B.*AWQ.*vLLM/i }).click();
   await expect(page).toHaveURL(/condition=qwen36-awq-vllm/);
   await expect(page.getByText('Condition fingerprint', { exact: true })).toBeVisible();
@@ -205,8 +280,8 @@ test('mobile composition has no primary horizontal overflow', async ({ page }) =
   await page.goto(pluginUrl + '?view=benchmarks');
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
-  await expect(page.locator('.acc-mobile-ranking')).toBeVisible();
-  await expect(page.locator('.acc-desktop-table')).toBeHidden();
+  await expect(page.getByRole('region', { name: 'Three-score model comparison' })).toBeVisible();
+  await expect(page.locator('[data-benchmark-profile]')).toHaveCount(6);
   await page.goto(pluginUrl + '?view=benchmarks&domain=rollup');
   const rollupOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(rollupOverflow).toBeLessThanOrEqual(1);
@@ -287,7 +362,7 @@ test('benchmark domain is reload-stable and participates in browser history', as
   await page.goBack();
   await expect(page.getByRole('heading', { name: 'Comparable rollup' })).toBeVisible();
   await page.goBack();
-  await expect(page.getByRole('heading', { name: 'Tool Use' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Three-score model comparison' })).toBeVisible();
   expect(errors.filter((message) => /hooks|rendered fewer|rendered more/i.test(message))).toEqual([]);
 });
 
@@ -328,7 +403,7 @@ test('every visible mobile ACC control meets the 44px touch-target floor', async
 });
 
 test('SPA navigation moves focus to the main result region', async ({ page }) => {
-  await page.goto(pluginUrl + '?view=benchmarks');
+  await page.goto(pluginUrl + '?view=benchmarks&domain=tool-use');
   await page.getByRole('button', { name: /Qwen3\.6 35B.*AWQ.*vLLM/i }).click();
   await expect(page.locator('.acc-main')).toBeFocused();
 });

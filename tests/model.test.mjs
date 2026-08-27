@@ -15,9 +15,66 @@ import {
   parseAccUrl,
   canonicalizeAccRoute,
   getVoicePerformance,
+  getBenchmarkComparison,
 } from '../src/model.mjs';
 
 describe('ACC product contract', () => {
+  it('presents seven model conditions through the three-score benchmark standard', () => {
+    const comparison = getBenchmarkComparison();
+    expect(comparison).toHaveLength(7);
+    expect(comparison.map((profile) => profile.conditionId)).toEqual([
+      'gpt56-luna-max', 'gpt56-sol-max', 'qwen38-2b-mlx', 'qwen36-35b-a3b', 'qwen36-27b', 'bonsai-8b', 'qwen35-4b',
+    ]);
+    expect(comparison[0].scores).toMatchObject({
+      instruction: { value: 82.5, evidence: 'verified' },
+      tools: { value: 45.89, evidence: 'verified' },
+      agent: { value: 48, evidence: 'verified' },
+    });
+    expect(comparison[0].note).toMatch(/acc-tau2-fixed-judge-v1\.1/);
+    expect(comparison[1]).toMatchObject({
+      conditionId: 'gpt56-sol-max',
+      evidence: 'measured',
+      scores: {
+        instruction: { value: 90, evidence: 'verified' },
+        tools: { value: 48.55, evidence: 'verified' },
+        agent: { value: 70, evidence: 'verified' },
+      },
+    });
+    expect(comparison[1].note).toMatch(/69\.52% equal-weight macro/i);
+    expect(comparison[0].operational).toMatchObject({
+      evidence: 'verified-aggregate',
+      candidateUsage: { inputTokens: 18549208, outputTokens: 1603165, totalTokens: 20152373, cachedInputTokens: null, reasoningTokens: null, retainedBridgeEvents: 4304 },
+      performance: { class: 'frontier-route', successfulResponses: 4290, bridgeErrorEvents: 14, latencySeconds: { median: 6.3779, mean: 8.8543, p95: 21.8786 }, endToEndOutputTokensPerSecond: 42.2052 },
+      judgeUsage: { totalTokens: 19655 },
+      billing: { route: 'ChatGPT/Codex subscription', marginalApiChargeUsd: 0, monthlySubscriptionUsd: 200, candidateApiEquivalentUsd: 5.63, judgeApiEquivalentUsd: 0.12 },
+    });
+    expect(comparison[1].operational).toMatchObject({
+      evidence: 'verified-aggregate',
+      candidateUsage: { inputTokens: 22636604, outputTokens: 1851898, totalTokens: 24488502, cachedInputTokens: null, reasoningTokens: null, retainedBridgeEvents: 4657 },
+      performance: { class: 'frontier-route', successfulResponses: 4586, bridgeErrorEvents: 71, latencySeconds: { median: 8.7603, mean: 13.3428, p95: 35.5755 }, endToEndOutputTokensPerSecond: 30.2647 },
+      judgeUsage: { totalTokens: 40330 },
+      billing: { route: 'ChatGPT/Codex subscription', marginalApiChargeUsd: 0, monthlySubscriptionUsd: 200, candidateApiEquivalentUsd: 127.58, judgeApiEquivalentUsd: 0.23 },
+    });
+    expect(comparison[2]).toMatchObject({
+      conditionId: 'qwen38-2b-mlx', evidence: 'measured',
+      scores: {
+        instruction: { value: 22.5, evidence: 'verified', denominator: '9 / 40 strict prompts' },
+        tools: { value: null, evidence: 'pending' },
+        agent: { value: null, evidence: 'pending' },
+      },
+      operational: {
+        evidence: 'verified-repeat',
+        candidateUsage: { inputTokens: 2596, outputTokens: 123437, totalTokens: 126033, cachedInputTokens: 0, reasoningTokens: null },
+        performance: { class: 'local-runtime', successfulResponses: 40, bridgeErrorEvents: 0, latencySeconds: { median: 6.2165, mean: 51.2856, p95: 136.3943 }, endToEndOutputTokensPerSecond: 60.1714 },
+        localRuntime: { backend: 'MLX/Metal', context: '262,144 tokens', concurrency: 1, retries: 0 },
+      },
+    });
+    expect(comparison[2].note).toMatch(/two exact matched runs/i);
+    expect(comparison.slice(0, 2).every((profile) => profile.operational.pricing.assumption === 'All retained input priced as uncached')).toBe(true);
+    expect(comparison.slice(3).every((profile) => profile.evidence === 'illustrative')).toBe(true);
+    expect(comparison.every((profile) => Object.keys(profile.scores).join(',') === 'instruction,tools,agent')).toBe(true);
+  });
+
   it('projects the measured Prime voice comparison as exact route evidence', () => {
     const snapshot = getVoicePerformance();
     expect(snapshot.id).toBe('voice-performance-2026-07-26');

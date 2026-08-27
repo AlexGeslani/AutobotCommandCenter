@@ -12,6 +12,7 @@ import {
   getFamily,
   getLeaderboard,
   getCapabilityRollup,
+  getBenchmarkComparison,
   getRunLineage,
   getEffectiveAvailability,
   getEffectiveProductClaims,
@@ -44,9 +45,9 @@ export function registerAutobotCommandCenter() {
   }
 
   function StatusBadge({ state }) {
-    const tone = state === 'fresh' || state === 'canonical' || state === 'validated' || state === 'available'
+    const tone = state === 'fresh' || state === 'canonical' || state === 'validated' || state === 'available' || state === 'verified'
       ? 'good'
-      : state === 'stale' || state === 'provisional' || state === 'unknown'
+      : state === 'stale' || state === 'provisional' || state === 'unknown' || state === 'pending' || state === 'blocked'
         ? 'warn'
         : state === 'missing' || state === 'unavailable' || state === 'failed'
           ? 'bad'
@@ -389,6 +390,146 @@ export function registerAutobotCommandCenter() {
     );
   }
 
+  function ThreeScoreValue({ score }) {
+    const label = score.value == null ? 'Pending' : score.value.toFixed(1);
+    return h('span', { className: cx('acc-three-score__value', score.value == null && 'is-pending') },
+      h('strong', null, label), h('small', null, score.benchmark),
+    );
+  }
+
+  function ThreeScoreComparison({ go }) {
+    const profiles = getBenchmarkComparison();
+    const measuredCount = profiles.filter((profile) => profile.evidence === 'measured').length;
+    const illustrativeCount = profiles.length - measuredCount;
+    return h('section', { className: 'acc-three-score', role: 'region', 'aria-label': 'Three-score model comparison' },
+      h('div', { className: 'acc-three-score__head' },
+        h('div', null, h('p', { className: 'acc-eyebrow' }, `${profiles.length} tested conditions at a glance`), h('h2', null, 'Three-score model comparison')),
+        h('div', { className: 'acc-chip-list' }, h(Badge, { tone: 'good' }, `${measuredCount} measured`), h(Badge, null, `${illustrativeCount} illustrative`)),
+      ),
+      h('div', { className: 'acc-three-score__legend', 'aria-hidden': 'true' },
+        h('span', null, 'Tested condition'), h('span', null, 'Instruction following'), h('span', null, 'Native tool use'), h('span', null, 'Multi-turn agent'), h('span', null, 'Evidence'),
+      ),
+      h('div', { className: 'acc-three-score__rows' }, profiles.map((profile) => {
+        const condition = profile.condition;
+        return h('article', { className: cx('acc-three-score__row', profile.evidence === 'measured' && 'is-measured'), key: profile.conditionId, 'data-benchmark-profile': profile.conditionId },
+          h('div', { className: 'acc-three-score__identity' },
+            h('button', { type: 'button', className: 'acc-table-link', onClick: () => go({ view: 'benchmarks', condition: profile.conditionId }) }, condition.shortName),
+            h('small', null, `${condition.provider} · ${condition.runtime}`),
+          ),
+          h(ThreeScoreValue, { score: profile.scores.instruction }),
+          h(ThreeScoreValue, { score: profile.scores.tools }),
+          h(ThreeScoreValue, { score: profile.scores.agent }),
+          h('div', { className: 'acc-three-score__evidence' },
+            profile.evidence === 'measured' ? h(Badge, { tone: 'good' }, 'Measured') : h(Badge, null, 'Illustrative'),
+            h('small', null, profile.evidence === 'measured' ? `${Object.values(profile.scores).filter((score) => score.evidence === 'verified').length} verified` : 'Layout fixture'),
+          ),
+        );
+      })),
+      h('div', { className: 'acc-prototype-note' }, 'Luna’s and Sol’s three suites are final-verified. Qwen 3.8 2B has a final-verified IFEval score reproduced exactly across two runs; BFCL and tau2 remain Pending and are not treated as zero. The remaining four conditions and all of their scores are explicitly illustrative Dev fixtures.'),
+    );
+  }
+
+  function formatTokenCount(value) {
+    if (value >= 1000000) return `${(value / 1000000).toFixed(2)}M`;
+    if (value >= 1000) return `${(value / 1000).toFixed(2)}K`;
+    return value.toLocaleString();
+  }
+
+  function formatDuration(seconds) {
+    if (seconds >= 3600) return `${(seconds / 3600).toFixed(2)}h`;
+    if (seconds >= 60) return `${(seconds / 60).toFixed(2)}m`;
+    return `${seconds.toFixed(2)}s`;
+  }
+
+  function OperationalBenchmarkFootprint({ operational }) {
+    if (!operational) return null;
+    const usage = operational.candidateUsage;
+    const performance = operational.performance;
+    const billing = operational.billing;
+    const unavailable = 'Not separately reported';
+    const evidenceLabel = operational.evidence === 'verified-repeat' ? 'Verified repeat' : 'Verified aggregate';
+    const runtimeLabels = {
+      host: 'Host', backend: 'Backend', modelRevision: 'Model revision', quantization: 'Quantization', context: 'Context', outputCap: 'Output cap',
+      slots: 'Slots', concurrency: 'Concurrency', retries: 'Retries', thinking: 'Thinking', streaming: 'Streaming',
+    };
+    const accountingNote = billing
+      ? `${billing.subscriptionAttribution}. API-equivalent pricing: ${operational.pricing.candidateRates}; fixed judge ${operational.pricing.judgeRates}. ${operational.pricing.assumption}; cached-input and hidden-reasoning splits were not retained. ${operational.pricing.longContextRequests} requests crossed the long-context surcharge threshold. ${operational.pricing.source}.`
+      : operational.methodNote;
+    return h('section', { className: 'acc-operational', role: 'region', 'aria-label': 'Operational benchmark footprint' },
+      h('div', { className: 'acc-ranking-heading' },
+        h('div', null, h('p', { className: 'acc-eyebrow' }, 'Retained aggregate evidence'), h('h3', null, 'Operational footprint')),
+        h(Badge, { tone: 'good' }, evidenceLabel),
+      ),
+      h('div', { className: 'acc-operational-grid' },
+        h('article', { className: 'acc-operational-card' },
+          h('h4', null, 'Candidate model usage'),
+          h('dl', null,
+            [
+              ['Input tokens', formatTokenCount(usage.inputTokens)], ['Output tokens', formatTokenCount(usage.outputTokens)], ['Total tokens', formatTokenCount(usage.totalTokens)],
+              ['Cached input', usage.cachedInputTokens == null ? unavailable : formatTokenCount(usage.cachedInputTokens)], ['Reasoning tokens', usage.reasoningTokens == null ? unavailable : formatTokenCount(usage.reasoningTokens)],
+              usage.basis ? ['Usage basis', usage.basis] : null,
+            ].filter(Boolean).map(([label, value]) => h('div', { key: label }, h('dt', null, label), h('dd', null, value))),
+          ),
+        ),
+        performance ? h('article', { className: 'acc-operational-card' },
+          h('h4', null, performance.class === 'local-runtime' ? 'Local runtime performance' : 'Frontier route performance'),
+          h('dl', null,
+            [
+              ['Successful responses', performance.successfulResponses.toLocaleString()], ['Bridge non-OK events', performance.bridgeErrorEvents.toLocaleString()],
+              ['Latency median', `${performance.latencySeconds.median.toFixed(2)}s`], ['Latency mean', `${performance.latencySeconds.mean.toFixed(2)}s`],
+              ['Latency p95', `${performance.latencySeconds.p95.toFixed(2)}s`], ['Latency maximum', `${performance.latencySeconds.maximum.toFixed(2)}s`],
+              ['Summed successful wall time', formatDuration(performance.latencySeconds.total)], ['End-to-end output throughput', `${performance.endToEndOutputTokensPerSecond.toFixed(2)} tok/s`],
+            ].map(([label, value]) => h('div', { key: label }, h('dt', null, label), h('dd', null, value))),
+          ),
+        ) : null,
+        billing ? h('article', { className: 'acc-operational-card' },
+          h('h4', null, 'Actual vs API equivalent'),
+          h('dl', null,
+            h('div', null, h('dt', null, 'Marginal API charge'), h('dd', null, `$${billing.marginalApiChargeUsd}`)),
+            h('div', null, h('dt', null, 'API-equivalent estimate (not billed)'), h('dd', null, `$${billing.candidateApiEquivalentUsd.toFixed(2)}`)),
+            h('div', null, h('dt', null, 'Fixed judge estimate'), h('dd', null, `$${billing.judgeApiEquivalentUsd.toFixed(2)}`)),
+            h('div', null, h('dt', null, 'Fixed judge tokens'), h('dd', null, operational.judgeUsage.totalTokens.toLocaleString())),
+            h('div', null, h('dt', null, 'Collection route'), h('dd', null, billing.route)),
+            h('div', null, h('dt', null, 'Existing subscription'), h('dd', null, `$${billing.monthlySubscriptionUsd}/mo · unallocated`)),
+          ),
+        ) : null,
+        operational.localRuntime ? h('article', { className: 'acc-operational-card' },
+          h('h4', null, 'Local tested condition'),
+          h('dl', null, Object.entries(operational.localRuntime).map(([key, value]) => h('div', { key }, h('dt', null, runtimeLabels[key] || key), h('dd', null, String(value))))),
+        ) : null,
+        h('article', { className: 'acc-operational-card acc-operational-card--outcomes' },
+          h('h4', null, 'Observed misses and failures'),
+          h('dl', null, operational.outcomes.map(([label, value]) => h('div', { key: label }, h('dt', null, label), h('dd', null, value)))),
+        ),
+      ),
+      performance ? h('div', { className: 'acc-prototype-note' }, `${performance.measurementBoundary}. ${performance.variability}`) : null,
+      accountingNote ? h('div', { className: 'acc-prototype-note' }, accountingNote) : null,
+    );
+  }
+
+  function BenchmarkProfileSummary({ profile }) {
+    if (!profile) return null;
+    const suiteOrder = ['instruction', 'tools', 'agent'];
+    return h('section', { className: 'acc-core-score-detail', 'aria-labelledby': 'acc-core-score-title' },
+      h('div', { className: 'acc-ranking-heading' },
+        h('div', null, h('p', { className: 'acc-eyebrow' }, 'Benchmark standard'), h('h3', { id: 'acc-core-score-title' }, 'Three core scores')),
+        profile.evidence === 'measured' ? h(Badge, { tone: 'good' }, 'Measured evidence') : h(Badge, null, 'Illustrative fixture'),
+      ),
+      h('div', { className: 'acc-core-score-grid' }, suiteOrder.map((suiteId) => {
+        const score = profile.scores[suiteId];
+        return h('article', { className: cx('acc-core-score-card', score.value == null && 'is-pending'), key: suiteId },
+          h('div', { className: 'acc-core-score-card__head' },
+            h('div', null, h('span', null, score.label), h('small', null, score.benchmark)), h(StatusBadge, { state: score.evidence }),
+          ),
+          h('strong', { className: 'acc-core-score-card__value' }, score.value == null ? 'Pending' : score.value.toFixed(1)),
+          h('small', { className: 'acc-core-score-card__denominator' }, score.denominator),
+          score.detail.length ? h('dl', null, score.detail.map(([label, value]) => h('div', { key: label }, h('dt', null, label), h('dd', null, value)))) : null,
+        );
+      })),
+      h('div', { className: 'acc-prototype-note' }, profile.note),
+    );
+  }
+
   function RunDetail({ run, result, go, conditionId, domain }) {
     const fields = [
       ['Canonical result', result.id], ['Benchmark domain', result.domain], ['Benchmark release', result.release],
@@ -411,6 +552,7 @@ export function registerAutobotCommandCenter() {
 
   function ConditionDetail({ condition, route, go, domain }) {
     const family = getFamily(condition.familyId);
+    const benchmarkProfile = getBenchmarkComparison(condition.id);
     const availability = getEffectiveAvailability(condition);
     if (route.run) {
       const lineage = getRunLineage({
@@ -433,15 +575,17 @@ export function registerAutobotCommandCenter() {
       ['Context', condition.context], ['Output envelope', condition.output], ['Current availability', availability === 'unknown' ? 'Unknown — runtime telemetry is not claim-safe' : condition.availabilityNote],
     ];
     return h('div', { className: 'acc-view' },
-      h('button', { type: 'button', className: 'acc-back', onClick: () => go({ view: 'benchmarks', domain }) }, '← Benchmarks'),
+      h('button', { type: 'button', className: 'acc-back', onClick: () => go(benchmarkProfile ? { view: 'benchmarks' } : { view: 'benchmarks', domain }) }, '← Benchmarks'),
       h('article', { className: 'acc-detail' },
         h('div', { className: 'acc-detail__hero' },
           h('div', null, h('p', { className: 'acc-eyebrow' }, 'Exact tested condition'), h('h2', null, condition.shortName), h('p', { className: 'acc-lede' }, family.roles.join(' · '))),
           h(Badge, { tone: availability === 'unknown' ? 'warn' : availability === 'available' ? 'good' : 'bad' }, `Availability ${availability}`),
         ),
         h('section', { className: 'acc-fingerprint' }, h('span', null, 'Condition fingerprint'), h('code', null, condition.fingerprint)),
+        h(BenchmarkProfileSummary, { profile: benchmarkProfile }),
+        h(OperationalBenchmarkFootprint, { operational: benchmarkProfile?.operational }),
         h('dl', { className: 'acc-fact-grid' }, fields.map(([label, value]) => h('div', { key: label }, h('dt', null, label), h('dd', null, value)))),
-        h('section', { className: 'acc-related' },
+        condition.results.some((result) => result.status === 'canonical') ? h('section', { className: 'acc-related' },
           h('h3', null, 'Canonical results and run lineage'),
           condition.results.filter((result) => result.status === 'canonical').map((result) =>
             h('article', { className: 'acc-result-line', key: result.id },
@@ -449,7 +593,7 @@ export function registerAutobotCommandCenter() {
               h('button', { type: 'button', className: 'acc-secondary-button', 'aria-label': `Open run evidence for ${result.domain} ${result.release}`, onClick: () => go({ view: 'benchmarks', domain: result.domain, condition: condition.id, result: result.id, release: result.release, run: result.runIds[0] }) }, 'Open run evidence'),
             ),
           ),
-        ),
+        ) : null,
       ),
     );
   }
@@ -459,6 +603,12 @@ export function registerAutobotCommandCenter() {
     const domain = Object.hasOwn(RELEASES, route.domain) ? route.domain : 'tool-use';
     const condition = !isRollup && route.condition ? getCondition(route.condition) : null;
     if (condition) return h(ConditionDetail, { condition, route, go, domain });
+    if (!route.domain) return h('div', { className: 'acc-view' },
+      h(SectionHeading, { eyebrow: 'Model Observatory', title: 'Benchmarks' }),
+      h('p', { className: 'acc-lede' }, 'Compare every tested model through the same three operational scores, then open a condition for suite-level evidence and caveats.'),
+      h('div', { className: 'acc-toolbar' }, h(MetricTabs, { active: 'comparison', onSelect: (nextDomain) => go({ view: 'benchmarks', domain: nextDomain }) }), h(Badge, { tone: 'warn' }, 'Dev draft')),
+      h(ThreeScoreComparison, { go }),
+    );
     if (isRollup) return h('div', { className: 'acc-view' },
       h(SectionHeading, { eyebrow: 'Model Observatory', title: 'Benchmarks' }),
       h('p', { className: 'acc-lede' }, 'Capability rollup is normalized within exact frozen releases. Complete and partial benchmark coverage are never cross-ranked.'),
