@@ -10,6 +10,12 @@ async function routeWebAnalytics(page) {
   const realProjection = structuredClone(showcaseProjection);
   realProjection.dataKind = 'real';
   realProjection.subject = { id: 'kungfuclan.com', label: 'Kung Fu Clan', domain: 'web' };
+  realProjection.ranges['30d'].countries.push(
+    { code: 'ES', requests: 80, edgeResponseBytes: 8000 },
+    { code: 'MX', requests: 70, edgeResponseBytes: 7000 },
+    { code: 'NZ', requests: 60, edgeResponseBytes: 6000 },
+    { code: 'ZA', requests: 50, edgeResponseBytes: 5000 },
+  );
   delete realProjection.notice;
   await page.route('**/data/analytics/web/kungfuclan.com.v2.json', async (route) => {
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify(realProjection) });
@@ -113,13 +119,31 @@ test('Analytics exposes scalable domains and a truthful KFC real-data route', as
   await expect(page.getByLabel('Analytics summary').getByText('Cloudflare Visits', { exact: true })).toBeVisible();
   await expect(page.getByText(/Page-entry events from direct traffic or an external referrer/i)).toBeVisible();
   await expect(page.getByText('Strict cache-hit share', { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'World request map' })).toBeVisible();
+  const countryTable = page.getByRole('table', { name: 'Authoritative requests by country' });
+  await expect(countryTable.locator('tbody tr')).toHaveCount(10);
+  await page.getByRole('button', { name: 'Show all 12 countries' }).click();
+  await expect(countryTable.locator('tbody tr')).toHaveCount(12);
+  await page.getByRole('button', { name: 'Collapse to Top 10 countries' }).click();
+  await expect(countryTable.locator('tbody tr')).toHaveCount(10);
+  const mapHeading = page.getByRole('heading', { name: 'World request map' });
+  await expect(mapHeading).toBeHidden();
+  await page.getByText('Show world request map', { exact: true }).click();
+  await expect(mapHeading).toBeVisible();
   const unitedStates = page.locator('.acc-world-map__country[data-country="US"]');
   await expect(unitedStates).toHaveAttribute('data-state', 'observed');
   await expect(unitedStates).toHaveAttribute('aria-label', /United States.*requests/i);
   await unitedStates.focus();
   await expect(unitedStates).toBeFocused();
   await expect(page.getByText(/US state breakdown unavailable/i)).toBeVisible();
+  await expect(page.locator('[data-traffic-tick]')).toHaveCount(5);
+  await expect(page.locator('[data-traffic-tick]').filter({ hasText: /^0$/ })).toHaveCount(1);
+  await expect(page.locator('[data-traffic-tick]').filter({ hasText: /^3,799$/ })).toHaveCount(1);
+  await expect(page.locator('.acc-traffic-point title', { hasText: '2026-07-17: 1,440 requests' })).toHaveCount(1);
+  await expect(page.locator('[data-period-delta]')).toHaveCount(0);
+  await expect(page.getByText(/period.over.period|previous period/i)).toHaveCount(0);
+  const compactPanels = page.locator('.acc-analytics-compact-breakdowns');
+  await expect(compactPanels.locator('.acc-analytics-panel')).toHaveCount(2);
+  expect(await compactPanels.evaluate((element) => getComputedStyle(element).alignItems)).toBe('start');
   await expect(page.getByText('ILLUSTRATIVE FIXTURE', { exact: false })).toHaveCount(0);
   await expect(page.getByText(/Visits are entry events, not unique people or sessions/i)).toBeVisible();
 });

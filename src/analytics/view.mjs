@@ -26,12 +26,33 @@ function formatPercent(value) {
   return Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : 'Unknown';
 }
 
+function formatChartNumber(value) {
+  return Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
+
 function countryName(code) {
   try {
     return new Intl.DisplayNames(['en'], { type: 'region' }).of(code) || code;
   } catch {
     return code;
   }
+}
+
+export function projectCountryRows(rows, defaultLimit = 10) {
+  const allRows = rows
+    .map((row) => ({ ...row }))
+    .sort((left, right) => (right.requests - left.requests) || left.code.localeCompare(right.code));
+  return {
+    defaultRows: allRows.slice(0, defaultLimit),
+    allRows,
+    hasMore: allRows.length > defaultLimit,
+  };
+}
+
+export function projectTrafficScale(daily) {
+  const observed = daily.filter((day) => day.state === 'present' && Number.isSafeInteger(day.requests));
+  const maximum = Math.max(...observed.map((day) => day.requests), 1);
+  return { maximum, ticks: [0, 0.25, 0.5, 0.75, 1].map((fraction) => maximum * fraction) };
 }
 
 export function createAnalyticsView({ React, h, useEffect, useState, Badge, StatusBadge, SectionHeading, ProviderUsage }) {
@@ -101,11 +122,12 @@ export function createAnalyticsView({ React, h, useEffect, useState, Badge, Stat
   function TrafficChart({ range }) {
     const width = 720;
     const height = 220;
-    const inset = 22;
-    const values = range.daily.filter((day) => day.state === 'present').map((day) => day.requests);
-    const maximum = Math.max(...values, 1);
-    const xFor = (index) => inset + (index * (width - (2 * inset))) / Math.max(range.daily.length - 1, 1);
-    const yFor = (value) => height - inset - ((value / maximum) * (height - (2 * inset)));
+    const leftInset = 58;
+    const rightInset = 22;
+    const verticalInset = 22;
+    const { maximum, ticks } = projectTrafficScale(range.daily);
+    const xFor = (index) => leftInset + (index * (width - leftInset - rightInset)) / Math.max(range.daily.length - 1, 1);
+    const yFor = (value) => height - verticalInset - ((value / maximum) * (height - (2 * verticalInset)));
     const segments = [];
     let current = [];
     range.daily.forEach((day, index) => {
@@ -117,7 +139,10 @@ export function createAnalyticsView({ React, h, useEffect, useState, Badge, Stat
     return h('section', { className: 'acc-analytics-panel', 'aria-labelledby': 'acc-traffic-title' },
       h('div', { className: 'acc-analytics-panel__head' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Closed UTC days'), h('h2', { id: 'acc-traffic-title' }, 'Daily traffic')), h('small', null, 'Gaps are never plotted as zero')),
       h('svg', { className: 'acc-traffic-chart', viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': `Daily requests from ${range.startDate} through ${range.endDate}; ${range.daysObserved} observed, ${range.daysMissing} missing, ${range.daysOutsideArchive} before archive.` },
-        [0.25, 0.5, 0.75].map((fraction) => h('line', { key: fraction, x1: inset, x2: width - inset, y1: yFor(maximum * fraction), y2: yFor(maximum * fraction), className: 'acc-traffic-gridline' })),
+        ticks.map((value) => h('g', { key: value },
+          h('line', { x1: leftInset, x2: width - rightInset, y1: yFor(value), y2: yFor(value), className: 'acc-traffic-gridline' }),
+          h('text', { x: leftInset - 8, y: yFor(value) + 4, textAnchor: 'end', className: 'acc-traffic-tick', 'data-traffic-tick': true }, formatChartNumber(value)),
+        )),
         segments.map((points, index) => h('path', { key: index, d: pathFor(points), className: 'acc-traffic-line' })),
         range.daily.map((day, index) => day.state === 'present' ? h('circle', { key: day.date, cx: xFor(index), cy: yFor(day.requests), r: 4, className: 'acc-traffic-point' }, h('title', null, `${day.date}: ${formatNumber(day.requests)} requests`)) : null),
       ),
@@ -166,8 +191,38 @@ export function createAnalyticsView({ React, h, useEffect, useState, Badge, Stat
         h('span', null, h('i', { 'data-legend': 'none' }), 'No retained value'),
         [1, 2, 3, 4, 5].map((level) => h('span', { key: level }, h('i', { 'data-legend': level }), level === 1 ? 'Lower' : level === 5 ? 'Higher' : '')),
       ),
-      model.unmapped.length ? h('p', { className: 'acc-world-map__note', role: 'status' }, `${model.unmapped.length} retained country code${model.unmapped.length === 1 ? '' : 's'} could not be mapped and remain listed below.`) : null,
-      h('p', { className: 'acc-world-map__note' }, 'US state breakdown unavailable — the retained Cloudflare aggregate source exposes country, not state or subdivision. Country values remain authoritative in the table below.'),
+      model.unmapped.length ? h('p', { className: 'acc-world-map__note', role: 'status' }, `${model.unmapped.length} retained country code${model.unmapped.length === 1 ? '' : 's'} could not be mapped and remain listed in the authoritative table above.`) : null,
+      h('p', { className: 'acc-world-map__note' }, 'US state breakdown unavailable — the retained Cloudflare aggregate source exposes country, not state or subdivision. Country values remain authoritative in the table above.'),
+    );
+  }
+
+  function CountryTable({ range }) {
+    const [expanded, setExpanded] = useState(false);
+    const projection = projectCountryRows(range.countries);
+    const rows = expanded ? projection.allRows : projection.defaultRows;
+    return h('section', { className: 'acc-analytics-panel acc-country-table', 'aria-labelledby': 'acc-country-table-title' },
+      h('div', { className: 'acc-analytics-panel__head' },
+        h('div', null, h('p', { className: 'acc-eyebrow' }, 'Authoritative geography'), h('h2', { id: 'acc-country-table-title' }, 'Requests by country')),
+        h('small', null, `${rows.length} of ${projection.allRows.length} shown`),
+      ),
+      projection.allRows.length ? h('div', { className: 'acc-country-table__frame' }, h('table', { 'aria-label': 'Authoritative requests by country' },
+        h('thead', null, h('tr', null,
+          h('th', { scope: 'col' }, 'Country'),
+          h('th', { scope: 'col' }, 'Requests'),
+          h('th', { scope: 'col' }, 'Transfer'),
+        )),
+        h('tbody', null, rows.map((row) => h('tr', { key: row.code, 'data-country-row': row.code },
+          h('th', { scope: 'row' }, `${countryName(row.code)} · ${row.code}`),
+          h('td', null, formatNumber(row.requests)),
+          h('td', null, formatBytes(row.edgeResponseBytes)),
+        ))),
+      )) : h('p', { className: 'acc-provider-empty' }, 'No observed country values'),
+      projection.hasMore ? h('button', {
+        type: 'button',
+        className: 'acc-secondary-button acc-country-table__toggle',
+        'aria-expanded': expanded,
+        onClick: () => setExpanded((value) => !value),
+      }, expanded ? 'Collapse to Top 10 countries' : `Show all ${projection.allRows.length} countries`) : null,
     );
   }
 
@@ -242,9 +297,12 @@ export function createAnalyticsView({ React, h, useEffect, useState, Badge, Stat
       h(CoverageStrip, { projection, range }),
       h(SummaryCards, { range }),
       h(TrafficChart, { range }),
-      h(WorldTrafficMap, { range }),
-      h('div', { className: 'acc-analytics-breakdowns' },
-        h(BarList, { eyebrow: 'Geography', title: 'Requests by country', rows: range.countries, labelFor: (row) => `${countryName(row.code)} · ${row.code}`, valueFor: (row) => row.requests }),
+      h(CountryTable, { range }),
+      h('details', { className: 'acc-world-map-disclosure' },
+        h('summary', null, 'Show world request map'),
+        h(WorldTrafficMap, { range }),
+      ),
+      h('div', { className: 'acc-analytics-compact-breakdowns' },
         h(BarList, { eyebrow: 'HTTP outcome', title: 'Response classes', rows: range.statusClasses, labelFor: (row) => row.class, valueFor: (row) => row.requests }),
         h(BarList, { eyebrow: 'Edge cache', title: 'Cache statuses', rows: range.cacheStatuses, labelFor: (row) => row.status, valueFor: (row) => row.requests }),
       ),
