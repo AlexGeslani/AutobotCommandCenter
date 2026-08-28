@@ -13,8 +13,8 @@
     },
     "hiveMindTlsPinFile": {
       "kind": "file",
-      "required": true,
-      "default": ".hermes/trust/hivemind-qmd-dsm-cert.sha256"
+      "required": false,
+      "default": null
     },
     "providerUsagePrivateCacheDir": {
       "kind": "directory",

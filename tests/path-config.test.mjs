@@ -25,6 +25,11 @@ describe('typed portable ACC path configuration', () => {
     expect(JSON.stringify(contract)).not.toMatch(/(?:src|dist|standalone\/public|dashboard\/dist)/);
   });
 
+  it('resolves an absent optional TLS pin as null', () => {
+    const resolved = resolveAccPathConfig({ contract, home: '/portable/home', env: {} });
+    expect(resolved.hiveMindTlsPinFile).toBeNull();
+  });
+
   it('applies explicit local config, CLI, environment, then portable default precedence', () => {
     const home = '/portable/home';
     const localConfig = {

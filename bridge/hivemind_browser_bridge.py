@@ -51,7 +51,10 @@ def _load_path_contract() -> dict[str, Any]:
         default = spec.get("default")
         if spec.get("kind") not in {"file", "directory"} or not isinstance(spec.get("required"), bool):
             raise PathConfigError(f"{name} has an invalid path type")
-        if not isinstance(default, str) or not default.strip() or Path(default).is_absolute() or default == ".." or default.startswith("../"):
+        if default is None:
+            if spec["required"]:
+                raise PathConfigError(f"{name} required path must have a default")
+        elif not isinstance(default, str) or not default.strip() or Path(default).is_absolute() or default == ".." or default.startswith("../"):
             raise PathConfigError(f"{name} default must be a portable home-relative path")
     return value
 
@@ -80,7 +83,7 @@ def resolve_path_config(
     env: dict[str, str] | os._Environ[str] | None = None,
     local_config: object = None,
     overrides: dict[str, str] | None = None,
-) -> dict[str, Path]:
+) -> dict[str, Path | None]:
     contract = _load_path_contract()
     home = Path.home() if home is None else Path(home)
     env = os.environ if env is None else env
@@ -102,14 +105,11 @@ def resolve_path_config(
                 raise PathConfigError(f"unknown path {name}")
             if raw is not None and not isinstance(raw, str):
                 raise PathConfigError(f"{name} must be a path string")
-    return {
-        name: _portable_path(
-            local_paths.get(name) or overrides.get(name) or env.get(PATH_ENV_KEYS[name]) or spec["default"],
-            home,
-            name,
-        )
-        for name, spec in contract["paths"].items()
-    }
+    resolved: dict[str, Path | None] = {}
+    for name, spec in contract["paths"].items():
+        raw = local_paths.get(name) or overrides.get(name) or env.get(PATH_ENV_KEYS[name]) or spec["default"]
+        resolved[name] = None if raw is None else _portable_path(raw, home, name)
+    return resolved
 
 
 def load_path_config(
@@ -118,7 +118,7 @@ def load_path_config(
     home: Path | None = None,
     env: dict[str, str] | os._Environ[str] | None = None,
     overrides: dict[str, str] | None = None,
-) -> dict[str, Path]:
+) -> dict[str, Path | None]:
     home = Path.home() if home is None else Path(home)
     env = os.environ if env is None else env
     selected = config_path or env.get("ACC_PATH_CONFIG")
@@ -132,10 +132,14 @@ def load_path_config(
     return resolve_path_config(home=home, env=env, local_config=local_config, overrides=overrides)
 
 
-def validate_required_bridge_paths(paths: dict[str, Path]) -> None:
-    required = ("hiveMindClient", "hiveMindTokenFile", "hiveMindTlsPinFile")
-    if any(not isinstance(paths.get(name), Path) or not paths[name].is_file() for name in required):
-        raise PathConfigError("required protected bridge resource is unavailable")
+def validate_required_bridge_paths(paths: dict[str, Path | None]) -> None:
+    for name in ("hiveMindClient", "hiveMindTokenFile"):
+        path = paths.get(name)
+        if not isinstance(path, Path) or not path.is_file():
+            raise PathConfigError("required protected bridge resource is unavailable")
+    tls_pin_file = paths.get("hiveMindTlsPinFile")
+    if tls_pin_file is not None and (not isinstance(tls_pin_file, Path) or not tls_pin_file.is_file()):
+        raise PathConfigError("configured TLS pin resource is unavailable")
 
 
 def normalize_search_request(
@@ -182,7 +186,7 @@ class BridgeServer(ThreadingHTTPServer):
         *,
         search_client: ModuleType,
         token_file: Path,
-        tls_pin_file: Path,
+        tls_pin_file: Path | None,
         allowed_origins: set[str],
         approved_collections: tuple[str, ...],
         base_url: str,
@@ -317,9 +321,9 @@ def main() -> int:
         },
     )
     validate_required_bridge_paths(paths)
-    client_path = paths["hiveMindClient"]
-    token_file = paths["hiveMindTokenFile"]
-    tls_pin_file = paths["hiveMindTlsPinFile"]
+    client_path = cast(Path, paths["hiveMindClient"])
+    token_file = cast(Path, paths["hiveMindTokenFile"])
+    tls_pin_file = cast(Path | None, paths["hiveMindTlsPinFile"])
     base_url = os.environ.get("HIVEMIND_BASE_URL", "").strip()
     approved_collections = tuple(
         item.strip()
