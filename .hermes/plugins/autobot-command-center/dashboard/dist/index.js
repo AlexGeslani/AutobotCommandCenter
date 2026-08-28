@@ -1405,6 +1405,7 @@
       { id: "gpt56-luna", name: "GPT-5.6 Luna", publisher: "OpenAI", architecture: "Hosted", license: "Provider terms", roles: ["Cloud reference", "Agent benchmark"] },
       { id: "gpt56-sol", name: "GPT-5.6 Sol", publisher: "OpenAI", architecture: "Hosted", license: "Provider terms", roles: ["Cloud reference", "Agent benchmark"] },
       { id: "qwen38-2b", name: "Qwen 3.8 2B Distill", publisher: "Community", architecture: "Dense", license: "See source model card", roles: ["Local baseline", "Instruction-following candidate"] },
+      { id: "qwen38-27b", name: "Qwen 3.8 27B RVN Heretic", publisher: "Community", architecture: "Dense", license: "Apache-2.0", roles: ["Local agent candidate", "Current measured condition"] },
       { id: "qwen36-35b", name: "Qwen3.6 35B-A3B", publisher: "Qwen", architecture: "MoE", license: "Known in source manifest", roles: ["Local flagship", "Agent candidate"] },
       { id: "qwen36-27b", name: "Qwen3.6 27B", publisher: "Qwen", architecture: "Dense", license: "Known in source manifest", roles: ["Local reasoning", "Agent candidate"] },
       { id: "bonsai", name: "Bonsai 8B", publisher: "Community", architecture: "Dense", license: "Evaluation manifest pending", roles: ["Efficient local agent", "Shadow candidate"] },
@@ -1521,6 +1522,22 @@
         availability: "unknown",
         availabilityNote: "Benchmark evidence is immutable; current runtime availability is tracked separately",
         fingerprint: "qwen3.6-35b-a3b-heretic|q4-k-m|mtp-n2|llamacpp-b9172|thinking-on|ctx262144|2slots|out32768|gpu-node-b|ootb-intake-v1",
+        results: []
+      },
+      {
+        id: "qwen38-27b-rvn-heretic-gpu-b",
+        familyId: "qwen38-27b",
+        shortName: "Qwen3.8 27B RVN Heretic \xB7 Q4_K_M \xB7 MTP-N1",
+        provider: "GPU Node B",
+        runtime: "llama.cpp b10448",
+        quantization: "Q4_K_M Heretic",
+        reasoning: "Thinking on \xB7 medium",
+        host: "GPU Node B",
+        context: "128K \xB7 1 slot",
+        output: "32K cap",
+        availability: "unknown",
+        availabilityNote: "Active benchmark evidence does not establish general runtime availability",
+        fingerprint: "qwen3.8-27b-rvn-heretic|q4-k-m|mtp-n1|llamacpp-b10448|thinking-on-medium|ctx131072|1slot|out32768|gpu-node-b|ootb-intake-v1",
         results: []
       },
       {
@@ -1666,7 +1683,7 @@
       {
         conditionId: "qwen38-2b-mlx",
         evidence: "measured",
-        note: "IFEval and BFCL are final-verified for the exact 4-bit MLX/Metal condition. IFEval repeated exactly at 9 / 40 strict prompts and 47 / 95 instructions; BFCL scored 8.72% across the frozen 150-case selection after all 261 required rows were generated. tau2 Retail is complete at 25 / 25 and Telecom is active at 3 / 25 in the captured progress snapshot, so the tau2 primary score stays Pending rather than zero.",
+        note: "IFEval and BFCL are final-verified for the exact 4-bit MLX/Metal condition. IFEval repeated exactly at 9 / 40 strict prompts and 47 / 95 instructions; BFCL scored 8.72% across the frozen 150-case selection after all 261 required rows were generated. tau2 Retail is complete at 25 / 25 and Telecom is active at 6 / 25 in the captured progress snapshot, so the tau2 primary score stays Pending rather than zero.",
         operational: {
           evidence: "verified-partial",
           candidateUsage: { inputTokens: 9839500, outputTokens: 1130727, totalTokens: 10970227, cachedInputTokens: 2135136, reasoningTokens: null, retainedBridgeEvents: 1648, basis: "Final-verified IFEval matched repeat plus final-verified BFCL \xB7 incomplete tau2 usage excluded" },
@@ -1705,14 +1722,14 @@
             ["Repeat consistency", "40 / 40 exact response-text matches \xB7 40 / 40 exact usage matches"],
             ["BFCL final result", "8.72% \xB7 261 / 261 generated \xB7 150 / 150 scored \xB7 final verification passed"],
             ["BFCL custody", "1,608 / 1,608 bridge requests succeeded \xB7 0 transport errors \xB7 0 retries"],
-            ["tau2 progress snapshot", "28 / 50 frozen tasks completed \xB7 Retail 25 / 25 \xB7 Telecom 3 / 25 active \xB7 score withheld as Pending"]
+            ["tau2 progress snapshot", "31 / 50 frozen tasks completed \xB7 Retail 25 / 25 \xB7 Telecom 6 / 25 active \xB7 score withheld as Pending"]
           ],
           methodNote: "Local performance is specific to this host, runtime, quantization, context/output envelope, serial slot, and warm-state collection. Candidate usage includes only final-verified IFEval and BFCL evidence; incomplete tau2 usage is excluded. Pure generation speed and resource peaks were unavailable in the retained evidence."
         },
         scores: {
           instruction: { label: "Instruction following", benchmark: "IFEval", value: 22.5, evidence: "verified", denominator: "9 / 40 strict prompts", detail: [["Instruction checks", "47 / 95 \xB7 49.5%"], ["Matched repeats", "2 \xB7 identical scores"], ["Exact response matches", "40 / 40"], ["Repeat mean / p95", "51.29s / 136.39s"], ["Completion tokens", "123,437"], ["Final verification", "Passed \xB7 both runs"]] },
           tools: { label: "Native tool use", benchmark: "BFCL V4", value: 8.72, evidence: "verified", denominator: "150 / 150 frozen scored cases", detail: [["Generated traces", "261 / 261"], ["Non-live AST", "39.17%"], ["Live", "0.00%"], ["Multi-turn tools", "1.25%"], ["Memory", "7.14%"], ["Bridge requests", "1,608 / 1,608 succeeded \xB7 0 transport errors \xB7 0 retries"], ["Latency median / mean / p95", "11.67s / 21.27s / 78.28s"], ["Final verification", "Passed"]] },
-          agent: { label: "Multi-turn agent", benchmark: "tau2", value: null, evidence: "pending", denominator: "28 / 50 live \xB7 score withheld", progress: { current: 28, total: 50, label: "28 / 50 frozen tasks \xB7 Retail 25 / 25 \xB7 Telecom 3 / 25", state: "in-progress", capturedAt: "2026-08-28T00:34:06Z" }, detail: [["Frozen inventory", "25 Retail + 25 Telecom"], ["Completed simulations", "Retail 25 / 25 \xB7 Telecom 3 / 25 \xB7 28 / 50 total"], ["Harness errors", "0 observed in current progress artifact"], ["Current workload", "Telecom active"], ["Scoring state", "Pending full frozen inventory and final verification"]] }
+          agent: { label: "Multi-turn agent", benchmark: "tau2", value: null, evidence: "pending", denominator: "31 / 50 live \xB7 score withheld", progress: { current: 31, total: 50, label: "31 / 50 frozen tasks \xB7 Retail 25 / 25 \xB7 Telecom 6 / 25", state: "in-progress", capturedAt: "2026-08-28T02:33:10Z" }, detail: [["Frozen inventory", "25 Retail + 25 Telecom"], ["Completed simulations", "Retail 25 / 25 \xB7 Telecom 6 / 25 \xB7 31 / 50 total"], ["Harness errors", "0 observed in current progress artifact"], ["Current workload", "Telecom active"], ["Scoring state", "Pending full frozen inventory and final verification"]] }
         }
       },
       {
@@ -1771,6 +1788,59 @@
           instruction: { label: "Instruction following", benchmark: "IFEval", value: 77.5, evidence: "verified", denominator: "31 / 40 strict prompts", detail: [["Instruction checks", "86 / 95 \xB7 90.5%"], ["Median / mean request", "38.25s / 45.71s"], ["Request p95", "109.71s"], ["Completion tokens", "157,506"], ["End-to-end output throughput", "86.15 tok/s"], ["Final verification", "Passed \xB7 exact model and runtime lineage"]] },
           tools: { label: "Native tool use", benchmark: "BFCL V4", value: 51.76, evidence: "verified", denominator: "150 / 150 frozen scored cases", detail: [["Generated traces", "261 / 261"], ["Frozen scored IDs", "150 / 150 exact \xB7 zero duplicates"], ["Non-live AST", "89.44%"], ["Live", "87.50%"], ["Multi-turn tools", "69.58%"], ["Memory", "45.97%"], ["Bridge requests", "2,633 / 2,658 succeeded \xB7 25 prerequisite provider failures \xB7 0 scored-case provider failures"], ["Latency median / mean / p95", "3.89s / 25.15s / 36.17s"], ["End-to-end output throughput", "69.76 tok/s"], ["Final verification", "Passed"]] },
           agent: { label: "Multi-turn agent", benchmark: "tau2", value: 66, evidence: "verified", denominator: "33 / 50 frozen tasks", detail: [["Retail", "10 / 25 \xB7 40.0%"], ["Telecom", "23 / 25 \xB7 92.0%"], ["Empty model responses", "10 \xB7 retained as scored zeros"], ["Provider transport failures", "0"], ["Harness errors", "0"], ["Candidate requests", "1,102 / 1,102 succeeded"], ["Latency median / mean / p95", "2.77s / 7.65s / 18.97s"], ["End-to-end output throughput", "78.77 tok/s"], ["Fixed judge", "6 / 6 requests \xB7 27,767 tokens \xB7 fixed profile"], ["Final verification", "Passed \xB7 exact 50-task frozen inventory"]] }
+        }
+      },
+      {
+        conditionId: "qwen38-27b-rvn-heretic-gpu-b",
+        evidence: "measured",
+        note: "IFEval is final-verified at 32 / 40 strict prompts and 86 / 95 instructions for the exact Qwen3.8 27B RVN Heretic Q4_K_M MTP-N1 medium-thinking condition. BFCL is actively collecting its frozen 261 required generated rows, with 1 row persisted at this snapshot. tau2 is queued behind BFCL. Pending lanes remain score-withheld rather than zero.",
+        operational: {
+          evidence: "verified-partial",
+          candidateUsage: { inputTokens: 2596, outputTokens: 77738, totalTokens: 80334, cachedInputTokens: 0, reasoningTokens: null, retainedBridgeEvents: 40, basis: "Final-verified IFEval only \xB7 active BFCL and queued tau2 excluded" },
+          performance: {
+            class: "local-runtime",
+            successfulResponses: 40,
+            bridgeErrorEvents: 0,
+            latencySeconds: { minimum: 9.7965, median: 68.1601, mean: 102.1141, p95: 209.9175, maximum: 933.1993, total: 4084.5648 },
+            endToEndOutputTokensPerSecond: 19.0321,
+            measurementBoundary: "IFEval single-flight bridge end-to-end non-streaming wall time",
+            variability: "IFEval-specific route evidence including transport, prompt evaluation, and generation. BFCL and tau2 performance are not projected before their own final verification. TTFT, pure decoder throughput, resource peaks, and thermal/power state were not captured."
+          },
+          localRuntime: {
+            hardwareProfile: "gpu-node-b-hardware-unresolved-20260827",
+            capturedAt: "2026-08-27",
+            machine: "Not captured in retained run evidence",
+            processor: "Not captured",
+            memory: "Not captured",
+            accelerator: "Not captured",
+            os: "Not captured",
+            host: "GPU Node B",
+            backend: "llama.cpp b10448 lineage",
+            modelRevision: "Qwen3.8-27B-RVN-Q4_K_M-MTP-N1-128K",
+            quantization: "Q4_K_M Heretic \xB7 MTP-N1",
+            context: "131,072 tokens \xB7 one slot",
+            outputCap: "32,768 tokens",
+            slots: 1,
+            concurrency: 1,
+            retries: 0,
+            thinking: "On \xB7 medium",
+            streaming: "No",
+            competingWorkload: "Requests serialized; broader host workload telemetry unavailable"
+          },
+          outcomes: [
+            ["IFEval final result", "80.00% \xB7 32 / 40 prompts \xB7 86 / 95 instructions \xB7 final verification passed"],
+            ["IFEval custody", "40 / 40 requests succeeded \xB7 0 provider or measurement-path failures"],
+            ["IFEval performance", "Median 68.16s \xB7 mean 102.11s \xB7 p95 209.92s \xB7 19.03 end-to-end output tok/s"],
+            ["BFCL progress snapshot", "1 / 261 required generated rows persisted \xB7 collection active \xB7 score withheld"],
+            ["tau2 state", "Queued behind BFCL \xB7 0 / 50 \xB7 score withheld"],
+            ["Hardware boundary", "Processor, RAM, accelerator, and OS were not captured in retained run evidence"]
+          ],
+          methodNote: "Candidate usage and performance include only final-verified IFEval evidence. BFCL collection completion is operational progress, not a capability estimate. Pending suites are excluded from the current average until their own final verification passes."
+        },
+        scores: {
+          instruction: { label: "Instruction following", benchmark: "IFEval", value: 80, evidence: "verified", denominator: "32 / 40 strict prompts", detail: [["Instruction checks", "86 / 95 \xB7 90.5%"], ["Median / mean request", "68.16s / 102.11s"], ["Request p95", "209.92s"], ["Completion tokens", "77,738"], ["End-to-end output throughput", "19.03 tok/s"], ["Final verification", "Passed \xB7 exact model and runtime lineage"]] },
+          tools: { label: "Native tool use", benchmark: "BFCL V4", value: null, evidence: "pending", denominator: "1 / 261 generated \xB7 score withheld", progress: { current: 1, total: 261, label: "1 / 261 required generated rows \xB7 collection active", state: "in-progress", capturedAt: "2026-08-28T02:51:29Z" }, detail: [["Frozen inventory", "261 required generated rows \xB7 150 scored cases"], ["Completed generated rows", "1 / 261 persisted"], ["Current workload", "BFCL collection active"], ["Scoring state", "Pending complete generation, evaluation, and final verification"]] },
+          agent: { label: "Multi-turn agent", benchmark: "tau2", value: null, evidence: "pending", denominator: "0 / 50 queued \xB7 score withheld", progress: { current: 0, total: 50, label: "0 / 50 frozen tasks \xB7 queued behind BFCL", state: "queued", capturedAt: "2026-08-28T02:46:25Z" }, detail: [["Frozen inventory", "25 Retail + 25 Telecom"], ["Completed simulations", "0 / 50"], ["Current workload", "Queued behind BFCL"], ["Scoring state", "Pending collection and final verification"]] }
         }
       }
     ],

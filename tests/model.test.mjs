@@ -25,9 +25,9 @@ import {
 describe('ACC product contract', () => {
   it('presents only measured model conditions through the three-score benchmark standard', () => {
     const comparison = getBenchmarkComparison();
-    expect(comparison).toHaveLength(4);
+    expect(comparison).toHaveLength(5);
     expect(comparison.map((profile) => profile.conditionId)).toEqual([
-      'gpt56-luna-max', 'gpt56-sol-max', 'qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b',
+      'gpt56-luna-max', 'gpt56-sol-max', 'qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b', 'qwen38-27b-rvn-heretic-gpu-b',
     ]);
     expect(comparison[0].scores).toMatchObject({
       instruction: { value: 82.5, evidence: 'verified' },
@@ -65,7 +65,7 @@ describe('ACC product contract', () => {
       scores: {
         instruction: { value: 22.5, evidence: 'verified', denominator: '9 / 40 strict prompts' },
         tools: { value: 8.72, evidence: 'verified', denominator: '150 / 150 frozen scored cases' },
-        agent: { value: null, evidence: 'pending', progress: { current: 28, total: 50, state: 'in-progress' } },
+        agent: { value: null, evidence: 'pending', progress: { current: 31, total: 50, state: 'in-progress' } },
       },
       operational: {
         evidence: 'verified-partial',
@@ -91,8 +91,23 @@ describe('ACC product contract', () => {
         localRuntime: { hardwareProfile: 'gpu-node-b-hardware-unresolved-20260826', machine: 'Not captured in retained run evidence', processor: 'Not captured', memory: 'Not captured', accelerator: 'Not captured', os: 'Not captured', context: '262,144 total · 131,072 per slot', slots: 2, concurrency: 1, retries: 0 },
       },
     });
+    expect(comparison[4]).toMatchObject({
+      conditionId: 'qwen38-27b-rvn-heretic-gpu-b', evidence: 'measured',
+      currentAverage: { value: 80, verifiedSuites: 1, totalSuites: 3, complete: false },
+      scores: {
+        instruction: { value: 80, evidence: 'verified', denominator: '32 / 40 strict prompts' },
+        tools: { value: null, evidence: 'pending', progress: { current: 1, total: 261, state: 'in-progress' } },
+        agent: { value: null, evidence: 'pending', progress: { current: 0, total: 50, state: 'queued' } },
+      },
+      operational: {
+        evidence: 'verified-partial',
+        candidateUsage: { inputTokens: 2596, outputTokens: 77738, totalTokens: 80334, cachedInputTokens: 0, reasoningTokens: null, retainedBridgeEvents: 40 },
+        performance: { class: 'local-runtime', successfulResponses: 40, bridgeErrorEvents: 0, latencySeconds: { median: 68.1601, mean: 102.1141, p95: 209.9175 }, endToEndOutputTokensPerSecond: 19.0321 },
+        localRuntime: { hardwareProfile: 'gpu-node-b-hardware-unresolved-20260827', context: '131,072 tokens · one slot', slots: 1, concurrency: 1, retries: 0 },
+      },
+    });
     expect(comparison.slice(0, 2).every((profile) => profile.operational.pricing.assumption === 'All retained input priced as uncached')).toBe(true);
-    expect(comparison.map((profile) => profile.currentAverage.value)).toEqual([58.8, 69.52, 15.61, 65.09]);
+    expect(comparison.map((profile) => profile.currentAverage.value)).toEqual([58.8, 69.52, 15.61, 65.09, 80]);
     expect(comparison.every((profile) => profile.evidence === 'measured')).toBe(true);
     expect(comparison.some((profile) => profile.evidence === 'illustrative')).toBe(false);
     expect(comparison.every((profile) => Object.keys(profile.scores).join(',') === 'instruction,tools,agent')).toBe(true);
@@ -103,26 +118,28 @@ describe('ACC product contract', () => {
     expect(visual).not.toHaveProperty('overallScore');
     expect(visual).not.toHaveProperty('winner');
     expect(visual.profiles.map((profile) => profile.conditionId)).toEqual([
-      'gpt56-luna-max', 'gpt56-sol-max', 'qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b',
+      'gpt56-luna-max', 'gpt56-sol-max', 'qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b', 'qwen38-27b-rvn-heretic-gpu-b',
     ]);
     expect(visual.profiles.map((profile) => profile.coverage)).toEqual([
       { instruction: 'verified', tools: 'verified', agent: 'verified' },
       { instruction: 'verified', tools: 'verified', agent: 'verified' },
       { instruction: 'verified', tools: 'verified', agent: 'in-progress' },
       { instruction: 'verified', tools: 'verified', agent: 'verified' },
+      { instruction: 'verified', tools: 'in-progress', agent: 'queued' },
     ]);
     expect(visual.suites.map((suite) => suite.id)).toEqual(['instruction', 'tools', 'agent']);
     expect(visual.suites.map((suite) => suite.label)).toEqual(['IFEval', 'BFCL V4', 'tau2']);
     expect(visual.suites[0].rows.map((row) => [row.conditionId, row.value])).toEqual([
-      ['gpt56-sol-max', 90], ['gpt56-luna-max', 82.5], ['qwen36-35b-heretic-gpu-b', 77.5], ['qwen38-2b-mlx', 22.5],
+      ['gpt56-sol-max', 90], ['gpt56-luna-max', 82.5], ['qwen38-27b-rvn-heretic-gpu-b', 80], ['qwen36-35b-heretic-gpu-b', 77.5], ['qwen38-2b-mlx', 22.5],
     ]);
-    expect(visual.suites[1].rows.map((row) => row.conditionId)).toEqual(['qwen36-35b-heretic-gpu-b', 'gpt56-sol-max', 'gpt56-luna-max', 'qwen38-2b-mlx']);
-    expect(visual.suites[2].rows.map((row) => row.conditionId)).toEqual(['gpt56-sol-max', 'qwen36-35b-heretic-gpu-b', 'gpt56-luna-max', 'qwen38-2b-mlx']);
+    expect(visual.suites[1].rows.map((row) => row.conditionId)).toEqual(['qwen36-35b-heretic-gpu-b', 'gpt56-sol-max', 'gpt56-luna-max', 'qwen38-2b-mlx', 'qwen38-27b-rvn-heretic-gpu-b']);
+    expect(visual.suites[2].rows.map((row) => row.conditionId)).toEqual(['gpt56-sol-max', 'qwen36-35b-heretic-gpu-b', 'gpt56-luna-max', 'qwen38-2b-mlx', 'qwen38-27b-rvn-heretic-gpu-b']);
     expect(visual.suites[0].rows[0].denominator).toBe('36 / 40 strict prompts');
     expect(visual.suites[1].rows[0]).toMatchObject({ kind: 'score', evidence: 'verified', value: 51.76, progress: null });
     expect(visual.suites[2].rows[1]).toMatchObject({ conditionId: 'qwen36-35b-heretic-gpu-b', kind: 'score', evidence: 'verified', value: 66, progress: null });
-    expect(visual.suites[2].rows.at(-1)).toMatchObject({ conditionId: 'qwen38-2b-mlx', kind: 'progress', evidence: 'in-progress', progress: { current: 28, total: 50 } });
-    expect(visual.suites[2].rows.at(-1).barValue).toBeCloseTo(56, 8);
+    expect(visual.suites[2].rows.at(-2)).toMatchObject({ conditionId: 'qwen38-2b-mlx', kind: 'progress', evidence: 'in-progress', progress: { current: 31, total: 50 } });
+    expect(visual.suites[2].rows.at(-2).barValue).toBeCloseTo(62, 8);
+    expect(visual.suites[2].rows.at(-1)).toMatchObject({ conditionId: 'qwen38-27b-rvn-heretic-gpu-b', kind: 'progress', evidence: 'queued', progress: { current: 0, total: 50 } });
     expect(visual.suites.flatMap((suite) => suite.rows).filter((row) => row.kind === 'score').every((row) => row.value != null && row.evidence === 'verified')).toBe(true);
     expect(JSON.stringify(visual)).not.toMatch(/illustrative/i);
   });
