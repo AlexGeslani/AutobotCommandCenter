@@ -1,7 +1,11 @@
 import importlib.util
+import http.client
+import json
+import threading
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import ModuleType
 
 
 MODULE_PATH = Path(__file__).parents[1] / "bridge" / "hivemind_browser_bridge.py"
@@ -83,6 +87,64 @@ class HiveMindBridgeRequestTests(unittest.TestCase):
             token.write_text("opaque", encoding="utf-8")
             pin.write_text("opaque", encoding="utf-8")
             bridge.validate_required_bridge_paths(paths)
+
+    def test_absent_optional_tls_pin_is_valid_and_passed_as_none(self):
+        bridge = load_bridge()
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            client_path = root / "client.py"
+            token = root / "token"
+            client_path.write_text("def search(**kwargs): return {'results': []}\n", encoding="utf-8")
+            token.write_text("test-only", encoding="utf-8")
+            paths = bridge.resolve_path_config(
+                home=root,
+                env={
+                    "HIVEMIND_CLIENT_PATH": str(client_path),
+                    "HIVEMIND_TOKEN_FILE": str(token),
+                },
+            )
+            self.assertIsNone(paths["hiveMindTlsPinFile"])
+            bridge.validate_required_bridge_paths(paths)
+
+            calls = []
+            search_client = ModuleType("recording_search_client")
+
+            def search(**kwargs):
+                calls.append(kwargs)
+                return {"results": []}
+
+            setattr(search_client, "search", search)
+            origin = "https://acc-dev.cybertr0n.com"
+            server = bridge.BridgeServer(
+                ("127.0.0.1", 0),
+                search_client=search_client,
+                token_file=token,
+                tls_pin_file=paths["hiveMindTlsPinFile"],
+                allowed_origins={origin},
+                approved_collections=("wiki-hermes",),
+                base_url="https://qmd.cybertr0n.com",
+            )
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                body = json.dumps({"query": "canary", "collections": ["wiki-hermes"], "limit": 1})
+                connection = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=5)
+                connection.request(
+                    "POST",
+                    "/search",
+                    body=body,
+                    headers={"Content-Type": "application/json", "Origin": origin},
+                )
+                response = connection.getresponse()
+                response.read()
+                connection.close()
+                self.assertEqual(response.status, 200)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=5)
+            self.assertEqual(len(calls), 1)
+            self.assertIsNone(calls[0]["tls_pin_file"])
 
     def test_path_config_rejects_unknown_non_path_and_escape_values(self):
         bridge = load_bridge()
