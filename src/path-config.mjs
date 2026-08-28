@@ -35,7 +35,11 @@ export function validateAccPathContract(value) {
   for (const [name, spec] of Object.entries(value.paths)) {
     if (!plainObject(spec) || Object.keys(spec).some((key) => !['kind', 'required', 'default'].includes(key))) throw new TypeError(`${name} has an invalid path specification`);
     if (!['file', 'directory'].includes(spec.kind) || typeof spec.required !== 'boolean') throw new TypeError(`${name} has an invalid path type`);
-    validateRelativeDefault(spec.default, name);
+    if (spec.default == null) {
+      if (spec.required) throw new TypeError(`${name} required path must have a default`);
+    } else {
+      validateRelativeDefault(spec.default, name);
+    }
   }
   return value;
 }
@@ -87,7 +91,7 @@ export function resolveAccPathConfig({
   const cliPaths = validateOverrides(overrides, names);
   return Object.freeze(Object.fromEntries(Object.entries(checked.paths).map(([name, spec]) => {
     const raw = localPaths[name] ?? cliPaths[name] ?? env?.[ENV_KEYS[name]] ?? spec.default;
-    return [name, portablePath(raw, home, name)];
+    return [name, raw == null ? null : portablePath(raw, home, name)];
   })));
 }
 
