@@ -260,9 +260,8 @@ test('measured benchmark view distinguishes verified capability, live completion
   await expect(measuredVisuals.locator('[data-measured-suite="instruction"] [data-score-bar]')).toHaveCount(4);
   await expect(measuredVisuals.locator('[data-measured-suite="tools"] [data-score-bar]')).toHaveCount(4);
   await expect(measuredVisuals.locator('[data-measured-suite="agent"] [data-score-bar]')).toHaveCount(4);
-  await expect(measuredVisuals.getByRole('cell', { name: /in-progress/ })).toHaveCount(2);
+  await expect(measuredVisuals.getByRole('cell', { name: /in-progress/ })).toHaveCount(1);
   await expect(measuredVisuals.getByRole('cell', { name: /queued/ })).toHaveCount(0);
-  await expect(measuredVisuals.getByText('90% done', { exact: true })).toBeVisible();
   await expect(measuredVisuals.getByText('56% done', { exact: true })).toBeVisible();
   await expect(measuredVisuals.getByText('36 / 40 strict prompts', { exact: true })).toBeVisible();
   await expect(measuredVisuals.getByText('Illustrative', { exact: true })).toHaveCount(0);
@@ -293,11 +292,12 @@ test('measured benchmark view distinguishes verified capability, live completion
   const gpu35 = comparison.locator('[data-benchmark-profile="qwen36-35b-heretic-gpu-b"]');
   await expect(gpu35.locator('.acc-three-score__value').getByText('77.5', { exact: true })).toBeVisible();
   await expect(gpu35.locator('.acc-three-score__value').getByText('51.8', { exact: true })).toBeVisible();
-  await expect(gpu35.getByText('In progress', { exact: true })).toHaveCount(1);
+  await expect(gpu35.locator('.acc-three-score__value').getByText('66.0', { exact: true })).toBeVisible();
+  await expect(gpu35.getByText('In progress', { exact: true })).toHaveCount(0);
   await expect(gpu35.getByText('Queued', { exact: true })).toHaveCount(0);
-  await expect(gpu35.getByText('64.6', { exact: true })).toBeVisible();
-  await expect(gpu35.getByText('In progress · 2/3 verified', { exact: true })).toBeVisible();
-  await expect(gpu35.getByText('2 verified', { exact: true })).toBeVisible();
+  await expect(gpu35.getByText('65.1', { exact: true })).toBeVisible();
+  await expect(gpu35.getByText('Complete · 3/3 verified', { exact: true })).toBeVisible();
+  await expect(gpu35.getByText('3 verified', { exact: true })).toBeVisible();
   await expect(comparison.getByText('Illustrative', { exact: true })).toHaveCount(0);
   await expect(comparison.getByText('Current average is the equal-weight arithmetic mean', { exact: false })).toBeVisible();
   await sol.getByRole('button', { name: /GPT-5\.6 Sol/i }).click();
@@ -361,8 +361,17 @@ test('measured benchmark view distinguishes verified capability, live completion
   await expect(page.getByRole('heading', { name: 'Qwen3.6 35B Heretic · Q4_K_M · MTP-N2' })).toBeVisible();
   await expect(page.getByText('150 / 150 frozen scored cases', { exact: true })).toBeVisible();
   await expect(page.getByText('51.76% · 261 / 261 generated · 150 / 150 scored · final verification passed', { exact: true })).toBeVisible();
-  await expect(page.getByText('90.0% collection complete · 45 / 50 frozen tasks · Retail 25 / 25 · Telecom 20 / 25', { exact: true })).toBeVisible();
-  await expect(page.getByText('In progress · 2/3 final-verified suites · pending suites excluded', { exact: true })).toBeVisible();
+  await expect(page.getByText('33 / 50 frozen tasks', { exact: true })).toBeVisible();
+  await expect(page.getByText('Retail', { exact: true })).toBeVisible();
+  await expect(page.getByText('10 / 25 · 40.0%', { exact: true })).toBeVisible();
+  await expect(page.getByText('Telecom', { exact: true })).toBeVisible();
+  await expect(page.getByText('23 / 25 · 92.0%', { exact: true })).toBeVisible();
+  await expect(page.getByText('Complete · 3/3 final-verified suites', { exact: true })).toBeVisible();
+  const gpuOperations = page.getByRole('region', { name: 'Operational benchmark footprint' });
+  await expect(gpuOperations.getByText('36.56M', { exact: true })).toBeVisible();
+  await expect(gpuOperations.getByText('5.48M', { exact: true })).toBeVisible();
+  await expect(gpuOperations.getByText('42.05M', { exact: true })).toBeVisible();
+  await expect(gpuOperations.getByText('Verified aggregate', { exact: true })).toBeVisible();
   expect(browserErrors).toEqual([]);
 });
 
@@ -541,9 +550,9 @@ test('every Analytics and Benchmarks data column is stably sortable with accessi
   await exerciseEverySortHeader(comparison, ['Tested condition', 'Instruction following', 'Native tool use', 'Multi-turn agent', 'Current average', 'Verified suites']);
   const agentButton = comparison.getByRole('button', { name: 'Sort by Multi-turn agent' });
   await agentButton.click();
-  expect(await comparison.locator('[data-benchmark-profile]').evaluateAll((rows) => rows.slice(-2).map((row) => row.getAttribute('data-benchmark-profile')))).toEqual(['qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b']);
+  expect(await comparison.locator('[data-benchmark-profile]').evaluateAll((rows) => rows.at(-1).getAttribute('data-benchmark-profile'))).toBe('qwen38-2b-mlx');
   await agentButton.click();
-  expect(await comparison.locator('[data-benchmark-profile]').evaluateAll((rows) => rows.slice(-2).map((row) => row.getAttribute('data-benchmark-profile')))).toEqual(['qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b']);
+  expect(await comparison.locator('[data-benchmark-profile]').evaluateAll((rows) => rows.at(-1).getAttribute('data-benchmark-profile'))).toBe('qwen38-2b-mlx');
 
   await page.goto(pluginUrl + '?view=benchmarks&domain=tool-use');
   const leaderboard = page.getByRole('table', { name: 'Tool Use benchmark leaderboard' });

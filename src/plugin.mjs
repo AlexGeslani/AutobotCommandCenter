@@ -603,7 +603,9 @@ export function registerAutobotCommandCenter() {
       ),
       h('div', { className: cx('acc-current-average', !profile.currentAverage.complete && 'is-in-progress') },
         h('div', null, h('span', null, 'Current suite average'), h('strong', null, profile.currentAverage.value.toFixed(1))),
-        h('small', null, `${profile.currentAverage.complete ? 'Complete' : 'In progress'} · ${profile.currentAverage.verifiedSuites}/${profile.currentAverage.totalSuites} final-verified suites · pending suites excluded`),
+        h('small', null, profile.currentAverage.complete
+          ? `Complete · ${profile.currentAverage.verifiedSuites}/${profile.currentAverage.totalSuites} final-verified suites`
+          : `In progress · ${profile.currentAverage.verifiedSuites}/${profile.currentAverage.totalSuites} final-verified suites · pending suites excluded`),
         h('span', { className: 'acc-current-average__track', 'aria-hidden': 'true' }, h('span', { style: { width: `${profile.currentAverage.value}%` } })),
       ),
       h('div', { className: 'acc-core-score-grid' }, suiteOrder.map((suiteId) => {
