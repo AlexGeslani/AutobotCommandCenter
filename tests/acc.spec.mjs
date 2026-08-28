@@ -509,10 +509,10 @@ test('measured benchmark view distinguishes verified capability, live completion
   await expect(page.getByRole('heading', { name: 'Qwen 3.8 2B Distill · 4-bit MLX' })).toBeVisible();
   await expect(page.getByText('9 / 40 strict prompts', { exact: true })).toBeVisible();
   await expect(page.getByText('150 / 150 frozen scored cases', { exact: true })).toBeVisible();
-  await expect(page.getByText('31 / 50 live · score withheld', { exact: true })).toBeVisible();
+  await expect(page.getByText('33 / 50 live · score withheld', { exact: true })).toBeVisible();
   await expect(page.getByText('Current suite average', { exact: true })).toBeVisible();
   await expect(page.getByText('In progress · 2/3 final-verified suites · pending suites excluded', { exact: true })).toBeVisible();
-  await expect(page.getByText('62.0% collection complete · 31 / 50 frozen tasks · Retail 25 / 25 · Telecom 6 / 25', { exact: true })).toBeVisible();
+  await expect(page.getByText('66.0% collection complete · 33 / 50 frozen tasks · Retail 25 / 25 · Telecom 8 / 25', { exact: true })).toBeVisible();
   const qwenOperations = page.getByRole('region', { name: 'Operational benchmark footprint' });
   await expect(qwenOperations.getByText('9.84M', { exact: true })).toBeVisible();
   await expect(qwenOperations.getByText('1.13M', { exact: true })).toBeVisible();
@@ -543,7 +543,7 @@ test('measured benchmark view distinguishes verified capability, live completion
   await qwen27.getByRole('button', { name: /Qwen3\.8 27B RVN Heretic/i }).click();
   await expect(page.getByRole('heading', { name: 'Qwen3.8 27B RVN Heretic · Q4_K_M · MTP-N1' })).toBeVisible();
   await expect(page.getByText('32 / 40 strict prompts', { exact: true })).toBeVisible();
-  await expect(page.getByText('1 / 261 generated · score withheld', { exact: true })).toBeVisible();
+  await expect(page.getByText('6 / 261 generated · score withheld', { exact: true })).toBeVisible();
   await expect(page.getByText('0 / 50 queued · score withheld', { exact: true })).toBeVisible();
   await expect(page.getByText('In progress · 1/3 final-verified suites · pending suites excluded', { exact: true })).toBeVisible();
   const qwen27Operations = page.getByRole('region', { name: 'Operational benchmark footprint' });
