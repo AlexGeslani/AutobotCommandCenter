@@ -261,9 +261,9 @@ test('measured benchmark view distinguishes verified capability, live completion
   await expect(measuredVisuals.locator('[data-measured-suite="tools"] [data-score-bar]')).toHaveCount(4);
   await expect(measuredVisuals.locator('[data-measured-suite="agent"] [data-score-bar]')).toHaveCount(4);
   await expect(measuredVisuals.getByRole('cell', { name: /in-progress/ })).toHaveCount(2);
-  await expect(measuredVisuals.getByRole('cell', { name: /queued/ })).toHaveCount(1);
-  await expect(measuredVisuals.getByText('69% done', { exact: true })).toBeVisible();
-  await expect(measuredVisuals.getByText('46% done', { exact: true })).toBeVisible();
+  await expect(measuredVisuals.getByRole('cell', { name: /queued/ })).toHaveCount(0);
+  await expect(measuredVisuals.getByText('90% done', { exact: true })).toBeVisible();
+  await expect(measuredVisuals.getByText('56% done', { exact: true })).toBeVisible();
   await expect(measuredVisuals.getByText('36 / 40 strict prompts', { exact: true })).toBeVisible();
   await expect(measuredVisuals.getByText('Illustrative', { exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
@@ -292,10 +292,12 @@ test('measured benchmark view distinguishes verified capability, live completion
   await expect(qwen2b.getByText('2 verified', { exact: true })).toBeVisible();
   const gpu35 = comparison.locator('[data-benchmark-profile="qwen36-35b-heretic-gpu-b"]');
   await expect(gpu35.locator('.acc-three-score__value').getByText('77.5', { exact: true })).toBeVisible();
+  await expect(gpu35.locator('.acc-three-score__value').getByText('51.8', { exact: true })).toBeVisible();
   await expect(gpu35.getByText('In progress', { exact: true })).toHaveCount(1);
-  await expect(gpu35.getByText('Queued', { exact: true })).toHaveCount(1);
-  await expect(gpu35.getByText('In progress · 1/3 verified', { exact: true })).toBeVisible();
-  await expect(gpu35.getByText('1 verified', { exact: true })).toBeVisible();
+  await expect(gpu35.getByText('Queued', { exact: true })).toHaveCount(0);
+  await expect(gpu35.getByText('64.6', { exact: true })).toBeVisible();
+  await expect(gpu35.getByText('In progress · 2/3 verified', { exact: true })).toBeVisible();
+  await expect(gpu35.getByText('2 verified', { exact: true })).toBeVisible();
   await expect(comparison.getByText('Illustrative', { exact: true })).toHaveCount(0);
   await expect(comparison.getByText('Current average is the equal-weight arithmetic mean', { exact: false })).toBeVisible();
   await sol.getByRole('button', { name: /GPT-5\.6 Sol/i }).click();
@@ -340,10 +342,10 @@ test('measured benchmark view distinguishes verified capability, live completion
   await expect(page.getByRole('heading', { name: 'Qwen 3.8 2B Distill · 4-bit MLX' })).toBeVisible();
   await expect(page.getByText('9 / 40 strict prompts', { exact: true })).toBeVisible();
   await expect(page.getByText('150 / 150 frozen scored cases', { exact: true })).toBeVisible();
-  await expect(page.getByText('Retail 23 / 25 live · score withheld', { exact: true })).toBeVisible();
+  await expect(page.getByText('28 / 50 live · score withheld', { exact: true })).toBeVisible();
   await expect(page.getByText('Current suite average', { exact: true })).toBeVisible();
   await expect(page.getByText('In progress · 2/3 final-verified suites · pending suites excluded', { exact: true })).toBeVisible();
-  await expect(page.getByText('46.0% collection complete · 23 / 50 frozen tasks · Retail 23 / 25', { exact: true })).toBeVisible();
+  await expect(page.getByText('56.0% collection complete · 28 / 50 frozen tasks · Retail 25 / 25 · Telecom 3 / 25', { exact: true })).toBeVisible();
   const qwenOperations = page.getByRole('region', { name: 'Operational benchmark footprint' });
   await expect(qwenOperations.getByText('9.84M', { exact: true })).toBeVisible();
   await expect(qwenOperations.getByText('1.13M', { exact: true })).toBeVisible();
@@ -354,6 +356,13 @@ test('measured benchmark view distinguishes verified capability, live completion
   await expect(qwenOperations.getByText('29.45 tok/s', { exact: true })).toBeVisible();
   await expect(qwenOperations.getByText('MLX/Metal', { exact: true })).toBeVisible();
   await expect(qwenOperations.getByText('Verified partial', { exact: true })).toBeVisible();
+  await page.goto(pluginUrl + '?view=benchmarks');
+  await gpu35.getByRole('button', { name: /Qwen3\.6 35B Heretic/i }).click();
+  await expect(page.getByRole('heading', { name: 'Qwen3.6 35B Heretic · Q4_K_M · MTP-N2' })).toBeVisible();
+  await expect(page.getByText('150 / 150 frozen scored cases', { exact: true })).toBeVisible();
+  await expect(page.getByText('51.76% · 261 / 261 generated · 150 / 150 scored · final verification passed', { exact: true })).toBeVisible();
+  await expect(page.getByText('90.0% collection complete · 45 / 50 frozen tasks · Retail 25 / 25 · Telecom 20 / 25', { exact: true })).toBeVisible();
+  await expect(page.getByText('In progress · 2/3 final-verified suites · pending suites excluded', { exact: true })).toBeVisible();
   expect(browserErrors).toEqual([]);
 });
 
