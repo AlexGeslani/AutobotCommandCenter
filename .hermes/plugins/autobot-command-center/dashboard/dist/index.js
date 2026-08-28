@@ -2186,17 +2186,22 @@
 
   // src/theme.mjs
   var ACC_THEME_STORAGE_KEY = "acc.presentation-theme.v1";
-  var DEFAULT_THEME = "current-dark";
+  var DEFAULT_THEME = "g1-console";
   var STATUS_COLORS = Object.freeze({
     good: "#41e88a",
     warn: "#ffca62",
     bad: "#ff707b"
   });
   var THEME_PRESENTATION = Object.freeze({
+    "g1-console": Object.freeze({
+      label: "G1 Console",
+      accentPrimary: "#ffb23e",
+      accentSecondary: "#58d9ef"
+    }),
     "current-dark": Object.freeze({
-      label: "Current Dark",
-      accentPrimary: "#54d9ff",
-      accentSecondary: "#9dd8ff"
+      label: "Terminal Dark",
+      accentPrimary: "#43ff63",
+      accentSecondary: "#a7ffb3"
     }),
     matrix: Object.freeze({
       label: "Matrix",
@@ -2224,6 +2229,24 @@
   }
 
   // src/plugin.mjs
+  var MATRIX_STREAMS = Object.freeze([
+    "\uFF8A\uFF90\uFF8B\uFF70\uFF73\uFF7C\uFF85\uFF93\uFF8601\uFF7B\uFF9C\uFF82\uFF75\uFF98",
+    "01\uFF96\uFF8F\uFF79\uFF7E\uFF83\uFF88\uFF8E\uFF8D\uFF91\uFF92\uFF97\uFF98",
+    "\uFF71\uFF72\uFF73\uFF74\uFF75\uFF76\uFF77\uFF78\uFF79\uFF7A10110",
+    "\uFF80\uFF81\uFF82\uFF83\uFF84\uFF85\uFF86\uFF87\uFF88\uFF8901001",
+    "\uFF7B\uFF7C\uFF7D\uFF7E\uFF7F\uFF8A\uFF8B\uFF8C\uFF8D\uFF8E11010",
+    "\uFF8F\uFF90\uFF91\uFF92\uFF93\uFF94\uFF95\uFF9601011",
+    "\uFF97\uFF98\uFF99\uFF9A\uFF9B\uFF9C\uFF66\uFF9D10101",
+    "\uFF76\uFF80\uFF76\uFF8501\uFF7B\uFF72\uFF8A\uFF9E\uFF84\uFF9B\uFF9D",
+    "11001\uFF83\uFF9A\uFF84\uFF97\uFF9D10110",
+    "\uFF71\uFF70\uFF780101\uFF8C\uFF9F\uFF97\uFF72\uFF910110",
+    "\uFF92\uFF93\uFF98011011\uFF7C\uFF7D\uFF83\uFF91",
+    "\uFF83\uFF9E\uFF70\uFF80100101\uFF98\uFF9D\uFF78",
+    "\uFF7A\uFF8F\uFF9D\uFF84\uFF9E0110\uFF7E\uFF9D\uFF80\uFF70",
+    "10110\uFF75\uFF70\uFF84\uFF8E\uFF9E\uFF6F\uFF8401",
+    "\uFF7D\uFF77\uFF6C\uFF9D010011\uFF9A\uFF83\uFF9E\uFF68",
+    "\uFF8C\uFF9F\uFF9B\uFF84\uFF7A\uFF99101001\uFF8A\uFF9F\uFF7D"
+  ]);
   function registerAutobotCommandCenter() {
     "use strict";
     const SDK = window.__HERMES_PLUGIN_SDK__;
@@ -2237,6 +2260,18 @@
     const { useSortableRows, SortableHeader } = createSortingSupport({ React, useState });
     function cx(...values) {
       return values.filter(Boolean).join(" ");
+    }
+    function MatrixRain() {
+      return h("div", { className: "acc-matrix-rain", "aria-hidden": "true" }, MATRIX_STREAMS.map((characters, index) => h("span", {
+        className: "acc-matrix-rain__stream",
+        key: index,
+        style: {
+          "--acc-rain-x": `${2 + index * 6.35}%`,
+          "--acc-rain-delay": `-${(index * 1.7).toFixed(1)}s`,
+          "--acc-rain-duration": `${10 + index % 5 * 2.2}s`,
+          "--acc-rain-opacity": `${0.22 + index % 4 * 0.06}`
+        }
+      }, characters)));
     }
     function Badge({ children, tone = "neutral" }) {
       return h("span", { className: `acc-badge acc-badge--${tone}` }, children);
@@ -3499,6 +3534,7 @@
       return h(
         "div",
         { className: cx("acc-shell", route.view !== "overview" && "acc-shell--subview"), "data-acc-theme": theme },
+        theme === "matrix" ? h(MatrixRain) : null,
         h(
           "header",
           { className: "acc-hero" },

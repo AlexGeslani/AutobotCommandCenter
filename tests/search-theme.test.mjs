@@ -9,6 +9,7 @@ import {
 } from '../src/model.mjs';
 import {
   ACC_THEME_STORAGE_KEY,
+  DEFAULT_THEME,
   STATUS_COLORS,
   THEME_PRESENTATION,
   loadStoredTheme,
@@ -44,13 +45,17 @@ describe('local-first Search contract', () => {
   });
 });
 
-describe('Current Dark and Matrix theme contract', () => {
-  it('validates only the two supported local presentation themes', () => {
-    expect(Object.keys(THEME_PRESENTATION)).toEqual(['current-dark', 'matrix']);
+describe('G1 Console, Terminal Dark, and Matrix theme contract', () => {
+  it('defaults to G1 Console and validates the three local presentation themes', () => {
+    expect(DEFAULT_THEME).toBe('g1-console');
+    expect(Object.keys(THEME_PRESENTATION)).toEqual(['g1-console', 'current-dark', 'matrix']);
+    expect(validateTheme('g1-console')).toBe('g1-console');
     expect(validateTheme('current-dark')).toBe('current-dark');
     expect(validateTheme('matrix')).toBe('matrix');
-    expect(validateTheme('light')).toBe('current-dark');
-    expect(validateTheme(null)).toBe('current-dark');
+    expect(validateTheme('light')).toBe('g1-console');
+    expect(validateTheme(null)).toBe('g1-console');
+    expect(THEME_PRESENTATION['g1-console'].label).toBe('G1 Console');
+    expect(THEME_PRESENTATION['current-dark'].label).toBe('Terminal Dark');
   });
 
   it('reads and writes only a validated local preference', () => {
@@ -60,8 +65,8 @@ describe('Current Dark and Matrix theme contract', () => {
       setItem: (key, value) => values.set(key, value),
     };
     expect(loadStoredTheme(storage)).toBe('matrix');
-    expect(persistTheme('light', storage)).toBe('current-dark');
-    expect(values.get(ACC_THEME_STORAGE_KEY)).toBe('current-dark');
+    expect(persistTheme('light', storage)).toBe('g1-console');
+    expect(values.get(ACC_THEME_STORAGE_KEY)).toBe('g1-console');
   });
 
   it('keeps immutable semantic evidence colors outside presentation accents', async () => {
@@ -74,8 +79,17 @@ describe('Current Dark and Matrix theme contract', () => {
     expect(css).toMatch(/--acc-status-warn:\s*#ffca62/);
     expect(css).toMatch(/--acc-status-bad:\s*#ff707b/);
     const matrixBlock = css.match(/\.acc-shell\[data-acc-theme=['"]?matrix['"]?\][^{]*\{([^}]+)\}/)?.[1] || '';
+    const g1ConsoleBlock = css.match(/\.acc-shell\[data-acc-theme=['"]?g1-console['"]?\][^{]*\{([^}]+)\}/)?.[1] || '';
+    const terminalBlock = css.match(/\.acc-shell\[data-acc-theme=['"]?current-dark['"]?\][^{]*\{([^}]+)\}/)?.[1] || '';
+    expect(g1ConsoleBlock).toMatch(/--acc-accent-primary:\s*#ffb23e/i);
+    expect(g1ConsoleBlock).toMatch(/--color-background:\s*#1b0d0a/i);
+    expect(terminalBlock).toMatch(/--color-background:\s*#000(?:000)?/i);
+    expect(terminalBlock).toMatch(/--color-foreground:\s*#8dff9f/i);
     expect(matrixBlock).toMatch(/--acc-accent-primary/);
     expect(matrixBlock).not.toMatch(/--acc-status-(good|warn|bad)/);
+    expect(css).toMatch(/\.acc-matrix-rain__stream/);
+    expect(css).toMatch(/animation:\s*acc-matrix-fall/);
+    expect(css).toMatch(/prefers-reduced-motion:[^}]+reduce[\s\S]*\.acc-matrix-rain__stream\s*\{[^}]*animation:\s*none/);
     expect(css).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
   });
 });

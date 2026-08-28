@@ -1,5 +1,5 @@
 export const ACC_THEME_STORAGE_KEY = 'acc.presentation-theme.v1';
-export const DEFAULT_THEME = 'current-dark';
+export const DEFAULT_THEME = 'g1-console';
 
 export const STATUS_COLORS = Object.freeze({
   good: '#41e88a',
@@ -8,10 +8,15 @@ export const STATUS_COLORS = Object.freeze({
 });
 
 export const THEME_PRESENTATION = Object.freeze({
+  'g1-console': Object.freeze({
+    label: 'G1 Console',
+    accentPrimary: '#ffb23e',
+    accentSecondary: '#58d9ef',
+  }),
   'current-dark': Object.freeze({
-    label: 'Current Dark',
-    accentPrimary: '#54d9ff',
-    accentSecondary: '#9dd8ff',
+    label: 'Terminal Dark',
+    accentPrimary: '#43ff63',
+    accentSecondary: '#a7ffb3',
   }),
   matrix: Object.freeze({
     label: 'Matrix',

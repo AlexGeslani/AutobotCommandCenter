@@ -257,28 +257,66 @@ test('legacy search view redirects one way and desktop hero Search creates a dee
   await expect(page.getByText('Kung Fu Clan analytics', { exact: true })).toBeVisible();
 });
 
-test('theme preference persists locally while status colors and reduced motion stay invariant', async ({ page }) => {
+test('three themes persist locally while status colors and reduced motion stay invariant', async ({ page }) => {
   await page.goto(pluginUrl);
   const shell = page.locator('.acc-shell');
-  const current = await shell.evaluate((element) => {
+  await expect(shell).toHaveAttribute('data-acc-theme', 'g1-console');
+  await expect(page.getByLabel('Presentation theme').locator('option')).toHaveCount(3);
+  const g1Console = await shell.evaluate((element) => {
     const style = getComputedStyle(element);
-    return { good: style.getPropertyValue('--acc-status-good').trim(), accent: style.getPropertyValue('--acc-accent-primary').trim() };
+    return {
+      good: style.getPropertyValue('--acc-status-good').trim(),
+      warn: style.getPropertyValue('--acc-status-warn').trim(),
+      bad: style.getPropertyValue('--acc-status-bad').trim(),
+      accent: style.getPropertyValue('--acc-accent-primary').trim(),
+      background: style.backgroundColor,
+    };
   });
+  expect(g1Console.background).toBe('rgb(27, 13, 10)');
+
+  await page.getByLabel('Presentation theme').selectOption('current-dark');
+  await expect(shell).toHaveAttribute('data-acc-theme', 'current-dark');
+  const terminal = await shell.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      good: style.getPropertyValue('--acc-status-good').trim(),
+      warn: style.getPropertyValue('--acc-status-warn').trim(),
+      bad: style.getPropertyValue('--acc-status-bad').trim(),
+      accent: style.getPropertyValue('--acc-accent-primary').trim(),
+      background: style.backgroundColor,
+      foreground: style.color,
+    };
+  });
+  expect(terminal.background).toBe('rgb(0, 0, 0)');
+  expect(terminal.foreground).toBe('rgb(141, 255, 159)');
+  expect([terminal.good, terminal.warn, terminal.bad]).toEqual([g1Console.good, g1Console.warn, g1Console.bad]);
+
   await page.getByLabel('Presentation theme').selectOption('matrix');
   await expect(shell).toHaveAttribute('data-acc-theme', 'matrix');
   const matrix = await shell.evaluate((element) => {
     const style = getComputedStyle(element);
-    return { good: style.getPropertyValue('--acc-status-good').trim(), accent: style.getPropertyValue('--acc-accent-primary').trim() };
+    return {
+      good: style.getPropertyValue('--acc-status-good').trim(),
+      warn: style.getPropertyValue('--acc-status-warn').trim(),
+      bad: style.getPropertyValue('--acc-status-bad').trim(),
+      accent: style.getPropertyValue('--acc-accent-primary').trim(),
+    };
   });
-  expect(matrix.good).toBe(current.good);
-  expect(matrix.accent).not.toBe(current.accent);
+  expect([matrix.good, matrix.warn, matrix.bad]).toEqual([g1Console.good, g1Console.warn, g1Console.bad]);
+  expect(matrix.accent).not.toBe(g1Console.accent);
+  await expect(page.locator('.acc-matrix-rain')).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.locator('.acc-matrix-rain__stream')).toHaveCount(16);
+  expect(await page.locator('.acc-matrix-rain').evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none');
+  expect(await page.locator('.acc-matrix-rain__stream').first().evaluate((element) => getComputedStyle(element).animationName)).toBe('acc-matrix-fall');
+
   await page.reload();
   await expect(page.locator('.acc-shell')).toHaveAttribute('data-acc-theme', 'matrix');
   await page.emulateMedia({ reducedMotion: 'reduce' });
   expect(await page.locator('.acc-view').evaluate((element) => getComputedStyle(element).animationName)).toBe('none');
+  expect(await page.locator('.acc-matrix-rain__stream').first().evaluate((element) => getComputedStyle(element).animationName)).toBe('none');
   await page.evaluate(() => localStorage.setItem('acc.presentation-theme.v1', 'light'));
   await page.reload();
-  await expect(page.locator('.acc-shell')).toHaveAttribute('data-acc-theme', 'current-dark');
+  await expect(page.locator('.acc-shell')).toHaveAttribute('data-acc-theme', 'g1-console');
 });
 
 test('desktop hero is concise with a smaller left title and right-aligned controls below', async ({ page }) => {
@@ -690,10 +728,18 @@ test('every Analytics and Benchmarks data column is stably sortable with accessi
   const comparison = page.getByRole('table', { name: 'Three-score model comparison' });
   await exerciseEverySortHeader(comparison, ['Tested condition', 'Instruction following', 'Native tool use', 'Multi-turn agent', 'Current average', 'Verified suites']);
   const agentButton = comparison.getByRole('button', { name: 'Sort by Multi-turn agent' });
-  await agentButton.click();
-  expect(await comparison.locator('[data-benchmark-profile]').evaluateAll((rows) => rows.at(-1).getAttribute('data-benchmark-profile'))).toBe('qwen38-2b-mlx');
-  await agentButton.click();
-  expect(await comparison.locator('[data-benchmark-profile]').evaluateAll((rows) => rows.at(-1).getAttribute('data-benchmark-profile'))).toBe('qwen38-2b-mlx');
+  const comparisonRows = comparison.locator('[role="rowgroup"] [data-benchmark-profile]');
+  const nonFinalAgentProfiles = await comparisonRows.evaluateAll((rows) => rows
+    .filter((row) => row.querySelectorAll('[role="cell"]')[2]?.querySelector('[role="progressbar"]'))
+    .map((row) => row.getAttribute('data-benchmark-profile'))
+    .sort());
+  expect(nonFinalAgentProfiles.length).toBeGreaterThan(0);
+  for (const direction of ['ascending', 'descending']) {
+    await agentButton.click();
+    await expect(comparison.getByRole('columnheader', { name: /Sort by Multi-turn agent/ })).toHaveAttribute('aria-sort', direction);
+    const orderedProfiles = await comparisonRows.evaluateAll((rows) => rows.map((row) => row.getAttribute('data-benchmark-profile')));
+    expect(orderedProfiles.slice(-nonFinalAgentProfiles.length).sort()).toEqual(nonFinalAgentProfiles);
+  }
 
   await page.goto(pluginUrl + '?view=benchmarks&domain=tool-use');
   const leaderboard = page.getByRole('table', { name: 'Tool Use benchmark leaderboard' });

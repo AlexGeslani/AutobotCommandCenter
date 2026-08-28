@@ -29,6 +29,15 @@ import {
 } from './model.mjs';
 import { THEME_PRESENTATION, loadStoredTheme, persistTheme } from './theme.mjs';
 
+const MATRIX_STREAMS = Object.freeze([
+  'ﾊﾐﾋｰｳｼﾅﾓﾆ01ｻﾜﾂｵﾘ', '01ﾖﾏｹｾﾃﾈﾎﾍﾑﾒﾗﾘ', 'ｱｲｳｴｵｶｷｸｹｺ10110',
+  'ﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉ01001', 'ｻｼｽｾｿﾊﾋﾌﾍﾎ11010', 'ﾏﾐﾑﾒﾓﾔﾕﾖ01011',
+  'ﾗﾘﾙﾚﾛﾜｦﾝ10101', 'ｶﾀｶﾅ01ｻｲﾊﾞﾄﾛﾝ', '11001ﾃﾚﾄﾗﾝ10110',
+  'ｱｰｸ0101ﾌﾟﾗｲﾑ0110', 'ﾒﾓﾘ011011ｼｽﾃﾑ', 'ﾃﾞｰﾀ100101ﾘﾝｸ',
+  'ｺﾏﾝﾄﾞ0110ｾﾝﾀｰ', '10110ｵｰﾄﾎﾞｯﾄ01', 'ｽｷｬﾝ010011ﾚﾃﾞｨ',
+  'ﾌﾟﾛﾄｺﾙ101001ﾊﾟｽ',
+]);
+
 export function registerAutobotCommandCenter() {
   'use strict';
 
@@ -45,6 +54,19 @@ export function registerAutobotCommandCenter() {
 
   function cx(...values) {
     return values.filter(Boolean).join(' ');
+  }
+
+  function MatrixRain() {
+    return h('div', { className: 'acc-matrix-rain', 'aria-hidden': 'true' }, MATRIX_STREAMS.map((characters, index) => h('span', {
+      className: 'acc-matrix-rain__stream',
+      key: index,
+      style: {
+        '--acc-rain-x': `${2 + (index * 6.35)}%`,
+        '--acc-rain-delay': `-${(index * 1.7).toFixed(1)}s`,
+        '--acc-rain-duration': `${10 + ((index % 5) * 2.2)}s`,
+        '--acc-rain-opacity': `${0.22 + ((index % 4) * 0.06)}`,
+      },
+    }, characters)));
   }
 
   function Badge({ children, tone = 'neutral' }) {
@@ -1038,6 +1060,7 @@ export function registerAutobotCommandCenter() {
     const analyticsFixture = isAnalytics && route.mode === 'fixture';
 
     return h('div', { className: cx('acc-shell', route.view !== 'overview' && 'acc-shell--subview'), 'data-acc-theme': theme },
+      theme === 'matrix' ? h(MatrixRain) : null,
       h('header', { className: 'acc-hero' },
         h('div', { className: 'acc-brand-lockup' },
           h(CommandCenterMark),
