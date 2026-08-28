@@ -65,7 +65,7 @@ describe('ACC product contract', () => {
       scores: {
         instruction: { value: 22.5, evidence: 'verified', denominator: '9 / 40 strict prompts' },
         tools: { value: 8.72, evidence: 'verified', denominator: '150 / 150 frozen scored cases' },
-        agent: { value: null, evidence: 'pending', progress: { current: 33, total: 50, state: 'in-progress' } },
+        agent: { value: null, evidence: 'pending', progress: { current: 45, total: 50, state: 'in-progress' } },
       },
       operational: {
         evidence: 'verified-partial',
@@ -96,7 +96,7 @@ describe('ACC product contract', () => {
       currentAverage: { value: 80, verifiedSuites: 1, totalSuites: 3, complete: false },
       scores: {
         instruction: { value: 80, evidence: 'verified', denominator: '32 / 40 strict prompts' },
-        tools: { value: null, evidence: 'pending', progress: { current: 6, total: 261, state: 'in-progress' } },
+        tools: { value: null, evidence: 'pending', progress: { current: 40, total: 261, state: 'in-progress' } },
         agent: { value: null, evidence: 'pending', progress: { current: 0, total: 50, state: 'queued' } },
       },
       operational: {
@@ -137,8 +137,8 @@ describe('ACC product contract', () => {
     expect(visual.suites[0].rows[0].denominator).toBe('36 / 40 strict prompts');
     expect(visual.suites[1].rows[0]).toMatchObject({ kind: 'score', evidence: 'verified', value: 51.76, progress: null });
     expect(visual.suites[2].rows[1]).toMatchObject({ conditionId: 'qwen36-35b-heretic-gpu-b', kind: 'score', evidence: 'verified', value: 66, progress: null });
-    expect(visual.suites[2].rows.at(-2)).toMatchObject({ conditionId: 'qwen38-2b-mlx', kind: 'progress', evidence: 'in-progress', progress: { current: 33, total: 50 } });
-    expect(visual.suites[2].rows.at(-2).barValue).toBeCloseTo(66, 8);
+    expect(visual.suites[2].rows.at(-2)).toMatchObject({ conditionId: 'qwen38-2b-mlx', kind: 'progress', evidence: 'in-progress', progress: { current: 45, total: 50 } });
+    expect(visual.suites[2].rows.at(-2).barValue).toBeCloseTo(90, 8);
     expect(visual.suites[2].rows.at(-1)).toMatchObject({ conditionId: 'qwen38-27b-rvn-heretic-gpu-b', kind: 'progress', evidence: 'queued', progress: { current: 0, total: 50 } });
     expect(visual.suites.flatMap((suite) => suite.rows).filter((row) => row.kind === 'score').every((row) => row.value != null && row.evidence === 'verified')).toBe(true);
     expect(JSON.stringify(visual)).not.toMatch(/illustrative/i);
