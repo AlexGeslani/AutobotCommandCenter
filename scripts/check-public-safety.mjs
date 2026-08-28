@@ -11,6 +11,13 @@ const excludedFiles = new Set([
   'standalone/public/data/provider-usage.v1.json',
   '.hermes/plugins/autobot-command-center/dashboard/dist/data/provider-usage.v1.json',
 ]);
+// Owner-authorized private UI label; only these presentation artifacts may contain it.
+const authorizedUiLabel = ['Tele', 'traan1'].join('');
+const authorizedUiLabelFiles = new Set([
+  'src/theme.mjs',
+  '.hermes/plugins/autobot-command-center/dashboard/dist/index.js',
+  'standalone/public/app.js',
+]);
 const privateInfrastructureIdentifiers = [
   ['The', 'Ark', 'Lab'].join(''),
   ['The', 'Ark'].join(' '),
@@ -58,7 +65,8 @@ for (const path of candidateFiles) {
   if (excludedFiles.has(name)) continue;
   const bytes = await readFile(path);
   if (bytes.includes(0)) continue;
-  const text = bytes.toString('utf8');
+  const rawText = bytes.toString('utf8');
+  const text = authorizedUiLabelFiles.has(name) ? rawText.replaceAll(authorizedUiLabel, '') : rawText;
   for (const [label, pattern] of rules) {
     if (pattern.test(text)) findings.push(`${name}: ${label}`);
   }

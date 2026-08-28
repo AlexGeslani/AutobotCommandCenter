@@ -54,7 +54,7 @@ describe('G1 Console, Terminal Dark, and Matrix theme contract', () => {
     expect(validateTheme('matrix')).toBe('matrix');
     expect(validateTheme('light')).toBe('g1-console');
     expect(validateTheme(null)).toBe('g1-console');
-    expect(THEME_PRESENTATION['g1-console'].label).toBe('G1 Console');
+    expect(THEME_PRESENTATION['g1-console'].label).toBe(['Tele', 'traan1'].join(''));
     expect(THEME_PRESENTATION['current-dark'].label).toBe('Terminal Dark');
   });
 

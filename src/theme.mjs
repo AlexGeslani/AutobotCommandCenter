@@ -9,7 +9,7 @@ export const STATUS_COLORS = Object.freeze({
 
 export const THEME_PRESENTATION = Object.freeze({
   'g1-console': Object.freeze({
-    label: 'G1 Console',
+    label: 'Teletraan1',
     accentPrimary: '#ffb23e',
     accentSecondary: '#58d9ef',
   }),
