@@ -102,6 +102,31 @@
   background-image: radial-gradient(circle at 50% 0%, rgba(35, 255, 78, .08), transparent 42rem);
 }
 
+.acc-shell[data-acc-theme='decepticons'] {
+  --color-background: #09060f;
+  --color-card: #171020;
+  --color-foreground: #ebe0f6;
+  --color-muted-foreground: #a893b7;
+  --color-border: #4f2c64;
+  --color-muted: #21152b;
+  --color-primary: #37194b;
+  --color-primary-foreground: #f4eaff;
+  --color-ring: #c27bff;
+  --acc-accent-primary: #692789;
+  --acc-accent-secondary: #c27bff;
+  --acc-presentation-glow: rgba(105, 39, 137, .26);
+  --acc-presentation-border: rgba(105, 39, 137, .62);
+  --acc-console-frame: #4f2466;
+  --acc-screen-surface: #171a3d;
+  --acc-command-mark-color: #692789;
+  background-color: #09060f;
+  background-image:
+    linear-gradient(118deg, transparent 0 46%, rgba(105, 39, 137, .07) 46% 46.25%, transparent 46.25% 71%, rgba(194, 123, 255, .035) 71% 71.18%, transparent 71.18%),
+    repeating-linear-gradient(135deg, rgba(105, 39, 137, .022) 0 1px, transparent 1px 72px),
+    radial-gradient(circle at 78% -10%, rgba(105, 39, 137, .2), transparent 38rem);
+  box-shadow: inset 0 0 0 2px rgba(4, 2, 8, .9), 0 0 24px rgba(52, 19, 72, .34);
+}
+
 .acc-shell > :not(.acc-matrix-rain) { position: relative; z-index: 1; }
 .acc-matrix-rain { position: absolute; z-index: 0; inset: 0; overflow: hidden; pointer-events: none; user-select: none; opacity: .78; }
 .acc-matrix-rain__canvas { position: fixed; z-index: 0; inset: 0; display: block; width: 100vw; height: 100vh; pointer-events: none; }
@@ -217,6 +242,33 @@
   background-color: rgba(0, 13, 4, .82);
   backdrop-filter: blur(2px);
 }
+.acc-shell[data-acc-theme='decepticons'] {
+  --acc-cyan: #c27bff;
+}
+.acc-shell[data-acc-theme='decepticons'] .acc-command-mark {
+  filter: drop-shadow(0 0 1px rgba(235, 224, 246, .7)) drop-shadow(0 0 9px rgba(194, 123, 255, .48));
+}
+.acc-shell[data-acc-theme='decepticons'] .acc-hero {
+  background:
+    linear-gradient(108deg, rgba(43, 21, 58, .98), rgba(24, 13, 36, .96) 58%, rgba(10, 13, 31, .94)),
+    repeating-linear-gradient(120deg, transparent 0 76px, rgba(194, 123, 255, .045) 76px 78px);
+  border-color: #692789;
+  clip-path: polygon(0 10px, 10px 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+}
+.acc-shell[data-acc-theme='decepticons'] :is(.acc-trust, .acc-local-nav, .acc-feature-card, .acc-leader-card, .acc-portfolio-card, .acc-ranking-panel, .acc-search-panel, .acc-search-result) {
+  background-color: rgba(14, 9, 22, .94);
+  box-shadow: inset 0 0 18px rgba(105, 39, 137, .045);
+}
+.acc-shell[data-acc-theme='decepticons'] .acc-local-nav {
+  border-color: #4f2c64;
+  background: linear-gradient(180deg, rgba(34, 18, 47, .98), rgba(12, 8, 19, .98));
+}
+.acc-shell[data-acc-theme='decepticons'] .acc-local-nav button.is-active {
+  color: #f4eaff;
+  background: #37194b;
+  box-shadow: inset 0 0 0 1px rgba(194, 123, 255, .28), 0 0 12px rgba(105, 39, 137, .2);
+}
+.acc-shell[data-acc-theme='decepticons'] :is(.acc-kicker, .acc-eyebrow) { color: #c27bff; }
 
 .acc-trust { display: grid; grid-template-columns: minmax(16rem, 1fr) minmax(18rem, auto); gap: .65rem 1.25rem; align-items: center; padding: .65rem .8rem; margin-bottom: .65rem; border: 1px solid color-mix(in srgb, var(--acc-amber) 34%, var(--color-border)); border-radius: var(--radius); background: color-mix(in srgb, var(--acc-amber) 5%, var(--acc-panel)); }
 .acc-trust__title-row { display: flex; align-items: center; gap: .65rem; flex-wrap: wrap; }

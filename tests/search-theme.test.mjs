@@ -45,17 +45,23 @@ describe('local-first Search contract', () => {
   });
 });
 
-describe('G1 Console, Terminal Dark, and Matrix theme contract', () => {
-  it('defaults to G1 Console and validates the three local presentation themes', () => {
+describe('four local presentation themes contract', () => {
+  it('defaults to the console presentation and validates the four local themes', () => {
     expect(DEFAULT_THEME).toBe('g1-console');
-    expect(Object.keys(THEME_PRESENTATION)).toEqual(['g1-console', 'current-dark', 'matrix']);
+    expect(Object.keys(THEME_PRESENTATION)).toEqual(['g1-console', 'current-dark', 'matrix', 'decepticons']);
     expect(validateTheme('g1-console')).toBe('g1-console');
     expect(validateTheme('current-dark')).toBe('current-dark');
     expect(validateTheme('matrix')).toBe('matrix');
+    expect(validateTheme('decepticons')).toBe('decepticons');
     expect(validateTheme('light')).toBe('g1-console');
     expect(validateTheme(null)).toBe('g1-console');
     expect(THEME_PRESENTATION['g1-console'].label).toBe(['Tele', 'traan1'].join(''));
     expect(THEME_PRESENTATION['current-dark'].label).toBe('Terminal Dark');
+    expect(THEME_PRESENTATION.decepticons).toEqual({
+      label: 'Decepticons',
+      accentPrimary: '#692789',
+      accentSecondary: '#c27bff',
+    });
   });
 
   it('reads and writes only a validated local preference', () => {
@@ -74,11 +80,15 @@ describe('G1 Console, Terminal Dark, and Matrix theme contract', () => {
     expect(THEME_PRESENTATION.matrix).not.toHaveProperty('good');
     expect(THEME_PRESENTATION.matrix).not.toHaveProperty('warn');
     expect(THEME_PRESENTATION.matrix).not.toHaveProperty('bad');
+    expect(THEME_PRESENTATION.decepticons).not.toHaveProperty('good');
+    expect(THEME_PRESENTATION.decepticons).not.toHaveProperty('warn');
+    expect(THEME_PRESENTATION.decepticons).not.toHaveProperty('bad');
     const css = await readFile(new URL('../src/style.css', import.meta.url), 'utf8');
     expect(css).toMatch(/--acc-status-good:\s*#41e88a/);
     expect(css).toMatch(/--acc-status-warn:\s*#ffca62/);
     expect(css).toMatch(/--acc-status-bad:\s*#ff707b/);
     const matrixBlock = css.match(/\.acc-shell\[data-acc-theme=['"]?matrix['"]?\][^{]*\{([^}]+)\}/)?.[1] || '';
+    const decepticonsBlock = css.match(/\.acc-shell\[data-acc-theme=['"]?decepticons['"]?\][^{]*\{([^}]+)\}/)?.[1] || '';
     const g1ConsoleBlock = css.match(/\.acc-shell\[data-acc-theme=['"]?g1-console['"]?\][^{]*\{([^}]+)\}/)?.[1] || '';
     const terminalBlock = css.match(/\.acc-shell\[data-acc-theme=['"]?current-dark['"]?\][^{]*\{([^}]+)\}/)?.[1] || '';
     expect(g1ConsoleBlock).toMatch(/--acc-accent-primary:\s*#ffb23e/i);
@@ -89,6 +99,10 @@ describe('G1 Console, Terminal Dark, and Matrix theme contract', () => {
     expect(terminalBlock).toMatch(/--acc-accent-primary:\s*#ffb454/i);
     expect(matrixBlock).toMatch(/--acc-accent-primary/);
     expect(matrixBlock).not.toMatch(/--acc-status-(good|warn|bad)/);
+    expect(decepticonsBlock).toMatch(/--color-background:\s*#09060f/i);
+    expect(decepticonsBlock).toMatch(/--acc-accent-primary:\s*#692789/i);
+    expect(decepticonsBlock).toMatch(/--acc-command-mark-color:\s*#692789/i);
+    expect(decepticonsBlock).not.toMatch(/--acc-status-(good|warn|bad)/);
     expect(css).toMatch(/\.acc-matrix-rain__canvas/);
     expect(css).not.toMatch(/\.acc-matrix-rain__stream/);
     expect(css).not.toMatch(/@keyframes\s+acc-matrix-fall/);

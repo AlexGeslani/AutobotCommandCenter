@@ -23,6 +23,11 @@ export const THEME_PRESENTATION = Object.freeze({
     accentPrimary: '#62ff72',
     accentSecondary: '#b7ff5a',
   }),
+  decepticons: Object.freeze({
+    label: 'Decepticons',
+    accentPrimary: '#692789',
+    accentSecondary: '#c27bff',
+  }),
 });
 
 export function validateTheme(value) {

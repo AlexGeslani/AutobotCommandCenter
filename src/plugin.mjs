@@ -1,4 +1,5 @@
 import commandCenterMarkMaskUrl from '../standalone/autobot-mark-mask.png';
+import decepticonMarkMaskUrl from '../standalone/decepticon-mark-mask.png';
 import voicePerformanceUrl from '../standalone/voice-performance-comparison.png';
 import { loadProviderUsageSnapshot, providerUsageFallback } from './provider-usage/client.mjs';
 import { createAnalyticsView } from './analytics/view.mjs';
@@ -1153,12 +1154,14 @@ export function registerAutobotCommandCenter() {
     );
   }
 
-  function CommandCenterMark() {
+  function CommandCenterMark({ theme }) {
+    const decepticon = theme === 'decepticons';
     return h('span', {
       className: 'acc-command-mark',
       'aria-hidden': 'true',
+      'data-acc-faction': decepticon ? 'decepticon' : 'autobot',
       style: {
-        '--acc-command-mark-mask': `url(${commandCenterMarkMaskUrl})`,
+        '--acc-command-mark-mask': `url(${decepticon ? decepticonMarkMaskUrl : commandCenterMarkMaskUrl})`,
       },
     });
   }
@@ -1233,7 +1236,7 @@ export function registerAutobotCommandCenter() {
       h('header', { className: 'acc-hero' },
         theme === 'g1-console' ? h(G1ConsoleDetail) : null,
         h('div', { className: 'acc-brand-lockup' },
-          h(CommandCenterMark),
+          h(CommandCenterMark, { theme }),
           h('div', null,
             h('h1', null, 'Autobot Command Center'),
           ),

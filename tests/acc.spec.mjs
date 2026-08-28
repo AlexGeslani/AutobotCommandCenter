@@ -263,12 +263,12 @@ test('legacy search view redirects one way and desktop hero Search creates a dee
   await expect(page.getByText('Kung Fu Clan analytics', { exact: true })).toBeVisible();
 });
 
-test('three themes persist locally while status colors, themed mark, and reduced motion stay invariant', async ({ page }) => {
+test('four themes persist locally while status colors, themed mark, and reduced motion stay invariant', async ({ page }) => {
   await page.goto(pluginUrl);
   const shell = page.locator('.acc-shell');
   const commandMark = page.locator('.acc-command-mark');
   await expect(shell).toHaveAttribute('data-acc-theme', 'g1-console');
-  await expect(page.getByLabel('Presentation theme').locator('option')).toHaveCount(3);
+  await expect(page.getByLabel('Presentation theme').locator('option')).toHaveCount(4);
   const g1Console = await shell.evaluate((element) => {
     const style = getComputedStyle(element);
     return {
@@ -352,6 +352,58 @@ test('three themes persist locally while status colors, themed mark, and reduced
   await page.evaluate(() => localStorage.setItem('acc.presentation-theme.v1', 'light'));
   await page.reload();
   await expect(page.locator('.acc-shell')).toHaveAttribute('data-acc-theme', 'g1-console');
+});
+
+test('Decepticons uses the G1 insignia purple and a local faction mark', async ({ page }) => {
+  await page.goto(pluginUrl);
+  const shell = page.locator('.acc-shell');
+  const mark = page.locator('.acc-command-mark');
+  const autobotMask = await mark.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return style.maskImage || style.webkitMaskImage;
+  });
+  const semanticColors = await shell.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return ['--acc-status-good', '--acc-status-warn', '--acc-status-bad'].map((token) => style.getPropertyValue(token).trim());
+  });
+
+  await page.getByLabel('Presentation theme').selectOption('decepticons');
+  await expect(shell).toHaveAttribute('data-acc-theme', 'decepticons');
+  await expect(page.getByLabel('Presentation theme')).toHaveValue('decepticons');
+  await expect(page.getByLabel('Presentation theme').locator('option:checked')).toHaveText('Decepticons');
+  await expect(mark).toHaveAttribute('data-acc-faction', 'decepticon');
+  const decepticonPresentation = await shell.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      background: style.backgroundColor,
+      foreground: style.color,
+      accent: style.getPropertyValue('--acc-accent-primary').trim(),
+      mark: style.getPropertyValue('--acc-command-mark-color').trim(),
+      semantic: ['--acc-status-good', '--acc-status-warn', '--acc-status-bad'].map((token) => style.getPropertyValue(token).trim()),
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+  expect(decepticonPresentation).toEqual({
+    background: 'rgb(9, 6, 15)',
+    foreground: 'rgb(235, 224, 246)',
+    accent: '#692789',
+    mark: '#692789',
+    semantic: semanticColors,
+    overflow: 0,
+  });
+  const decepticonMask = await mark.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return style.maskImage || style.webkitMaskImage;
+  });
+  expect(decepticonMask).toMatch(/^url\("data:image\/png;base64,/);
+  expect(decepticonMask).not.toBe(autobotMask);
+  expect(await mark.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(105, 39, 137)');
+  await expect(page.locator('.acc-g1-console-detail')).toHaveCount(0);
+  await expect(page.locator('.acc-matrix-rain')).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.locator('.acc-shell')).toHaveAttribute('data-acc-theme', 'decepticons');
+  await expect(page.locator('.acc-command-mark')).toHaveAttribute('data-acc-faction', 'decepticon');
 });
 
 test('desktop hero is concise with a smaller left title and right-aligned controls below', async ({ page }) => {
