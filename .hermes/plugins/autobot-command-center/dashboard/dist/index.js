@@ -484,6 +484,127 @@
     return { features, unmapped, maximum };
   }
 
+  // src/sorting.mjs
+  var column = (id, label, type, extra = {}) => Object.freeze({ id, label, type, ...extra });
+  var SORTABLE_TABLES = Object.freeze({
+    "analytics.daily": Object.freeze([
+      column("date", "Date", "date"),
+      column("state", "State", "text"),
+      column("requests", "Requests", "number"),
+      column("visits", "Cloudflare Visits", "number"),
+      column("transfer", "Transfer", "number")
+    ]),
+    "analytics.countries": Object.freeze([
+      column("country", "Country", "text"),
+      column("requests", "Requests", "number"),
+      column("transfer", "Transfer", "number")
+    ]),
+    "benchmarks.coverage": Object.freeze([
+      column("condition", "Tested condition", "text"),
+      column("instruction", "Instruction following", "status", { ranks: { verified: 0, "in-progress": 1, queued: 2 } }),
+      column("tools", "Native tool use", "status", { ranks: { verified: 0, "in-progress": 1, queued: 2 } }),
+      column("agent", "Multi-turn agent", "status", { ranks: { verified: 0, "in-progress": 1, queued: 2 } })
+    ]),
+    "benchmarks.measured-suite": Object.freeze([
+      column("condition", "Tested condition", "text"),
+      column("result", "Score or completion", "grouped-number")
+    ]),
+    "benchmarks.comparison": Object.freeze([
+      column("condition", "Tested condition", "text"),
+      column("instruction", "Instruction following", "number"),
+      column("tools", "Native tool use", "number"),
+      column("agent", "Multi-turn agent", "number"),
+      column("average", "Current average", "number"),
+      column("evidence", "Verified suites", "number")
+    ]),
+    "benchmarks.leaderboard": Object.freeze([
+      column("rank", "Rank", "number"),
+      column("condition", "Tested condition", "text"),
+      column("score", "Score", "number"),
+      column("denominator", "Denominator", "number"),
+      column("release", "Release", "text"),
+      column("availability", "Availability", "text")
+    ])
+  });
+  var MISSING_LABELS = /* @__PURE__ */ new Set(["missing", "pending", "unknown"]);
+  var collator = new Intl.Collator("en", { sensitivity: "base", numeric: true });
+  function isMissing(value) {
+    return value == null || typeof value === "number" && !Number.isFinite(value) || typeof value === "string" && MISSING_LABELS.has(value.trim().toLowerCase());
+  }
+  function compareScalar(left, right, columnDefinition) {
+    if (columnDefinition.type === "number") return Number(left) - Number(right);
+    if (columnDefinition.type === "date") return Date.parse(left) - Date.parse(right);
+    if (columnDefinition.type === "status") {
+      const leftRank = columnDefinition.ranks?.[left] ?? Number.MAX_SAFE_INTEGER;
+      const rightRank = columnDefinition.ranks?.[right] ?? Number.MAX_SAFE_INTEGER;
+      return leftRank - rightRank || collator.compare(String(left), String(right));
+    }
+    return collator.compare(String(left), String(right));
+  }
+  function sortRows(rows, columnDefinition, direction = "ascending") {
+    if (!columnDefinition) return [...rows];
+    const multiplier = direction === "descending" ? -1 : 1;
+    return rows.map((row, index) => ({ row, index, value: columnDefinition.value(row) })).sort((left, right) => {
+      const leftMissing = isMissing(left.value);
+      const rightMissing = isMissing(right.value);
+      if (leftMissing || rightMissing) {
+        if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
+        return left.index - right.index;
+      }
+      if (columnDefinition.type === "grouped-number") {
+        const leftGroup = left.value.kind === "score" ? 0 : left.value.kind === "progress" ? 1 : 2;
+        const rightGroup = right.value.kind === "score" ? 0 : right.value.kind === "progress" ? 1 : 2;
+        if (leftGroup !== rightGroup) return leftGroup - rightGroup;
+        const difference2 = (Number(left.value.value) - Number(right.value.value)) * multiplier;
+        return difference2 || left.index - right.index;
+      }
+      const difference = compareScalar(left.value, right.value, columnDefinition) * multiplier;
+      return difference || left.index - right.index;
+    }).map(({ row }) => row);
+  }
+  function nextSort(current, columnId) {
+    if (!current || current.column !== columnId) return { column: columnId, direction: "ascending" };
+    return { column: columnId, direction: current.direction === "ascending" ? "descending" : "ascending" };
+  }
+  function createSortingSupport({ React, useState }) {
+    const h = React.createElement;
+    function useSortableRows(rows, columns) {
+      const [sort, setSort] = useState(null);
+      const activeColumn = sort ? columns.find((candidate) => candidate.id === sort.column) : null;
+      return {
+        rows: sortRows(rows, activeColumn, sort?.direction),
+        sort,
+        onSort: (columnId) => setSort((current) => nextSort(current, columnId))
+      };
+    }
+    function SortableHeader({ column: definition, sort, onSort, as = "th" }) {
+      const active = sort?.column === definition.id;
+      const direction = active ? sort.direction : null;
+      return h(as, {
+        scope: as === "th" ? "col" : void 0,
+        role: as === "th" ? void 0 : "columnheader",
+        "aria-sort": direction || void 0
+      }, h("button", {
+        type: "button",
+        className: "acc-sort-button",
+        "aria-label": `Sort by ${definition.label}`,
+        onClick: () => onSort(definition.id)
+      }, h("span", null, definition.label), h("span", { className: "acc-sort-indicator", "aria-hidden": "true" }, direction === "ascending" ? "\u2191" : direction === "descending" ? "\u2193" : "\u2195")));
+    }
+    return { useSortableRows, SortableHeader };
+  }
+  function defineSortColumns(tableId, accessors) {
+    const definitions = SORTABLE_TABLES[tableId];
+    if (!definitions) throw new TypeError(`Unknown sortable table: ${tableId}`);
+    for (const definition of definitions) {
+      if (typeof accessors[definition.id] !== "function") throw new TypeError(`Missing sort accessor for ${tableId}.${definition.id}`);
+    }
+    for (const id of Object.keys(accessors)) {
+      if (!definitions.some((definition) => definition.id === id)) throw new TypeError(`Unknown sort accessor for ${tableId}.${id}`);
+    }
+    return definitions.map((definition) => ({ ...definition, value: accessors[definition.id] }));
+  }
+
   // src/analytics/view.mjs
   var RANGE_LABELS = { "1d": "1 day", "7d": "7 days", "30d": "30 days" };
   var ANALYTICS_SHOWCASE_ENABLED = false;
@@ -505,6 +626,9 @@
   function formatPercent(value) {
     return Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : "Unknown";
   }
+  function formatChartNumber(value) {
+    return Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(void 0, { maximumFractionDigits: 1 });
+  }
   function countryName(code) {
     try {
       return new Intl.DisplayNames(["en"], { type: "region" }).of(code) || code;
@@ -512,7 +636,21 @@
       return code;
     }
   }
+  function projectCountryRows(rows, defaultLimit = 10) {
+    const allRows = rows.map((row) => ({ ...row })).sort((left, right) => right.requests - left.requests || left.code.localeCompare(right.code));
+    return {
+      defaultRows: allRows.slice(0, defaultLimit),
+      allRows,
+      hasMore: allRows.length > defaultLimit
+    };
+  }
+  function projectTrafficScale(daily) {
+    const observed = daily.filter((day) => day.state === "present" && Number.isSafeInteger(day.requests));
+    const maximum = Math.max(...observed.map((day) => day.requests), 1);
+    return { maximum, ticks: [0, 0.25, 0.5, 0.75, 1].map((fraction) => maximum * fraction) };
+  }
   function createAnalyticsView({ React, h, useEffect, useState, Badge, StatusBadge, SectionHeading, ProviderUsage }) {
+    const { useSortableRows, SortableHeader } = createSortingSupport({ React, useState });
     function SourceCard({ eyebrow, title, status, description, action, onClick }) {
       return h(
         "article",
@@ -593,11 +731,20 @@
     function TrafficChart({ range }) {
       const width = 720;
       const height = 220;
-      const inset = 22;
-      const values = range.daily.filter((day) => day.state === "present").map((day) => day.requests);
-      const maximum = Math.max(...values, 1);
-      const xFor = (index) => inset + index * (width - 2 * inset) / Math.max(range.daily.length - 1, 1);
-      const yFor = (value) => height - inset - value / maximum * (height - 2 * inset);
+      const leftInset = 58;
+      const rightInset = 22;
+      const verticalInset = 22;
+      const { maximum, ticks } = projectTrafficScale(range.daily);
+      const dailyColumns = defineSortColumns("analytics.daily", {
+        date: (day) => day.date,
+        state: (day) => day.state,
+        requests: (day) => day.requests,
+        visits: (day) => day.visits,
+        transfer: (day) => day.edgeResponseBytes
+      });
+      const dailySort = useSortableRows([...range.daily].reverse(), dailyColumns);
+      const xFor = (index) => leftInset + index * (width - leftInset - rightInset) / Math.max(range.daily.length - 1, 1);
+      const yFor = (value) => height - verticalInset - value / maximum * (height - 2 * verticalInset);
       const segments = [];
       let current = [];
       range.daily.forEach((day, index) => {
@@ -616,7 +763,12 @@
         h(
           "svg",
           { className: "acc-traffic-chart", viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": `Daily requests from ${range.startDate} through ${range.endDate}; ${range.daysObserved} observed, ${range.daysMissing} missing, ${range.daysOutsideArchive} before archive.` },
-          [0.25, 0.5, 0.75].map((fraction) => h("line", { key: fraction, x1: inset, x2: width - inset, y1: yFor(maximum * fraction), y2: yFor(maximum * fraction), className: "acc-traffic-gridline" })),
+          ticks.map((value) => h(
+            "g",
+            { key: value },
+            h("line", { x1: leftInset, x2: width - rightInset, y1: yFor(value), y2: yFor(value), className: "acc-traffic-gridline" }),
+            h("text", { x: leftInset - 8, y: yFor(value) + 4, textAnchor: "end", className: "acc-traffic-tick", "data-traffic-tick": true }, formatChartNumber(value))
+          )),
           segments.map((points, index) => h("path", { key: index, d: pathFor(points), className: "acc-traffic-line" })),
           range.daily.map((day, index) => day.state === "present" ? h("circle", { key: day.date, cx: xFor(index), cy: yFor(day.requests), r: 4, className: "acc-traffic-point" }, h("title", null, `${day.date}: ${formatNumber(day.requests)} requests`)) : null)
         ),
@@ -627,11 +779,11 @@
           h("summary", null, "Daily values and gap states"),
           h("div", { className: "acc-analytics-daily-table" }, h(
             "table",
-            null,
-            h("thead", null, h("tr", null, ["Date", "State", "Requests", "Cloudflare Visits", "Transfer"].map((label) => h("th", { key: label, scope: "col" }, label)))),
-            h("tbody", null, [...range.daily].reverse().map((day) => h(
+            { "aria-label": "Daily traffic exact values" },
+            h("thead", null, h("tr", null, dailyColumns.map((definition) => h(SortableHeader, { key: definition.id, column: definition, sort: dailySort.sort, onSort: dailySort.onSort })))),
+            h("tbody", null, dailySort.rows.map((day) => h(
               "tr",
-              { key: day.date },
+              { key: day.date, "data-daily-row": day.date },
               h("td", null, day.date),
               h("td", null, day.state.replace("_", " ")),
               h("td", null, day.requests == null ? "\u2014" : formatNumber(day.requests)),
@@ -684,8 +836,47 @@
           h("span", null, h("i", { "data-legend": "none" }), "No retained value"),
           [1, 2, 3, 4, 5].map((level) => h("span", { key: level }, h("i", { "data-legend": level }), level === 1 ? "Lower" : level === 5 ? "Higher" : ""))
         ),
-        model.unmapped.length ? h("p", { className: "acc-world-map__note", role: "status" }, `${model.unmapped.length} retained country code${model.unmapped.length === 1 ? "" : "s"} could not be mapped and remain listed below.`) : null,
-        h("p", { className: "acc-world-map__note" }, "US state breakdown unavailable \u2014 the retained Cloudflare aggregate source exposes country, not state or subdivision. Country values remain authoritative in the table below.")
+        model.unmapped.length ? h("p", { className: "acc-world-map__note", role: "status" }, `${model.unmapped.length} retained country code${model.unmapped.length === 1 ? "" : "s"} could not be mapped and remain listed in the authoritative table above.`) : null,
+        h("p", { className: "acc-world-map__note" }, "US state breakdown unavailable \u2014 the retained Cloudflare aggregate source exposes country, not state or subdivision. Country values remain authoritative in the table above.")
+      );
+    }
+    function CountryTable({ range }) {
+      const [expanded, setExpanded] = useState(false);
+      const projection = projectCountryRows(range.countries);
+      const countryColumns = defineSortColumns("analytics.countries", {
+        country: (row) => countryName(row.code),
+        requests: (row) => row.requests,
+        transfer: (row) => row.edgeResponseBytes
+      });
+      const countrySort = useSortableRows(projection.allRows, countryColumns);
+      const rows = expanded ? countrySort.rows : countrySort.rows.slice(0, 10);
+      return h(
+        "section",
+        { className: "acc-analytics-panel acc-country-table", "aria-labelledby": "acc-country-table-title" },
+        h(
+          "div",
+          { className: "acc-analytics-panel__head" },
+          h("div", null, h("p", { className: "acc-eyebrow" }, "Authoritative geography"), h("h2", { id: "acc-country-table-title" }, "Requests by country")),
+          h("small", null, `${rows.length} of ${projection.allRows.length} shown`)
+        ),
+        projection.allRows.length ? h("div", { className: "acc-country-table__frame" }, h(
+          "table",
+          { "aria-label": "Authoritative requests by country" },
+          h("thead", null, h("tr", null, countryColumns.map((definition) => h(SortableHeader, { key: definition.id, column: definition, sort: countrySort.sort, onSort: countrySort.onSort })))),
+          h("tbody", null, rows.map((row) => h(
+            "tr",
+            { key: row.code, "data-country-row": row.code },
+            h("th", { scope: "row" }, `${countryName(row.code)} \xB7 ${row.code}`),
+            h("td", null, formatNumber(row.requests)),
+            h("td", null, formatBytes(row.edgeResponseBytes))
+          )))
+        )) : h("p", { className: "acc-provider-empty" }, "No observed country values"),
+        projection.hasMore ? h("button", {
+          type: "button",
+          className: "acc-secondary-button acc-country-table__toggle",
+          "aria-expanded": expanded,
+          onClick: () => setExpanded((value) => !value)
+        }, expanded ? "Collapse to Top 10 countries" : `Show all ${projection.allRows.length} countries`) : null
       );
     }
     function BarList({ title, eyebrow, rows, labelFor, valueFor, empty = "No observed values" }) {
@@ -780,11 +971,16 @@
         h(CoverageStrip, { projection, range }),
         h(SummaryCards, { range }),
         h(TrafficChart, { range }),
-        h(WorldTrafficMap, { range }),
+        h(CountryTable, { range }),
+        h(
+          "details",
+          { className: "acc-world-map-disclosure" },
+          h("summary", null, "Show world request map"),
+          h(WorldTrafficMap, { range })
+        ),
         h(
           "div",
-          { className: "acc-analytics-breakdowns" },
-          h(BarList, { eyebrow: "Geography", title: "Requests by country", rows: range.countries, labelFor: (row) => `${countryName(row.code)} \xB7 ${row.code}`, valueFor: (row) => row.requests }),
+          { className: "acc-analytics-compact-breakdowns" },
           h(BarList, { eyebrow: "HTTP outcome", title: "Response classes", rows: range.statusClasses, labelFor: (row) => row.class, valueFor: (row) => row.requests }),
           h(BarList, { eyebrow: "Edge cache", title: "Cache statuses", rows: range.cacheStatuses, labelFor: (row) => row.status, valueFor: (row) => row.requests })
         ),
@@ -810,7 +1006,289 @@
     return Analytics;
   }
 
+  // src/generated/showcase-projection.v1.json
+  var showcase_projection_v1_default = {
+    githubProjects: [
+      {
+        architectureUrl: "https://github.com/AlexGeslani/Jarvis/blob/main/docs/architecture/jarvis-architecture.svg",
+        description: "Local-first voice assistant for the browser and Amazfit Active Max, with bounded speech, reasoning, and playback pipelines.",
+        id: "jarvis",
+        name: "Jarvis",
+        productBriefUrl: "https://github.com/AlexGeslani/Jarvis/blob/main/README.md",
+        repository: "AlexGeslani/Jarvis",
+        repositoryUrl: "https://github.com/AlexGeslani/Jarvis",
+        visibility: "PUBLIC"
+      },
+      {
+        demoUrl: "https://alexgeslani.github.io/StackLogic/",
+        description: "Browser falling-block puzzle with solo and real-time multiplayer, developed with locally run Qwen 3.5 and Qwen 3.6 models.",
+        id: "stacklogic",
+        name: "StackLogic",
+        productBriefUrl: "https://github.com/AlexGeslani/StackLogic/blob/main/README.md",
+        repository: "AlexGeslani/StackLogic",
+        repositoryUrl: "https://github.com/AlexGeslani/StackLogic",
+        visibility: "PUBLIC"
+      },
+      {
+        demoUrl: "https://alexgeslani.github.io/8-Ball/",
+        description: "End-to-end Zepp OS experiment that builds, tests, previews, packages, and delivers an offline 8 Ball app to a physical Amazfit Active Max.",
+        id: "8-ball",
+        name: "8-Ball",
+        productBriefUrl: "https://github.com/AlexGeslani/8-Ball/blob/main/README.md",
+        repository: "AlexGeslani/8-Ball",
+        repositoryUrl: "https://github.com/AlexGeslani/8-Ball",
+        visibility: "PUBLIC"
+      }
+    ],
+    operationalSkills: [
+      {
+        category: "Agent orchestration",
+        description: "Use when a consequential decision benefits from a configured multi-model panel.",
+        id: "autobots",
+        license: "Private",
+        metadataStatus: "frontmatter",
+        name: "autobots",
+        validationStatus: "Unknown",
+        version: "3.2.0"
+      },
+      {
+        category: "Product design",
+        description: "Design outcome-focused operational dashboards and visual control planes that project canonical evidence, integrate with existing host surfaces, support mobile use, and avoid becoming a duplicate Wiki, task manager, or source of truth.",
+        id: "dashboard-product-design",
+        license: "MIT",
+        metadataStatus: "frontmatter",
+        name: "operational-dashboard-product-design",
+        platforms: [
+          "macos",
+          "linux",
+          "windows"
+        ],
+        validationStatus: "Unknown",
+        version: "1.10.0"
+      },
+      {
+        category: "Model evaluation",
+        description: "Build and operate small, frozen, executable model-comparison harnesses across local and cloud OpenAI-compatible runtimes.",
+        id: "local-model-evaluation",
+        license: "MIT",
+        metadataStatus: "frontmatter",
+        name: "local-model-evaluation",
+        platforms: [
+          "macos",
+          "linux"
+        ],
+        validationStatus: "Unknown",
+        version: "1.9.5"
+      },
+      {
+        category: "Integration safety",
+        description: "Use for portable, secret-safe integration safety harnesses.",
+        id: "portable-safety-harnesses",
+        license: "MIT",
+        metadataStatus: "frontmatter",
+        name: "portable-integration-safety-harnesses",
+        platforms: [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        validationStatus: "Unknown",
+        version: "1.7.4"
+      },
+      {
+        category: "Reliability",
+        description: "Version, back up, restore-test, and safely publish private intranet application baselines.",
+        id: "intranet-recovery",
+        license: "MIT",
+        metadataStatus: "frontmatter",
+        name: "intranet-app-versioning-recovery",
+        platforms: [
+          "macos",
+          "linux"
+        ],
+        validationStatus: "Unknown",
+        version: "1.0.0"
+      },
+      {
+        category: "Platform operations",
+        description: "Build, operate, verify, and troubleshoot Docker-compatible container hosting on macOS\u2014especially LAN-only shared web-app labs\u2014with live-state discovery, DNS/network approval gates, validated configuration changes, bind-mount safety, port-binding differential tests, rollback evidence, and independent-client acceptance.",
+        id: "container-hosting",
+        license: "MIT",
+        metadataStatus: "frontmatter",
+        name: "macos-container-hosting-operations",
+        platforms: [
+          "macos"
+        ],
+        validationStatus: "Unknown",
+        version: "1.2.1"
+      },
+      {
+        category: "Media production",
+        description: "Use when assembling mixed-media footage into an event film.",
+        id: "event-film",
+        license: "MIT",
+        metadataStatus: "frontmatter",
+        name: "mixed-media-event-film-production",
+        validationStatus: "Unknown",
+        version: "1.0.0"
+      },
+      {
+        category: "Documentation",
+        description: "Maintain a repository's default-branch README as an accurate product landing page, including canonical links, release-aware screenshots, controls, setup, and rendered verification.",
+        id: "repository-docs",
+        license: "MIT",
+        metadataStatus: "frontmatter",
+        name: "repository-documentation-operations",
+        platforms: [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        validationStatus: "Unknown",
+        version: "1.7.0"
+      }
+    ],
+    refreshedAt: "2026-08-27T12:25:47.515Z",
+    schemaVersion: "showcase-projection-v1",
+    showcaseEditions: []
+  };
+
+  // src/showcase/projection.mjs
+  var PROJECT_ALLOWLIST = /* @__PURE__ */ new Map([
+    ["jarvis", "AlexGeslani/Jarvis"],
+    ["stacklogic", "AlexGeslani/StackLogic"],
+    ["8-ball", "AlexGeslani/8-Ball"]
+  ]);
+  var hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+  function assertObject(value, label, allowedKeys, requiredKeys = allowedKeys) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be an object`);
+    for (const key of Object.keys(value)) {
+      if (!allowedKeys.includes(key)) throw new Error(`${label} contains unknown field ${key}`);
+    }
+    for (const key of requiredKeys) {
+      if (!hasOwn(value, key)) throw new Error(`${label} is missing field ${key}`);
+    }
+    return value;
+  }
+  function assertArray(value, label) {
+    if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
+    return value;
+  }
+  function assertString2(value, label) {
+    if (typeof value !== "string" || !value.trim()) throw new Error(`${label} must be a non-empty string`);
+    return value;
+  }
+  function assertHttpsUrl(value, label) {
+    assertString2(value, label);
+    let url;
+    try {
+      url = new URL(value);
+    } catch {
+      throw new Error(`${label} must be a valid URL`);
+    }
+    if (url.protocol !== "https:" || url.username || url.password) throw new Error(`${label} must be a credential-free HTTPS URL`);
+    return value;
+  }
+  function assertSafeClientStrings(value, label = "projection") {
+    if (typeof value === "string") {
+      if (/\/Users\/|(?:^|\W)(?:authorization|github_token|access_token|readmeBody|privateRepositories)(?:$|\W)/i.test(value)) {
+        throw new Error(`${label} contains an unsafe client-visible path or field`);
+      }
+      return;
+    }
+    if (Array.isArray(value)) return value.forEach((item, index) => assertSafeClientStrings(item, `${label}[${index}]`));
+    if (value && typeof value === "object") {
+      for (const [key, item] of Object.entries(value)) assertSafeClientStrings(item, `${label}.${key}`);
+    }
+  }
+  function validateGithubProject(project, index) {
+    const label = `snapshot.githubProjects[${index}]`;
+    assertObject(project, label, [
+      "id",
+      "name",
+      "repository",
+      "visibility",
+      "repositoryUrl",
+      "description",
+      "demoUrl",
+      "productBriefUrl",
+      "architectureUrl",
+      "relatedArticleUrl"
+    ], ["id", "name", "repository", "visibility", "repositoryUrl", "description", "productBriefUrl"]);
+    const repository = PROJECT_ALLOWLIST.get(project.id);
+    if (!repository || repository !== project.repository) throw new Error(`${label} is outside the repository allowlist`);
+    if (project.visibility !== "PUBLIC") throw new Error(`${label}.visibility must be PUBLIC`);
+    assertString2(project.name, `${label}.name`);
+    assertString2(project.description, `${label}.description`);
+    for (const field of ["repositoryUrl", "productBriefUrl", "demoUrl", "architectureUrl", "relatedArticleUrl"]) {
+      if (project[field] !== void 0) assertHttpsUrl(project[field], `${label}.${field}`);
+    }
+    if (project.repositoryUrl !== `https://github.com/${repository}`) throw new Error(`${label}.repositoryUrl is not canonical`);
+  }
+  function validateOperationalSkill(skill, index) {
+    const label = `snapshot.operationalSkills[${index}]`;
+    assertObject(skill, label, [
+      "id",
+      "name",
+      "description",
+      "version",
+      "category",
+      "license",
+      "platforms",
+      "metadataStatus",
+      "validationStatus"
+    ], ["id", "name", "description", "version", "category", "metadataStatus", "validationStatus"]);
+    for (const field of ["id", "name", "description", "version", "category"]) assertString2(skill[field], `${label}.${field}`);
+    if (skill.license !== void 0) assertString2(skill.license, `${label}.license`);
+    if (skill.platforms !== void 0) assertArray(skill.platforms, `${label}.platforms`).forEach((item, itemIndex) => assertString2(item, `${label}.platforms[${itemIndex}]`));
+    if (skill.metadataStatus !== "frontmatter") throw new Error(`${label}.metadataStatus must be frontmatter`);
+    if (skill.validationStatus !== "Unknown") throw new Error(`${label}.validationStatus requires retained validation authority and must currently be Unknown`);
+  }
+  function validateShowcaseEdition(edition, index) {
+    const label = `snapshot.showcaseEditions[${index}]`;
+    assertObject(edition, label, ["id", "name", "repository", "repositoryUrl", "visibility", "independenceStatus", "validationStatus"]);
+    for (const field of ["id", "name", "repository", "independenceStatus", "validationStatus"]) assertString2(edition[field], `${label}.${field}`);
+    assertHttpsUrl(edition.repositoryUrl, `${label}.repositoryUrl`);
+    if (edition.visibility !== "PUBLIC" || edition.independenceStatus !== "approved-independent") {
+      throw new Error(`${label} must be PUBLIC and independently approved`);
+    }
+  }
+  function validateShowcaseProjection(snapshot) {
+    assertObject(snapshot, "snapshot", ["schemaVersion", "refreshedAt", "githubProjects", "showcaseEditions", "operationalSkills"]);
+    if (snapshot.schemaVersion !== "showcase-projection-v1") throw new Error("Unsupported showcase projection snapshot schema");
+    assertString2(snapshot.refreshedAt, "snapshot.refreshedAt");
+    if (Number.isNaN(Date.parse(snapshot.refreshedAt))) throw new Error("snapshot.refreshedAt must be an ISO timestamp");
+    const projects = assertArray(snapshot.githubProjects, "snapshot.githubProjects");
+    if (projects.length !== PROJECT_ALLOWLIST.size) throw new Error("Snapshot must contain exactly the approved repository allowlist");
+    projects.forEach(validateGithubProject);
+    if (new Set(projects.map((project) => project.id)).size !== PROJECT_ALLOWLIST.size) throw new Error("Snapshot project identities must be unique");
+    assertArray(snapshot.showcaseEditions, "snapshot.showcaseEditions").forEach(validateShowcaseEdition);
+    assertArray(snapshot.operationalSkills, "snapshot.operationalSkills").forEach(validateOperationalSkill);
+    assertSafeClientStrings(snapshot, "snapshot");
+    return snapshot;
+  }
+  function getPortfolioProjection(snapshot, internalProducts) {
+    const checked = validateShowcaseProjection(snapshot);
+    const publicIds = new Set(checked.githubProjects.map((project) => project.id));
+    return {
+      refreshedAt: checked.refreshedAt,
+      githubShowcaseProjects: checked.githubProjects,
+      internalProducts: internalProducts.filter((product) => !publicIds.has(product.id))
+    };
+  }
+  function getSkillsProjection(snapshot) {
+    const checked = validateShowcaseProjection(snapshot);
+    return {
+      refreshedAt: checked.refreshedAt,
+      showcaseEditions: checked.showcaseEditions,
+      showcaseEmptyState: checked.showcaseEditions.length ? null : "No independently approved public showcase editions are allowlisted.",
+      operationalSkills: checked.operationalSkills,
+      boundary: "This is a one-way metadata projection, not synchronization. Editing and enablement remain in Hermes Skills."
+    };
+  }
+
   // src/model.mjs
+  var showcaseProjection = validateShowcaseProjection(showcase_projection_v1_default);
   var NAV_ITEMS = [
     { id: "overview", label: "Overview" },
     { id: "portfolio", label: "Portfolio" },
@@ -861,20 +1339,6 @@
         worksNow: ["Responsive product projection", "Provider-usage snapshots", "Web analytics destination", "Evidence-linked benchmark views"],
         evidence: ["Browser acceptance matrix", "Application test suite", "Public-safety scanner"],
         evaluations: []
-      },
-      {
-        id: "jarvis",
-        name: "Jarvis Voice Agent",
-        kind: "Product",
-        state: "Development",
-        verified: "2026-08-16",
-        source: "Development acceptance record",
-        value: "A thin push-to-talk assistant joining local speech, web research, and home-control capabilities behind explicit boundaries.",
-        outcome: "Development Web and Watch surfaces share the same bounded voice path while production remains frozen for acceptance.",
-        limitation: "Web Search, Home Assistant, and physical-device behavior must pass the development gate before production promotion.",
-        worksNow: ["Development web client", "Watch push-to-talk client", "Local speech path", "Bounded tool integration"],
-        evidence: ["Development browser checks", "Voice route acceptance records"],
-        evaluations: ["eval-voice-latency"]
       },
       {
         id: "voice-lab",
@@ -937,7 +1401,14 @@
     modelFamilies: [
       { id: "qwen36", name: "Qwen3.6 35B-A3B", publisher: "Qwen", architecture: "MoE", license: "Known in source manifest", roles: ["Local agent", "Evaluation candidate"] },
       { id: "gpt56", name: "GPT-5.6", publisher: "OpenAI", architecture: "Hosted", license: "Provider terms", roles: ["Review lane"] },
-      { id: "devstral", name: "Devstral Small 2 24B", publisher: "Mistral AI", architecture: "Dense", license: "Known in source manifest", roles: ["Offline-safe coding candidate"] }
+      { id: "devstral", name: "Devstral Small 2 24B", publisher: "Mistral AI", architecture: "Dense", license: "Known in source manifest", roles: ["Offline-safe coding candidate"] },
+      { id: "gpt56-luna", name: "GPT-5.6 Luna", publisher: "OpenAI", architecture: "Hosted", license: "Provider terms", roles: ["Cloud reference", "Agent benchmark"] },
+      { id: "gpt56-sol", name: "GPT-5.6 Sol", publisher: "OpenAI", architecture: "Hosted", license: "Provider terms", roles: ["Cloud reference", "Agent benchmark"] },
+      { id: "qwen38-2b", name: "Qwen 3.8 2B Distill", publisher: "Community", architecture: "Dense", license: "See source model card", roles: ["Local baseline", "Instruction-following candidate"] },
+      { id: "qwen36-35b", name: "Qwen3.6 35B-A3B", publisher: "Qwen", architecture: "MoE", license: "Known in source manifest", roles: ["Local flagship", "Agent candidate"] },
+      { id: "qwen36-27b", name: "Qwen3.6 27B", publisher: "Qwen", architecture: "Dense", license: "Known in source manifest", roles: ["Local reasoning", "Agent candidate"] },
+      { id: "bonsai", name: "Bonsai 8B", publisher: "Community", architecture: "Dense", license: "Evaluation manifest pending", roles: ["Efficient local agent", "Shadow candidate"] },
+      { id: "qwen35-4b", name: "Qwen3.5 4B", publisher: "Qwen", architecture: "Dense", license: "Known in source manifest", roles: ["Small local baseline", "Edge candidate"] }
     ],
     conditions: [
       {
@@ -987,6 +1458,314 @@
         availabilityNote: "Not currently loaded",
         fingerprint: "devstral-small2-24b|fp8|vllm|direct|ctx64k|out8k|gpu-node-b",
         results: []
+      },
+      {
+        id: "gpt56-luna-max",
+        familyId: "gpt56-luna",
+        shortName: "GPT-5.6 Luna \xB7 Max",
+        provider: "ChatGPT",
+        runtime: "Codex Luna bridge",
+        quantization: "Provider managed",
+        reasoning: "Max",
+        host: "Cloud",
+        context: "Provider envelope",
+        output: "Suite-defined",
+        availability: "unknown",
+        availabilityNote: "Availability is separate from benchmark evidence",
+        fingerprint: "gpt-5.6-luna|max|codex-luna-bridge|ootb-intake-v1",
+        results: []
+      },
+      {
+        id: "gpt56-sol-max",
+        familyId: "gpt56-sol",
+        shortName: "GPT-5.6 Sol \xB7 Max",
+        provider: "ChatGPT",
+        runtime: "Codex Sol bridge",
+        quantization: "Provider managed",
+        reasoning: "Max",
+        host: "Cloud",
+        context: "Provider envelope",
+        output: "Suite-defined",
+        availability: "unknown",
+        availabilityNote: "Benchmark collection is complete; runtime availability is not inferred",
+        fingerprint: "gpt-5.6-sol|max|codex-sol-bridge|ootb-intake-v1",
+        results: []
+      },
+      {
+        id: "qwen38-2b-mlx",
+        familyId: "qwen38-2b",
+        shortName: "Qwen 3.8 2B Distill \xB7 4-bit MLX",
+        provider: "Edge Node A",
+        runtime: "MLX/Metal",
+        quantization: "Affine 4-bit \xB7 group 64",
+        reasoning: "Thinking off",
+        host: "Edge Node A",
+        context: "256K tested",
+        output: "8K cap",
+        availability: "unknown",
+        availabilityNote: "Benchmark evidence does not establish current runtime availability",
+        fingerprint: "edge-node-a|qwen38-2b-distill|mlx-metal|affine-4bit-g64|thinking-off|ctx256k|out8k|ootb-intake-v1",
+        results: []
+      },
+      {
+        id: "qwen36-35b-heretic-gpu-b",
+        familyId: "qwen36-35b",
+        shortName: "Qwen3.6 35B Heretic \xB7 Q4_K_M \xB7 MTP-N2",
+        provider: "GPU Node B",
+        runtime: "llama.cpp b9172",
+        quantization: "Q4_K_M Heretic",
+        reasoning: "Thinking on",
+        host: "GPU Node B",
+        context: "256K total \xB7 128K per slot",
+        output: "32K cap",
+        availability: "unknown",
+        availabilityNote: "Benchmark evidence is immutable; current runtime availability is tracked separately",
+        fingerprint: "qwen3.6-35b-a3b-heretic|q4-k-m|mtp-n2|llamacpp-b9172|thinking-on|ctx262144|2slots|out32768|gpu-node-b|ootb-intake-v1",
+        results: []
+      },
+      {
+        id: "qwen36-27b",
+        familyId: "qwen36-27b",
+        shortName: "Qwen3.6 27B \xB7 Q6",
+        provider: "GPU Node B",
+        runtime: "llama.cpp",
+        quantization: "Q6",
+        reasoning: "Direct",
+        host: "GPU Node B",
+        context: "Example envelope",
+        output: "Example envelope",
+        availability: "unknown",
+        availabilityNote: "Illustrative Dev fixture",
+        fingerprint: "example|qwen3.6-27b|q6|llamacpp|direct",
+        results: []
+      },
+      {
+        id: "bonsai-8b",
+        familyId: "bonsai",
+        shortName: "Bonsai 8B \xB7 Q8",
+        provider: "Edge Node A",
+        runtime: "llama.cpp",
+        quantization: "Q8",
+        reasoning: "Direct",
+        host: "Edge Node A",
+        context: "Example envelope",
+        output: "Example envelope",
+        availability: "unknown",
+        availabilityNote: "Illustrative Dev fixture",
+        fingerprint: "example|bonsai-8b|q8|llamacpp|direct",
+        results: []
+      },
+      {
+        id: "qwen35-4b",
+        familyId: "qwen35-4b",
+        shortName: "Qwen3.5 4B \xB7 Q8",
+        provider: "Edge Node A",
+        runtime: "llama.cpp",
+        quantization: "Q8",
+        reasoning: "Direct",
+        host: "Edge Node A",
+        context: "Example envelope",
+        output: "Example envelope",
+        availability: "unknown",
+        availabilityNote: "Illustrative Dev fixture",
+        fingerprint: "example|qwen3.5-4b|q8|llamacpp|direct",
+        results: []
+      }
+    ],
+    benchmarkComparison: [
+      {
+        conditionId: "gpt56-luna-max",
+        evidence: "measured",
+        note: "All three frozen suites passed final verification. tau2 uses the versioned acc-tau2-fixed-judge-v1.1 profile (effective GPT-5.5 Low); future comparisons must use that same judge profile.",
+        operational: {
+          evidence: "verified-aggregate",
+          candidateUsage: { inputTokens: 18549208, outputTokens: 1603165, totalTokens: 20152373, cachedInputTokens: null, reasoningTokens: null, retainedBridgeEvents: 4304 },
+          performance: {
+            class: "frontier-route",
+            successfulResponses: 4290,
+            bridgeErrorEvents: 14,
+            latencySeconds: { minimum: 1.1463, median: 6.3779, mean: 8.8543, p95: 21.8786, maximum: 296.4456, total: 37984.9964 },
+            endToEndOutputTokensPerSecond: 42.2052,
+            measurementBoundary: "Client bridge end-to-end wall time on the ChatGPT/Codex subscription route",
+            variability: "Route-window evidence, not intrinsic model speed; network path, provider queueing, service demand, and bridge overhead remain variables."
+          },
+          judgeUsage: { role: "Fixed tau2 judge", totalTokens: 19655 },
+          billing: {
+            route: "ChatGPT/Codex subscription",
+            marginalApiChargeUsd: 0,
+            monthlySubscriptionUsd: 200,
+            candidateApiEquivalentUsd: 5.63,
+            judgeApiEquivalentUsd: 0.12,
+            subscriptionAttribution: "Flat existing plan \xB7 not allocated per benchmark request"
+          },
+          pricing: {
+            source: "OpenAI standard model pricing reviewed 2026-08-26",
+            candidateRates: "$0.20/M input \xB7 $1.20/M output",
+            judgeRates: "$5/M input \xB7 $30/M output",
+            assumption: "All retained input priced as uncached",
+            longContextRequests: 0
+          },
+          outcomes: [
+            ["IFEval strict misses", "7 / 40 prompts \xB7 8 / 95 instructions"],
+            ["BFCL custody", "150 scored cases \xB7 category-level grader evidence retained"],
+            ["BFCL bridge non-OK events", "9 \xB7 retained under the frozen scoring rules"],
+            ["tau2 unsuccessful", "26 / 50 tasks \xB7 includes 5 provider transport failures"]
+          ]
+        },
+        scores: {
+          instruction: { label: "Instruction following", benchmark: "IFEval", value: 82.5, evidence: "verified", denominator: "33 / 40 strict prompts", detail: [["Instruction checks", "87 / 95 \xB7 91.6%"], ["Mean request", "35.1s"], ["Completion tokens", "74,587"]] },
+          tools: { label: "Native tool use", benchmark: "BFCL V4", value: 45.89, evidence: "verified", denominator: "150 frozen scored cases", detail: [["Non-live AST", "86.7%"], ["Live", "37.5%"], ["Multi-turn tools", "56.3%"], ["Memory", "63.0%"], ["Latency mean / p95", "6.37s / 14.48s"]] },
+          agent: { label: "Multi-turn agent", benchmark: "tau2", value: 48, evidence: "verified", denominator: "24 / 50 frozen tasks", detail: [["Retail", "12 / 25 \xB7 48.0%"], ["Telecom", "12 / 25 \xB7 48.0%"], ["Provider transport failures", "5 \xB7 retained as scored zeros"], ["Harness errors", "0"], ["Fixed judge profile", "acc-tau2-fixed-judge-v1.1 \xB7 GPT-5.5 Low"]] }
+        }
+      },
+      {
+        conditionId: "gpt56-sol-max",
+        evidence: "measured",
+        note: "All three frozen suites passed final verification: IFEval 90.00%, BFCL 48.55%, and tau2 70.00%. The secondary 69.52% equal-weight macro is the unweighted mean of those three primary suite scores. tau2 used acc-tau2-fixed-judge-v1.1 and retained two post-dispatch provider transport failures plus six completed empty model responses as denominator-preserving zeros; harness errors are zero.",
+        operational: {
+          evidence: "verified-aggregate",
+          candidateUsage: { inputTokens: 22636604, outputTokens: 1851898, totalTokens: 24488502, cachedInputTokens: null, reasoningTokens: null, retainedBridgeEvents: 4657 },
+          performance: {
+            class: "frontier-route",
+            successfulResponses: 4586,
+            bridgeErrorEvents: 71,
+            latencySeconds: { minimum: 1.4928, median: 8.7603, mean: 13.3428, p95: 35.5755, maximum: 435.3947, total: 61189.9788 },
+            endToEndOutputTokensPerSecond: 30.2647,
+            measurementBoundary: "Client bridge end-to-end wall time on the ChatGPT/Codex subscription route",
+            variability: "Route-window evidence, not intrinsic model speed; network path, provider queueing, service demand, and bridge overhead remain variables."
+          },
+          judgeUsage: { role: "Fixed tau2 judge", totalTokens: 40330 },
+          billing: {
+            route: "ChatGPT/Codex subscription",
+            marginalApiChargeUsd: 0,
+            monthlySubscriptionUsd: 200,
+            candidateApiEquivalentUsd: 127.58,
+            judgeApiEquivalentUsd: 0.23,
+            subscriptionAttribution: "Flat existing plan \xB7 not allocated per benchmark request"
+          },
+          pricing: {
+            source: "OpenAI standard model pricing reviewed 2026-08-26",
+            candidateRates: "$4/M input \xB7 $20/M output",
+            judgeRates: "$5/M input \xB7 $30/M output",
+            assumption: "All retained input priced as uncached",
+            longContextRequests: 0
+          },
+          outcomes: [
+            ["IFEval strict misses", "4 / 40 prompts \xB7 4 / 95 instructions"],
+            ["Pre-dispatch control stops", "65 \xB7 61 recovered/accounted denials plus 4 later safe halts \xB7 not provider failures"],
+            ["BFCL operational failures", "4 provider transport-error rows retained as scored zeros"],
+            ["tau2 unsuccessful", "15 / 50 tasks \xB7 includes 2 transport failures and 6 empty responses"]
+          ]
+        },
+        scores: {
+          instruction: { label: "Instruction following", benchmark: "IFEval", value: 90, evidence: "verified", denominator: "36 / 40 strict prompts", detail: [["Instruction checks", "91 / 95 \xB7 95.8%"], ["Mean request", "37.6s"], ["Completion tokens", "55,171"], ["Final verification", "Passed \xB7 exact response model"]] },
+          tools: { label: "Native tool use", benchmark: "BFCL V4", value: 48.55, evidence: "verified", denominator: "150 / 150 scored rows", detail: [["Generated traces", "261 / 261"], ["Provider transport-error rows", "4 \xB7 retained"], ["Recovered denial rows", "61 \xB7 exact replay"], ["Final verification", "Passed"]] },
+          agent: { label: "Multi-turn agent", benchmark: "tau2", value: 70, evidence: "verified", denominator: "35 / 50 frozen tasks", detail: [["Retail", "22 / 25 \xB7 88.0%"], ["Telecom", "13 / 25 \xB7 52.0%"], ["Provider transport failures", "2 \xB7 retained as scored zeros"], ["Empty model responses", "6 \xB7 retained as scored zeros"], ["Harness errors", "0"], ["Fixed judge profile", "acc-tau2-fixed-judge-v1.1 \xB7 GPT-5.5 Low"], ["Final verification", "Passed"]] }
+        }
+      },
+      {
+        conditionId: "qwen38-2b-mlx",
+        evidence: "measured",
+        note: "IFEval and BFCL are final-verified for the exact 4-bit MLX/Metal condition. IFEval repeated exactly at 9 / 40 strict prompts and 47 / 95 instructions; BFCL scored 8.72% across the frozen 150-case selection after all 261 required rows were generated. tau2 Retail is active at 23 / 25 completed simulations in the captured progress snapshot; Telecom remains queued, so the tau2 primary score stays Pending rather than zero.",
+        operational: {
+          evidence: "verified-partial",
+          candidateUsage: { inputTokens: 9839500, outputTokens: 1130727, totalTokens: 10970227, cachedInputTokens: 2135136, reasoningTokens: null, retainedBridgeEvents: 1648, basis: "Final-verified IFEval matched repeat plus final-verified BFCL \xB7 incomplete tau2 usage excluded" },
+          performance: {
+            class: "local-runtime",
+            successfulResponses: 1608,
+            bridgeErrorEvents: 0,
+            latencySeconds: { minimum: 1.2452, median: 11.6742, mean: 21.2696, p95: 78.2772, maximum: 367.2935, total: 34201.4525 },
+            endToEndOutputTokensPerSecond: 29.4517,
+            measurementBoundary: "BFCL bridge end-to-end non-streaming request wall time across all retained prerequisite and scored requests",
+            variability: "The displayed runtime distribution is BFCL-specific and includes transport, prompt evaluation, and generation. IFEval repeat performance remains in the instruction-score detail. TTFT, pure decoder throughput, peak RSS, Metal memory, and thermal/power state were not captured."
+          },
+          localRuntime: {
+            hardwareProfile: "edge-node-a-mac-mini-m2-24gb-20260826",
+            capturedAt: "2026-08-26",
+            machine: "Mac mini",
+            processor: "Apple M2 \xB7 8-core CPU",
+            memory: "24 GB unified memory",
+            accelerator: "Apple M2 \xB7 10-core GPU \xB7 Metal",
+            os: "macOS 26.5.2",
+            host: "Edge Node A",
+            backend: "MLX/Metal",
+            modelRevision: "SiddhJagani/Qwen3.8-2B-mlx-4Bit \xB7 pinned revision",
+            quantization: "Affine 4-bit \xB7 group size 64",
+            context: "262,144 tokens",
+            outputCap: "8,192 tokens",
+            slots: 1,
+            concurrency: 1,
+            retries: 0,
+            thinking: "Off",
+            streaming: "No",
+            competingWorkload: "One benchmark slot; broader host workload telemetry unavailable"
+          },
+          outcomes: [
+            ["IFEval repeated result", "9 / 40 prompts \xB7 47 / 95 instructions \xB7 identical across two runs"],
+            ["Repeat consistency", "40 / 40 exact response-text matches \xB7 40 / 40 exact usage matches"],
+            ["BFCL final result", "8.72% \xB7 261 / 261 generated \xB7 150 / 150 scored \xB7 final verification passed"],
+            ["BFCL custody", "1,608 / 1,608 bridge requests succeeded \xB7 0 transport errors \xB7 0 retries"],
+            ["tau2 progress snapshot", "23 / 50 frozen tasks completed \xB7 Retail 23 / 25 \xB7 Telecom queued \xB7 score withheld as Pending"]
+          ],
+          methodNote: "Local performance is specific to this host, runtime, quantization, context/output envelope, serial slot, and warm-state collection. Candidate usage includes only final-verified IFEval and BFCL evidence; incomplete tau2 usage is excluded. Pure generation speed and resource peaks were unavailable in the retained evidence."
+        },
+        scores: {
+          instruction: { label: "Instruction following", benchmark: "IFEval", value: 22.5, evidence: "verified", denominator: "9 / 40 strict prompts", detail: [["Instruction checks", "47 / 95 \xB7 49.5%"], ["Matched repeats", "2 \xB7 identical scores"], ["Exact response matches", "40 / 40"], ["Repeat mean / p95", "51.29s / 136.39s"], ["Completion tokens", "123,437"], ["Final verification", "Passed \xB7 both runs"]] },
+          tools: { label: "Native tool use", benchmark: "BFCL V4", value: 8.72, evidence: "verified", denominator: "150 / 150 frozen scored cases", detail: [["Generated traces", "261 / 261"], ["Non-live AST", "39.17%"], ["Live", "0.00%"], ["Multi-turn tools", "1.25%"], ["Memory", "7.14%"], ["Bridge requests", "1,608 / 1,608 succeeded \xB7 0 transport errors \xB7 0 retries"], ["Latency median / mean / p95", "11.67s / 21.27s / 78.28s"], ["Final verification", "Passed"]] },
+          agent: { label: "Multi-turn agent", benchmark: "tau2", value: null, evidence: "pending", denominator: "Retail 23 / 25 live \xB7 score withheld", progress: { current: 23, total: 50, label: "23 / 50 frozen tasks \xB7 Retail 23 / 25", state: "in-progress", capturedAt: "2026-08-27T21:29:24Z" }, detail: [["Frozen inventory", "25 Retail + 25 Telecom"], ["Completed simulations", "Retail 23 / 25 \xB7 23 / 50 total"], ["Harness errors", "0 observed in current progress artifact"], ["Telecom", "Queued after Retail"], ["Scoring state", "Pending full frozen inventory and final verification"]] }
+        }
+      },
+      {
+        conditionId: "qwen36-35b-heretic-gpu-b",
+        evidence: "measured",
+        note: "IFEval is final-verified for the exact GPU Node B Qwen3.6 35B Heretic Q4_K_M MTP-N2 condition. The live BFCL controller had generated 180 / 261 required rows in the captured 2026-08-27 progress snapshot and remained active; tau2 is queued. Both unfinished primary scores remain Pending rather than zero. Hardware identity beyond the retained public-safe host label and runtime/deployment geometry was not captured and is shown as unavailable rather than inferred.",
+        operational: {
+          evidence: "verified-partial",
+          candidateUsage: { inputTokens: 2596, outputTokens: 157506, totalTokens: 160102, cachedInputTokens: null, reasoningTokens: null, retainedBridgeEvents: 40, basis: "Final-verified IFEval \xB7 40 requests" },
+          performance: {
+            class: "local-runtime",
+            successfulResponses: 40,
+            bridgeErrorEvents: 0,
+            latencySeconds: { minimum: 10.696, median: 38.2466, mean: 45.7059, p95: 109.7134, maximum: 159.8997, total: 1828.2351 },
+            endToEndOutputTokensPerSecond: 86.1519,
+            measurementBoundary: "Single-flight bridge end-to-end non-streaming wall time",
+            variability: "This is exact-condition host/runtime evidence, not intrinsic model speed. TTFT, peak RSS, accelerator memory, thermal state, and competing-host workload were not retained."
+          },
+          localRuntime: {
+            hardwareProfile: "gpu-node-b-hardware-unresolved-20260826",
+            capturedAt: "2026-08-26",
+            machine: "Not captured in retained run evidence",
+            processor: "Not captured",
+            memory: "Not captured",
+            accelerator: "Not captured",
+            os: "Not captured",
+            host: "GPU Node B",
+            backend: "llama.cpp b9172 lineage",
+            modelRevision: "Qwen3.6-35B-A3B-Heretic-Q4_K_M-MTP-N2",
+            quantization: "Q4_K_M Heretic \xB7 MTP-N2",
+            context: "262,144 total \xB7 131,072 per slot",
+            outputCap: "32,768 tokens",
+            slots: 2,
+            concurrency: 1,
+            retries: 0,
+            thinking: "On",
+            streaming: "No",
+            competingWorkload: "Requests serialized; broader host workload telemetry unavailable"
+          },
+          outcomes: [
+            ["IFEval final result", "31 / 40 prompts \xB7 86 / 95 instructions"],
+            ["IFEval failures", "0 provider failures \xB7 0 measurement-path failures"],
+            ["BFCL progress snapshot", "180 / 261 required rows generated \xB7 controller active \xB7 score withheld as Pending"],
+            ["Coverage boundary", "BFCL scoring incomplete; tau2 queued \xB7 unfinished scores are not estimated or represented as zero"],
+            ["Hardware boundary", "Processor, RAM, accelerator, and OS were not captured in retained run evidence"]
+          ],
+          methodNote: "The displayed score is final-verified IFEval evidence only. BFCL and tau2 are not averaged, estimated, or represented as zero while collection is incomplete."
+        },
+        scores: {
+          instruction: { label: "Instruction following", benchmark: "IFEval", value: 77.5, evidence: "verified", denominator: "31 / 40 strict prompts", detail: [["Instruction checks", "86 / 95 \xB7 90.5%"], ["Median / mean request", "38.25s / 45.71s"], ["Request p95", "109.71s"], ["Completion tokens", "157,506"], ["End-to-end output throughput", "86.15 tok/s"], ["Final verification", "Passed \xB7 exact model and runtime lineage"]] },
+          tools: { label: "Native tool use", benchmark: "BFCL V4", value: null, evidence: "pending", denominator: "180 / 261 generated at snapshot \xB7 score withheld", progress: { current: 180, total: 261, label: "180 / 261 required rows generated", state: "in-progress", capturedAt: "2026-08-27T21:30:56Z" }, detail: [["Frozen inventory", "261 generated / 150 scored rows"], ["Progress snapshot", "180 / 261 generated \xB7 captured 2026-08-27"], ["Current workload", "Multi-turn long-context"], ["Scoring state", "Generation in progress \xB7 evaluator not yet run"]] },
+          agent: { label: "Multi-turn agent", benchmark: "tau2", value: null, evidence: "pending", denominator: "Queued \xB7 score withheld", progress: { current: 0, total: 50, label: "0 / 50 tasks \xB7 queued after BFCL", state: "queued", capturedAt: "2026-08-27" }, detail: [["Frozen inventory", "25 Retail + 25 Telecom"], ["Progress snapshot", "0 / 50 \xB7 queued"], ["Scoring state", "Queued after BFCL"]] }
+        }
       }
     ],
     results: [
@@ -1058,16 +1837,7 @@
         affectedObjects: [{ type: "skill", id: "autobots", label: "/autobots" }]
       }
     ],
-    skills: [
-      { id: "autobots", name: "/autobots", category: "Agent orchestration", purpose: "Runs bounded specialist coding lanes with explicit pause, resume, review, and delivery contracts.", provenance: "authored here", stewardship: "owned and maintained here", publication: "internal", validation: "validated", lastValidated: "2026-08-16", envelope: "Claude CLI + Codex CLI; isolated transport", repo: "Local SKILL.md metadata snapshot" },
-      { id: "dashboard-product-design", name: "operational-dashboard-product-design", category: "Product design", purpose: "Designs evidence-backed command centers that answer durable questions without duplicating operational systems.", provenance: "authored here", stewardship: "owned and maintained here", publication: "internal", validation: "validated", lastValidated: "2026-08-16", envelope: "Dashboard IA, source authority, desktop/mobile acceptance", repo: "Local SKILL.md metadata snapshot" },
-      { id: "local-model-evaluation", name: "local-model-evaluation", category: "Model evaluation", purpose: "Builds frozen, executable comparisons across local and hosted inference conditions.", provenance: "authored here", stewardship: "owned and maintained here", publication: "internal", validation: "validated", lastValidated: "2026-08-16", envelope: "Local/cloud OpenAI-compatible runtimes; evidence-first", repo: "Local SKILL.md metadata snapshot" },
-      { id: "portable-safety-harnesses", name: "portable-integration-safety-harnesses", category: "Integration safety", purpose: "Creates secret-safe integration checks that travel across environments without carrying private infrastructure assumptions.", provenance: "authored here", stewardship: "owned and maintained here", publication: "internal", validation: "validated", lastValidated: "2026-08-16", envelope: "Portable fixtures, fail-closed checks, redacted evidence", repo: "Local SKILL.md metadata snapshot" },
-      { id: "intranet-recovery", name: "intranet-app-versioning-recovery", category: "Reliability", purpose: "Versions, backs up, restore-tests, and safely publishes private application baselines.", provenance: "authored here", stewardship: "owned and maintained here", publication: "internal", validation: "validated", lastValidated: "2026-08-16", envelope: "Private intranet applications; reversible releases", repo: "Local SKILL.md metadata snapshot" },
-      { id: "container-hosting", name: "macos-container-hosting-operations", category: "Platform operations", purpose: "Operates LAN-only container hosting with validated routing, bind-mount safety, and independent-client acceptance.", provenance: "authored here", stewardship: "owned and maintained here", publication: "internal", validation: "validated", lastValidated: "2026-08-16", envelope: "macOS container hosts; shared Caddy ingress", repo: "Local SKILL.md metadata snapshot" },
-      { id: "event-film", name: "mixed-media-event-film-production", category: "Media production", purpose: "Assembles mixed-source footage into a scene-tagged event film with selective restoration and conservative finishing.", provenance: "authored here", stewardship: "owned and maintained here", publication: "internal", validation: "validated", lastValidated: "2026-08-16", envelope: "Mixed photo/video/audio; reviewable editorial stages", repo: "Local SKILL.md metadata snapshot" },
-      { id: "repository-docs", name: "repository-documentation-operations", category: "Documentation", purpose: "Keeps a repository README aligned with the actual default-branch product and operating state.", provenance: "authored here", stewardship: "owned and maintained here", publication: "internal", validation: "validated", lastValidated: "2026-08-16", envelope: "Repository-backed products; evidence-based documentation", repo: "Local SKILL.md metadata snapshot" }
-    ]
+    skills: showcaseProjection.operationalSkills
   };
   for (const condition of fixtures.conditions) {
     condition.results = fixtures.results.filter((result) => result.conditionId === condition.id);
@@ -1079,6 +1849,64 @@
   };
   function getCondition(id) {
     return fixtures.conditions.find((condition) => condition.id === id) || null;
+  }
+  function getBenchmarkComparison(conditionId = null) {
+    const profiles = fixtures.benchmarkComparison.map((profile) => {
+      const verifiedScores = Object.values(profile.scores).filter((score) => score.evidence === "verified" && score.value != null);
+      const currentAverage = verifiedScores.length ? Number((verifiedScores.reduce((sum, score) => sum + score.value, 0) / verifiedScores.length).toFixed(2)) : null;
+      return {
+        ...profile,
+        condition: getCondition(profile.conditionId),
+        currentAverage: {
+          value: currentAverage,
+          verifiedSuites: verifiedScores.length,
+          totalSuites: Object.keys(profile.scores).length,
+          complete: verifiedScores.length === Object.keys(profile.scores).length
+        }
+      };
+    });
+    return conditionId ? profiles.find((profile) => profile.conditionId === conditionId) || null : profiles;
+  }
+  function getMeasuredBenchmarkVisuals() {
+    const suiteOrder = ["instruction", "tools", "agent"];
+    const measured = getBenchmarkComparison().filter((profile) => profile.evidence === "measured");
+    return {
+      profiles: measured.map((profile) => ({
+        conditionId: profile.conditionId,
+        shortName: profile.condition.shortName,
+        provider: profile.condition.provider,
+        runtime: profile.condition.runtime,
+        coverage: Object.fromEntries(suiteOrder.map((suiteId) => [suiteId, profile.scores[suiteId].progress?.state || profile.scores[suiteId].evidence]))
+      })),
+      suites: suiteOrder.map((suiteId) => ({
+        id: suiteId,
+        label: measured[0].scores[suiteId].benchmark,
+        rows: measured.map((profile) => {
+          const score = profile.scores[suiteId];
+          if (score.value != null && score.evidence === "verified") return {
+            conditionId: profile.conditionId,
+            shortName: profile.condition.shortName,
+            value: score.value,
+            barValue: score.value,
+            denominator: score.denominator,
+            evidence: "verified",
+            kind: "score",
+            progress: null
+          };
+          if (score.progress) return {
+            conditionId: profile.conditionId,
+            shortName: profile.condition.shortName,
+            value: null,
+            barValue: score.progress.total ? score.progress.current / score.progress.total * 100 : 0,
+            denominator: score.progress.label,
+            evidence: score.progress.state,
+            kind: "progress",
+            progress: score.progress
+          };
+          return null;
+        }).filter(Boolean).sort((a, b) => a.kind === b.kind ? b.barValue - a.barValue : a.kind === "score" ? -1 : 1)
+      }))
+    };
   }
   function getFamily(id) {
     return fixtures.modelFamilies.find((family) => family.id === id) || null;
@@ -1102,11 +1930,6 @@
     const authority = product.availabilityAuthority ? fixtures.sources.find((source) => source.id === product.availabilityAuthority) : null;
     if (authority?.invalidatesClaims) return { state: "unknown", worksNow: null };
     return { state: product.state, worksNow: product.worksNow };
-  }
-  function getEffectiveSkillClaims(skill) {
-    const authority = fixtures.sources.find((source) => source.id === "skill-meta");
-    if (!authority?.invalidatesClaims) return { stewardship: skill.stewardship, publication: skill.publication };
-    return { stewardship: "unknown", publication: "unknown" };
   }
   function getLeaderboard(domain, release = RELEASES[domain]) {
     return fixtures.results.filter((result) => result.domain === domain && result.release === release && result.status === "canonical").map((result) => ({ ...result, condition: getCondition(result.conditionId) })).sort((a, b) => b.score - a.score);
@@ -1152,11 +1975,12 @@
         resultIds
       };
     });
+    const representedRows = rows.filter((row) => row.coverage > 0);
     const byIndex = (a, b) => (b.index ?? -1) - (a.index ?? -1);
     return {
       domains: domainState.map(({ resultByCondition, ...domain }) => domain),
-      complete: rows.filter((row) => row.complete).sort(byIndex),
-      partial: rows.filter((row) => !row.complete).sort(byIndex)
+      complete: representedRows.filter((row) => row.complete).sort(byIndex),
+      partial: representedRows.filter((row) => !row.complete).sort(byIndex)
     };
   }
   function getEvaluationIndex() {
@@ -1167,6 +1991,24 @@
   }
   function getSourceTrust() {
     return fixtures.sources;
+  }
+  function getShowcasePortfolio() {
+    return getPortfolioProjection(showcaseProjection, fixtures.products);
+  }
+  function getShowcaseSkills() {
+    return getSkillsProjection(showcaseProjection);
+  }
+  function getOverviewProjection() {
+    return {
+      sectionOrder: ["provider-usage", "source-exceptions", "destinations", "recently-landed"],
+      sourceExceptions: getSourceTrust().filter((source) => source.invalidatesClaims),
+      destinations: [
+        { id: "portfolio", label: "Portfolio", summary: "Products and durable capabilities" },
+        { id: "analytics", label: "Analytics", summary: "Traffic, service usage, and coverage" },
+        { id: "benchmarks", label: "Benchmarks", summary: "Measured model evidence" },
+        { id: "skills", label: "Skills", summary: "Reusable delivery knowledge" }
+      ]
+    };
   }
   function buildAccUrl(state = {}, basePath = "/autobot-command-center") {
     const params = new URLSearchParams();
@@ -1202,6 +2044,7 @@
     const { React } = SDK;
     const { useEffect, useRef, useState } = SDK.hooks;
     const h = React.createElement;
+    const { useSortableRows, SortableHeader } = createSortingSupport({ React, useState });
     function cx(...values) {
       return values.filter(Boolean).join(" ");
     }
@@ -1209,7 +2052,7 @@
       return h("span", { className: `acc-badge acc-badge--${tone}` }, children);
     }
     function StatusBadge({ state }) {
-      const tone = state === "fresh" || state === "canonical" || state === "validated" || state === "available" ? "good" : state === "stale" || state === "provisional" || state === "unknown" ? "warn" : state === "missing" || state === "unavailable" || state === "failed" ? "bad" : "neutral";
+      const tone = state === "fresh" || state === "canonical" || state === "validated" || state === "available" || state === "verified" ? "good" : state === "stale" || state === "provisional" || state === "unknown" || state === "pending" || state === "in-progress" || state === "queued" || state === "blocked" ? "warn" : state === "missing" || state === "unavailable" || state === "failed" ? "bad" : "neutral";
       return h(Badge, { tone }, String(state).replaceAll("-", " "));
     }
     function SectionHeading({ eyebrow, title, action }) {
@@ -1407,89 +2250,70 @@
       );
     }
     function Overview({ go, providerUsage }) {
-      const leaders = ["tool-use", "reasoning", "coding"].map((domain) => ({
-        domain,
-        row: getLeaderboard(domain)[0]
-      }));
-      const pending = fixtures.evaluations.filter((evaluation) => evaluation.stage === "Running" || evaluation.stage === "Verifying");
-      const durableProducts = ["autobot-command-center", "jarvis", "model-serving", "benchmark-program"].map((id) => fixtures.products.find((product) => product.id === id)).filter(Boolean);
+      const overview = getOverviewProjection();
       return h(
         "div",
         { className: "acc-view acc-overview" },
-        h(
-          "section",
-          { className: "acc-section" },
-          h(SectionHeading, { eyebrow: "Changed outcomes", title: "Recently landed" }),
-          h(
-            "div",
-            { className: "acc-feature-grid" },
-            h(
-              "article",
-              { className: "acc-feature-card acc-feature-card--hero" },
-              h(Badge, { tone: "good" }, "Verified outcome"),
-              h("h3", null, "Condition-aware benchmark lineage"),
-              h("p", null, "Canonical scores now resolve to an exact tested condition, frozen release, and supporting run evidence."),
-              h("button", { type: "button", className: "acc-link-button", onClick: () => go({ view: "benchmarks" }) }, "Inspect benchmark evidence")
-            ),
-            h(
-              "article",
-              { className: "acc-feature-card" },
-              h(Badge, null, "Product milestone"),
-              h("h3", null, "Voice Lab acceptance envelope"),
-              h("p", null, "The reusable voice core has a defined acceptance owner and rejects non-speech inputs."),
-              h("button", { type: "button", className: "acc-link-button", onClick: () => go({ view: "portfolio", product: "voice-lab" }) }, "Open Voice Lab")
-            )
-          )
-        ),
         h(ProviderUsage, { snapshot: providerUsage, go, compact: true }),
         h(
           "section",
-          { className: "acc-section" },
-          h(SectionHeading, { eyebrow: "Durable objects", title: "Durable capabilities" }),
-          h("div", { className: "acc-card-grid" }, durableProducts.map((product) => {
-            const claims = getEffectiveProductClaims(product);
-            return h(
-              "button",
-              { key: product.id, type: "button", className: "acc-object-card", onClick: () => go({ view: "portfolio", product: product.id }) },
-              h("span", { className: "acc-object-card__top" }, h(Badge, null, product.kind), h(StatusBadge, { state: claims.state.toLowerCase() })),
-              h("strong", null, product.name),
-              h("span", null, product.outcome),
-              h("small", null, `Verified ${product.verified} \xB7 ${product.source}`)
-            );
-          }))
-        ),
-        h(
-          "section",
-          { className: "acc-section" },
-          h(SectionHeading, { eyebrow: "Separate capability areas", title: "Model leaders" }),
-          h("div", { className: "acc-leader-grid" }, leaders.map(
-            ({ domain, row }) => h(
-              "button",
-              { key: domain, type: "button", className: "acc-leader-card", onClick: () => go({ view: "benchmarks", domain, condition: row.conditionId }) },
-              h("span", { className: "acc-leader-card__domain" }, domain === "tool-use" ? "Tool use" : domain === "reasoning" ? "GPQA Diamond" : "Offline-safe coding"),
-              h("strong", null, row.condition.shortName),
-              h("span", { className: "acc-score" }, `${row.score.toFixed(1)}%`),
-              h("small", null, `${row.release} \xB7 n=${row.denominator}`)
+          { className: "acc-section acc-overview-exceptions" },
+          h(SectionHeading, {
+            eyebrow: "Claim boundaries",
+            title: "Source exceptions",
+            action: h(Badge, { tone: overview.sourceExceptions.length ? "warn" : "good" }, overview.sourceExceptions.length ? `${overview.sourceExceptions.length} need attention` : "All claim-safe")
+          }),
+          h("div", { className: "acc-overview-exception-list" }, overview.sourceExceptions.map(
+            (source) => h(
+              "article",
+              { className: "acc-overview-exception", key: source.id },
+              h(StatusBadge, { state: source.state }),
+              h("div", null, h("strong", null, source.label), h("small", null, `${source.authority} \xB7 ${source.freshness}`))
             )
           ))
         ),
         h(
           "section",
-          { className: "acc-section" },
-          h(SectionHeading, { eyebrow: "Named decisions only", title: "Decision pending" }),
-          h("div", { className: "acc-evaluation-list" }, pending.map(
-            (evaluation) => h(
-              "button",
-              { key: evaluation.id, type: "button", className: "acc-evaluation-row", onClick: () => go({ view: "evidence", evaluation: evaluation.id }) },
-              h("span", null, h(StatusBadge, { state: evaluation.findingStatus }), h("strong", null, evaluation.title), h("small", null, evaluation.question)),
-              h(Meter, { value: evaluation.progress, label: evaluation.title })
-            )
+          { className: "acc-section acc-overview-destinations" },
+          h(SectionHeading, { eyebrow: "Focused destinations", title: "Explore details" }),
+          h("div", { className: "acc-overview-destination-strip" }, overview.destinations.map(
+            (destination) => h("button", {
+              key: destination.id,
+              type: "button",
+              className: "acc-overview-destination",
+              "aria-label": `Open ${destination.label}`,
+              onClick: () => go({ view: destination.id })
+            }, h("strong", null, destination.label), h("small", null, destination.summary), h("span", { "aria-hidden": true }, "\u2192"))
           ))
+        ),
+        h(
+          "section",
+          { className: "acc-section acc-overview-landed" },
+          h(SectionHeading, { eyebrow: "Changed outcomes", title: "Recently landed" }),
+          h(
+            "div",
+            { className: "acc-overview-landed__list" },
+            h(
+              "button",
+              { type: "button", className: "acc-overview-landed__item", onClick: () => go({ view: "benchmarks" }) },
+              h(Badge, { tone: "good" }, "Verified"),
+              h("span", null, h("strong", null, "Condition-aware benchmark lineage"), h("small", null, "Exact condition, frozen release, and run evidence")),
+              h("span", { "aria-hidden": true }, "\u2192")
+            ),
+            h(
+              "button",
+              { type: "button", className: "acc-overview-landed__item", onClick: () => go({ view: "portfolio", product: "voice-lab" }) },
+              h(Badge, null, "Milestone"),
+              h("span", null, h("strong", null, "Voice Lab acceptance envelope"), h("small", null, "Named acceptance owner and non-speech rejection")),
+              h("span", { "aria-hidden": true }, "\u2192")
+            )
+          )
         )
       );
     }
     function Portfolio({ route, go }) {
-      const product = route.product ? fixtures.products.find((item) => item.id === route.product) : null;
+      const portfolio = getShowcasePortfolio();
+      const product = route.product ? portfolio.internalProducts.find((item) => item.id === route.product) : null;
       if (product) {
         const evaluations = product.evaluations.map((id) => fixtures.evaluations.find((item) => item.id === id)).filter(Boolean);
         const claims = getEffectiveProductClaims(product);
@@ -1528,39 +2352,68 @@
           )
         );
       }
-      const portfolioGroups = [
-        { id: "products", eyebrow: "Built experiences", title: "Products", items: fixtures.products.filter((item) => item.kind === "Product") },
-        { id: "capabilities", eyebrow: "Reusable foundations", title: "Capabilities", items: fixtures.products.filter((item) => item.kind === "Capability") }
-      ];
       return h(
         "div",
         { className: "acc-view" },
         h(SectionHeading, { eyebrow: "Products and capabilities", title: "Portfolio" }),
-        h("p", { className: "acc-lede" }, "A curated map of durable products and reusable capabilities. Each card leads with the outcome, its operating boundary, and named evidence."),
+        h("p", { className: "acc-lede" }, "Public GitHub evidence is refreshed into a frozen, allowlisted projection. Internal products remain a separate durable capability view with no implied public release."),
         h(
           "div",
           { className: "acc-registry-summary", "aria-label": "Portfolio summary" },
-          h("div", null, h("strong", null, fixtures.products.length), h("span", null, "Durable entries")),
-          h("div", null, h("strong", null, portfolioGroups[0].items.length), h("span", null, "Products")),
-          h("div", null, h("strong", null, portfolioGroups[1].items.length), h("span", null, "Capabilities"))
+          h("div", null, h("strong", null, portfolio.githubShowcaseProjects.length), h("span", null, "Public projects")),
+          h("div", null, h("strong", null, portfolio.internalProducts.length), h("span", null, "Internal entries")),
+          h("div", null, h("strong", null, portfolio.refreshedAt.slice(0, 10)), h("span", null, "Projection refresh"))
         ),
-        portfolioGroups.map((group) => h(
+        h(
           "section",
-          { className: "acc-portfolio-group", key: group.id, "aria-labelledby": `acc-${group.id}-title` },
-          h("div", { className: "acc-section-heading" }, h("div", null, h("p", { className: "acc-eyebrow" }, group.eyebrow), h("h3", { id: `acc-${group.id}-title` }, group.title))),
-          h("div", { className: "acc-portfolio-grid" }, group.items.map((item) => {
+          { className: "acc-portfolio-group", "aria-labelledby": "acc-github-showcase-title" },
+          h("div", { className: "acc-section-heading" }, h(
+            "div",
+            null,
+            h("p", { className: "acc-eyebrow" }, "Allowlisted public evidence"),
+            h("h3", { id: "acc-github-showcase-title" }, "GitHub Showcase Projects")
+          )),
+          h("div", { className: "acc-portfolio-grid" }, portfolio.githubShowcaseProjects.map((item) => {
+            const links = [
+              ["Repository", item.repositoryUrl],
+              ["Live demo", item.demoUrl],
+              ["Product brief", item.productBriefUrl],
+              ["Architecture", item.architectureUrl],
+              ["Article / case study", item.relatedArticleUrl]
+            ].filter(([, url]) => url);
+            return h(
+              "article",
+              { key: item.id, className: "acc-portfolio-card acc-showcase-card", "data-showcase-project": item.id },
+              h("span", { className: "acc-object-card__top" }, h(Badge, { tone: "good" }, "Public"), h("span", { className: "acc-repository-name" }, item.repository)),
+              h("h3", null, item.name),
+              h("p", null, item.description),
+              h("div", { className: "acc-card-links" }, links.map(([label, url]) => h("a", { key: label, className: "acc-card-link", href: url, rel: "noreferrer" }, label))),
+              h("small", null, `Last refreshed ${portfolio.refreshedAt}`)
+            );
+          }))
+        ),
+        h(
+          "section",
+          { className: "acc-portfolio-group", "aria-labelledby": "acc-internal-products-title" },
+          h("div", { className: "acc-section-heading" }, h(
+            "div",
+            null,
+            h("p", { className: "acc-eyebrow" }, "Private operating boundary"),
+            h("h3", { id: "acc-internal-products-title" }, "Internal Products & Capabilities")
+          )),
+          h("div", { className: "acc-portfolio-grid" }, portfolio.internalProducts.map((item) => {
             const claims = getEffectiveProductClaims(item);
             return h(
               "button",
               { key: item.id, type: "button", className: "acc-portfolio-card", onClick: () => go({ view: "portfolio", product: item.id }) },
-              h("span", { className: "acc-object-card__top" }, h(Badge, null, item.kind), h(StatusBadge, { state: claims.state.toLowerCase() })),
+              h("span", { className: "acc-object-card__top" }, h(Badge, null, `Internal \xB7 ${item.kind}`), h(StatusBadge, { state: claims.state.toLowerCase() })),
               h("h3", null, item.name),
               h("p", null, item.value),
               h("div", { className: "acc-callout" }, h("span", null, "Landed outcome"), h("strong", null, item.outcome)),
               h("small", null, `${item.source} \xB7 verified ${item.verified}`)
             );
           }))
-        ))
+        )
       );
     }
     function MetricTabs({ active, onSelect }) {
@@ -1631,6 +2484,326 @@
         )
       );
     }
+    function ThreeScoreValue({ score, role }) {
+      const progress = score.progress;
+      const label = score.value != null ? score.value.toFixed(1) : progress?.state === "queued" ? "Queued" : progress ? "In progress" : "Pending";
+      const progressPercent = progress?.total ? progress.current / progress.total * 100 : 0;
+      return h(
+        "span",
+        { className: cx("acc-three-score__value", score.value == null && "is-pending", progress && "has-progress", progress?.state === "queued" && "is-queued"), role },
+        h("strong", null, label),
+        h("small", null, score.benchmark),
+        progress ? h(
+          "span",
+          { className: "acc-suite-progress" },
+          h("span", {
+            className: "acc-suite-progress__track",
+            role: "progressbar",
+            "aria-label": `${score.benchmark} ${progress.label}`,
+            "aria-valuemin": 0,
+            "aria-valuemax": progress.total,
+            "aria-valuenow": progress.current
+          }, h("span", { style: { width: `${progressPercent}%` } })),
+          h("small", null, progress.label)
+        ) : null
+      );
+    }
+    function MeasuredSuiteTable({ suite, go }) {
+      const columns = defineSortColumns("benchmarks.measured-suite", {
+        condition: (row) => row.shortName,
+        result: (row) => row.kind === "score" ? { kind: "score", value: row.value } : { kind: "progress", value: row.barValue }
+      });
+      const sorted = useSortableRows(suite.rows, columns);
+      return h(
+        "article",
+        { className: "acc-measured-suite", "data-measured-suite": suite.id },
+        h("div", { className: "acc-measured-suite__head" }, h("h3", null, suite.label), h("small", null, `${suite.rows.filter((row) => row.kind === "score").length} verified \xB7 ${suite.rows.filter((row) => row.evidence === "in-progress").length} active`)),
+        h(
+          "div",
+          { className: "acc-measured-suite__table", role: "table", "aria-label": `${suite.label} measured suite comparison` },
+          h("div", { className: "acc-measured-suite__columns", role: "row" }, columns.map((definition) => h(SortableHeader, { key: definition.id, as: "span", column: definition, sort: sorted.sort, onSort: sorted.onSort }))),
+          h("div", { role: "rowgroup" }, sorted.rows.map((row) => h(
+            "div",
+            { className: cx("acc-measured-score", row.kind === "progress" && "is-progress", row.evidence === "queued" && "is-queued"), role: "row", key: row.conditionId, "data-score-bar": row.conditionId },
+            h(
+              "span",
+              { className: "acc-measured-score__identity", role: "rowheader" },
+              h("button", { type: "button", className: "acc-table-link", onClick: () => go({ view: "benchmarks", condition: row.conditionId }) }, row.shortName),
+              h("small", null, row.denominator)
+            ),
+            h(
+              "span",
+              { className: "acc-measured-score__result", role: "cell" },
+              h("strong", { className: "acc-measured-score__value" }, row.kind === "score" ? row.value.toFixed(1) : row.evidence === "queued" ? "Queued" : `${row.barValue.toFixed(0)}% done`),
+              h("span", { className: "acc-measured-score__track", "aria-hidden": "true" }, h("span", { style: { width: `${row.barValue}%` } }))
+            )
+          )))
+        )
+      );
+    }
+    function MeasuredBenchmarkVisuals({ go }) {
+      const visual = getMeasuredBenchmarkVisuals();
+      const coverageColumns = defineSortColumns("benchmarks.coverage", {
+        condition: (profile) => profile.shortName,
+        instruction: (profile) => profile.coverage.instruction,
+        tools: (profile) => profile.coverage.tools,
+        agent: (profile) => profile.coverage.agent
+      });
+      const coverageSort = useSortableRows(visual.profiles, coverageColumns);
+      return h(
+        "section",
+        { className: "acc-measured-visuals", role: "region", "aria-label": "Measured benchmark evidence visuals" },
+        h(
+          "div",
+          { className: "acc-measured-visuals__head" },
+          h("div", null, h("p", { className: "acc-eyebrow" }, "Verified evidence only"), h("h2", null, "Measured suite comparison")),
+          h("div", { className: "acc-chip-list" }, h(Badge, { tone: "good" }, `${visual.profiles.length} measured conditions`), h(Badge, null, "Coverage-labeled average"))
+        ),
+        h("p", { className: "acc-measured-visuals__method" }, "Verified bars use each suite\u2019s native 0\u2013100 score. Amber bars show collection completion only, never provisional capability accuracy. Queued work remains at zero completion; conditions without measured evidence are excluded."),
+        h(
+          "div",
+          { className: "acc-evidence-matrix", role: "table", "aria-label": "Measured evidence coverage" },
+          h("div", { className: "acc-evidence-matrix__head", role: "row" }, coverageColumns.map((definition) => h(SortableHeader, { key: definition.id, as: "span", column: definition, sort: coverageSort.sort, onSort: coverageSort.onSort }))),
+          h("div", { role: "rowgroup" }, coverageSort.rows.map((profile) => h(
+            "div",
+            { className: "acc-evidence-matrix__row", role: "row", key: profile.conditionId, "data-measured-condition": profile.conditionId },
+            h("span", { role: "rowheader" }, h("button", { type: "button", className: "acc-table-link", onClick: () => go({ view: "benchmarks", condition: profile.conditionId }) }, profile.shortName)),
+            visual.suites.map((suite) => h("span", { key: suite.id, role: "cell", "aria-label": `${suite.label}: ${profile.coverage[suite.id]}` }, h(StatusBadge, { state: profile.coverage[suite.id] })))
+          )))
+        ),
+        h("div", { className: "acc-measured-suite-grid" }, visual.suites.map((suite) => h(MeasuredSuiteTable, { key: suite.id, suite, go }))),
+        h("p", { className: "acc-measured-visuals__boundary" }, "Compare verified capability scores within a suite only. Completion bars are operational progress, not scores. The current suite average below is coverage-labeled and never cross-ranks incomplete with complete conditions.")
+      );
+    }
+    function ThreeScoreComparison({ go }) {
+      const profiles = getBenchmarkComparison();
+      const measuredCount = profiles.filter((profile) => profile.evidence === "measured").length;
+      const columns = defineSortColumns("benchmarks.comparison", {
+        condition: (profile) => profile.condition.shortName,
+        instruction: (profile) => profile.scores.instruction.value,
+        tools: (profile) => profile.scores.tools.value,
+        agent: (profile) => profile.scores.agent.value,
+        average: (profile) => profile.currentAverage.value,
+        evidence: (profile) => Object.values(profile.scores).filter((score) => score.evidence === "verified").length
+      });
+      const sorted = useSortableRows(profiles, columns);
+      return h(
+        "section",
+        { className: "acc-three-score", role: "region", "aria-label": "Three-score model comparison" },
+        h(
+          "div",
+          { className: "acc-three-score__head" },
+          h("div", null, h("p", { className: "acc-eyebrow" }, `${profiles.length} measured conditions at a glance`), h("h2", null, "Three-score model comparison")),
+          h("div", { className: "acc-chip-list" }, h(Badge, { tone: "good" }, `${measuredCount} measured`))
+        ),
+        h(
+          "div",
+          { className: "acc-three-score__table", role: "table", "aria-label": "Three-score model comparison" },
+          h("div", { className: "acc-three-score__legend", role: "row" }, columns.map((definition) => h(SortableHeader, { key: definition.id, as: "span", column: definition, sort: sorted.sort, onSort: sorted.onSort }))),
+          h("div", { className: "acc-three-score__rows", role: "rowgroup" }, sorted.rows.map((profile) => {
+            const condition = profile.condition;
+            return h(
+              "article",
+              { className: cx("acc-three-score__row", profile.evidence === "measured" && "is-measured"), role: "row", key: profile.conditionId, "data-benchmark-profile": profile.conditionId },
+              h(
+                "div",
+                { className: "acc-three-score__identity", role: "rowheader" },
+                h("button", { type: "button", className: "acc-table-link", onClick: () => go({ view: "benchmarks", condition: profile.conditionId }) }, condition.shortName),
+                h("small", null, `${condition.provider} \xB7 ${condition.runtime}`)
+              ),
+              h(ThreeScoreValue, { score: profile.scores.instruction, role: "cell" }),
+              h(ThreeScoreValue, { score: profile.scores.tools, role: "cell" }),
+              h(ThreeScoreValue, { score: profile.scores.agent, role: "cell" }),
+              h(
+                "div",
+                { className: cx("acc-three-score__average", !profile.currentAverage.complete && "is-in-progress"), role: "cell" },
+                h("strong", null, profile.currentAverage.value.toFixed(1)),
+                h("small", null, `${profile.currentAverage.complete ? "Complete" : "In progress"} \xB7 ${profile.currentAverage.verifiedSuites}/${profile.currentAverage.totalSuites} verified`),
+                h("span", { className: "acc-three-score__average-track", "aria-hidden": "true" }, h("span", { style: { width: `${profile.currentAverage.value}%` } }))
+              ),
+              h(
+                "div",
+                { className: "acc-three-score__evidence", role: "cell" },
+                h(Badge, { tone: "good" }, "Measured"),
+                h("small", null, `${Object.values(profile.scores).filter((score) => score.evidence === "verified").length} verified`)
+              )
+            );
+          }))
+        ),
+        h("div", { className: "acc-prototype-note" }, "Current average is the equal-weight arithmetic mean of final-verified suite scores available for that exact condition. Amber averages are incomplete and carry explicit coverage; pending suites are excluded rather than treated as zero. Conditions without measured evidence are excluded from this comparison.")
+      );
+    }
+    function formatTokenCount(value) {
+      if (value >= 1e6) return `${(value / 1e6).toFixed(2)}M`;
+      if (value >= 1e3) return `${(value / 1e3).toFixed(2)}K`;
+      return value.toLocaleString();
+    }
+    function formatDuration(seconds) {
+      if (seconds >= 3600) return `${(seconds / 3600).toFixed(2)}h`;
+      if (seconds >= 60) return `${(seconds / 60).toFixed(2)}m`;
+      return `${seconds.toFixed(2)}s`;
+    }
+    function OperationalBenchmarkFootprint({ operational }) {
+      if (!operational) return null;
+      const usage = operational.candidateUsage;
+      const performance = operational.performance;
+      const billing = operational.billing;
+      const unavailable = "Not separately reported";
+      const evidenceLabel = operational.evidence === "verified-repeat" ? "Verified repeat" : operational.evidence === "verified-partial" ? "Verified partial" : "Verified aggregate";
+      const runtimeLabels = {
+        hardwareProfile: "Hardware profile",
+        capturedAt: "Profile captured",
+        machine: "Machine",
+        processor: "Processor",
+        memory: "Memory",
+        accelerator: "Accelerator",
+        os: "Operating system",
+        competingWorkload: "Competing workload",
+        host: "Host",
+        backend: "Backend",
+        modelRevision: "Model revision",
+        quantization: "Quantization",
+        context: "Context",
+        outputCap: "Output cap",
+        slots: "Slots",
+        concurrency: "Concurrency",
+        retries: "Retries",
+        thinking: "Thinking",
+        streaming: "Streaming"
+      };
+      const accountingNote = billing ? `${billing.subscriptionAttribution}. API-equivalent pricing: ${operational.pricing.candidateRates}; fixed judge ${operational.pricing.judgeRates}. ${operational.pricing.assumption}; cached-input and hidden-reasoning splits were not retained. ${operational.pricing.longContextRequests} requests crossed the long-context surcharge threshold. ${operational.pricing.source}.` : operational.methodNote;
+      return h(
+        "section",
+        { className: "acc-operational", role: "region", "aria-label": "Operational benchmark footprint" },
+        h(
+          "div",
+          { className: "acc-ranking-heading" },
+          h("div", null, h("p", { className: "acc-eyebrow" }, "Retained aggregate evidence"), h("h3", null, "Operational footprint")),
+          h(Badge, { tone: "good" }, evidenceLabel)
+        ),
+        h(
+          "div",
+          { className: "acc-operational-grid" },
+          h(
+            "article",
+            { className: "acc-operational-card" },
+            h("h4", null, "Candidate model usage"),
+            h(
+              "dl",
+              null,
+              [
+                ["Input tokens", formatTokenCount(usage.inputTokens)],
+                ["Output tokens", formatTokenCount(usage.outputTokens)],
+                ["Total tokens", formatTokenCount(usage.totalTokens)],
+                ["Cached input", usage.cachedInputTokens == null ? unavailable : formatTokenCount(usage.cachedInputTokens)],
+                ["Reasoning tokens", usage.reasoningTokens == null ? unavailable : formatTokenCount(usage.reasoningTokens)],
+                usage.basis ? ["Usage basis", usage.basis] : null
+              ].filter(Boolean).map(([label, value]) => h("div", { key: label }, h("dt", null, label), h("dd", null, value)))
+            )
+          ),
+          performance ? h(
+            "article",
+            { className: "acc-operational-card" },
+            h("h4", null, performance.class === "local-runtime" ? "Local runtime performance" : "Frontier route performance"),
+            h(
+              "dl",
+              null,
+              [
+                ["Successful responses", performance.successfulResponses.toLocaleString()],
+                ["Bridge non-OK events", performance.bridgeErrorEvents.toLocaleString()],
+                ["Latency median", `${performance.latencySeconds.median.toFixed(2)}s`],
+                ["Latency mean", `${performance.latencySeconds.mean.toFixed(2)}s`],
+                ["Latency p95", `${performance.latencySeconds.p95.toFixed(2)}s`],
+                ["Latency maximum", `${performance.latencySeconds.maximum.toFixed(2)}s`],
+                ["Summed successful wall time", formatDuration(performance.latencySeconds.total)],
+                ["End-to-end output throughput", `${performance.endToEndOutputTokensPerSecond.toFixed(2)} tok/s`]
+              ].map(([label, value]) => h("div", { key: label }, h("dt", null, label), h("dd", null, value)))
+            )
+          ) : null,
+          billing ? h(
+            "article",
+            { className: "acc-operational-card" },
+            h("h4", null, "Actual vs API equivalent"),
+            h(
+              "dl",
+              null,
+              h("div", null, h("dt", null, "Marginal API charge"), h("dd", null, `$${billing.marginalApiChargeUsd}`)),
+              h("div", null, h("dt", null, "API-equivalent estimate (not billed)"), h("dd", null, `$${billing.candidateApiEquivalentUsd.toFixed(2)}`)),
+              h("div", null, h("dt", null, "Fixed judge estimate"), h("dd", null, `$${billing.judgeApiEquivalentUsd.toFixed(2)}`)),
+              h("div", null, h("dt", null, "Fixed judge tokens"), h("dd", null, operational.judgeUsage.totalTokens.toLocaleString())),
+              h("div", null, h("dt", null, "Collection route"), h("dd", null, billing.route)),
+              h("div", null, h("dt", null, "Existing subscription"), h("dd", null, `$${billing.monthlySubscriptionUsd}/mo \xB7 unallocated`))
+            )
+          ) : null,
+          operational.localRuntime ? h(
+            "article",
+            { className: "acc-operational-card" },
+            h("h4", null, "Local tested condition"),
+            h("dl", null, Object.entries(operational.localRuntime).map(([key, value]) => h("div", { key }, h("dt", null, runtimeLabels[key] || key), h("dd", null, String(value)))))
+          ) : null,
+          h(
+            "article",
+            { className: "acc-operational-card acc-operational-card--outcomes" },
+            h("h4", null, "Observed misses and failures"),
+            h("dl", null, operational.outcomes.map(([label, value]) => h("div", { key: label }, h("dt", null, label), h("dd", null, value))))
+          )
+        ),
+        performance ? h("div", { className: "acc-prototype-note" }, `${performance.measurementBoundary}. ${performance.variability}`) : null,
+        accountingNote ? h("div", { className: "acc-prototype-note" }, accountingNote) : null
+      );
+    }
+    function BenchmarkProfileSummary({ profile }) {
+      if (!profile) return null;
+      const suiteOrder = ["instruction", "tools", "agent"];
+      return h(
+        "section",
+        { className: "acc-core-score-detail", "aria-labelledby": "acc-core-score-title" },
+        h(
+          "div",
+          { className: "acc-ranking-heading" },
+          h("div", null, h("p", { className: "acc-eyebrow" }, "Benchmark standard"), h("h3", { id: "acc-core-score-title" }, "Three core scores")),
+          profile.evidence === "measured" ? h(Badge, { tone: "good" }, "Measured evidence") : h(Badge, null, "Illustrative fixture")
+        ),
+        h(
+          "div",
+          { className: cx("acc-current-average", !profile.currentAverage.complete && "is-in-progress") },
+          h("div", null, h("span", null, "Current suite average"), h("strong", null, profile.currentAverage.value.toFixed(1))),
+          h("small", null, `${profile.currentAverage.complete ? "Complete" : "In progress"} \xB7 ${profile.currentAverage.verifiedSuites}/${profile.currentAverage.totalSuites} final-verified suites \xB7 pending suites excluded`),
+          h("span", { className: "acc-current-average__track", "aria-hidden": "true" }, h("span", { style: { width: `${profile.currentAverage.value}%` } }))
+        ),
+        h("div", { className: "acc-core-score-grid" }, suiteOrder.map((suiteId) => {
+          const score = profile.scores[suiteId];
+          const progress = score.progress;
+          const progressPercent = progress?.total ? progress.current / progress.total * 100 : 0;
+          return h(
+            "article",
+            { className: cx("acc-core-score-card", score.value == null && "is-pending"), key: suiteId },
+            h(
+              "div",
+              { className: "acc-core-score-card__head" },
+              h("div", null, h("span", null, score.label), h("small", null, score.benchmark)),
+              h(StatusBadge, { state: progress?.state || score.evidence })
+            ),
+            h("strong", { className: "acc-core-score-card__value" }, score.value != null ? score.value.toFixed(1) : progress?.state === "queued" ? "Queued" : progress ? "In progress" : "Pending"),
+            h("small", { className: "acc-core-score-card__denominator" }, score.denominator),
+            progress ? h(
+              "div",
+              { className: cx("acc-core-progress", progress.state === "queued" && "is-queued") },
+              h("span", {
+                role: "progressbar",
+                "aria-label": `${score.benchmark} ${progress.label}`,
+                "aria-valuemin": 0,
+                "aria-valuemax": progress.total,
+                "aria-valuenow": progress.current
+              }, h("span", { style: { width: `${progressPercent}%` } })),
+              h("small", null, `${progressPercent.toFixed(1)}% collection complete \xB7 ${progress.label}`)
+            ) : null,
+            score.detail.length ? h("dl", null, score.detail.map(([label, value]) => h("div", { key: label }, h("dt", null, label), h("dd", null, value)))) : null
+          );
+        })),
+        h("div", { className: "acc-prototype-note" }, profile.note)
+      );
+    }
     function RunDetail({ run, result, go, conditionId, domain }) {
       const fields = [
         ["Canonical result", result.id],
@@ -1663,6 +2836,7 @@
     }
     function ConditionDetail({ condition, route, go, domain }) {
       const family = getFamily(condition.familyId);
+      const benchmarkProfile = getBenchmarkComparison(condition.id);
       const availability = getEffectiveAvailability(condition);
       if (route.run) {
         const lineage = getRunLineage({
@@ -1692,7 +2866,7 @@
       return h(
         "div",
         { className: "acc-view" },
-        h("button", { type: "button", className: "acc-back", onClick: () => go({ view: "benchmarks", domain }) }, "\u2190 Benchmarks"),
+        h("button", { type: "button", className: "acc-back", onClick: () => go(benchmarkProfile ? { view: "benchmarks" } : { view: "benchmarks", domain }) }, "\u2190 Benchmarks"),
         h(
           "article",
           { className: "acc-detail" },
@@ -1703,8 +2877,10 @@
             h(Badge, { tone: availability === "unknown" ? "warn" : availability === "available" ? "good" : "bad" }, `Availability ${availability}`)
           ),
           h("section", { className: "acc-fingerprint" }, h("span", null, "Condition fingerprint"), h("code", null, condition.fingerprint)),
+          h(BenchmarkProfileSummary, { profile: benchmarkProfile }),
+          h(OperationalBenchmarkFootprint, { operational: benchmarkProfile?.operational }),
           h("dl", { className: "acc-fact-grid" }, fields.map(([label, value]) => h("div", { key: label }, h("dt", null, label), h("dd", null, value)))),
-          h(
+          condition.results.some((result) => result.status === "canonical") ? h(
             "section",
             { className: "acc-related" },
             h("h3", null, "Canonical results and run lineage"),
@@ -1716,15 +2892,33 @@
                 h("button", { type: "button", className: "acc-secondary-button", "aria-label": `Open run evidence for ${result.domain} ${result.release}`, onClick: () => go({ view: "benchmarks", domain: result.domain, condition: condition.id, result: result.id, release: result.release, run: result.runIds[0] }) }, "Open run evidence")
               )
             )
-          )
+          ) : null
         )
       );
     }
     function Benchmarks({ route, go }) {
       const isRollup = route.domain === "rollup";
       const domain = Object.hasOwn(RELEASES, route.domain) ? route.domain : "tool-use";
+      const leaderboardColumns = defineSortColumns("benchmarks.leaderboard", {
+        rank: (row) => row.canonicalRank,
+        condition: (row) => row.condition.shortName,
+        score: (row) => row.score,
+        denominator: (row) => row.denominator,
+        release: (row) => row.release,
+        availability: (row) => getEffectiveAvailability(row.condition)
+      });
+      const leaderboardSort = useSortableRows(getLeaderboard(domain, RELEASES[domain]).map((row, index) => ({ ...row, canonicalRank: index + 1 })), leaderboardColumns);
       const condition = !isRollup && route.condition ? getCondition(route.condition) : null;
       if (condition) return h(ConditionDetail, { condition, route, go, domain });
+      if (!route.domain) return h(
+        "div",
+        { className: "acc-view" },
+        h(SectionHeading, { eyebrow: "Model Observatory", title: "Benchmarks" }),
+        h("p", { className: "acc-lede" }, "Compare every tested model through the same three operational scores, then open a condition for suite-level evidence and caveats."),
+        h("div", { className: "acc-toolbar" }, h(MetricTabs, { active: "comparison", onSelect: (nextDomain) => go({ view: "benchmarks", domain: nextDomain }) }), h(Badge, { tone: "warn" }, "Dev draft")),
+        h(MeasuredBenchmarkVisuals, { go }),
+        h(ThreeScoreComparison, { go })
+      );
       if (isRollup) return h(
         "div",
         { className: "acc-view" },
@@ -1733,7 +2927,7 @@
         h("div", { className: "acc-toolbar" }, h(MetricTabs, { active: "rollup", onSelect: (nextDomain) => go({ view: "benchmarks", domain: nextDomain }) }), h(Badge, null, "Canonical only")),
         h(CapabilityRollup)
       );
-      const rows = getLeaderboard(domain, RELEASES[domain]);
+      const rows = leaderboardSort.rows;
       const title = domain === "tool-use" ? "Tool Use" : domain === "reasoning" ? "GPQA Diamond" : "Offline-safe Coding";
       return h(
         "div",
@@ -1750,12 +2944,12 @@
             { className: "acc-desktop-table" },
             h(
               "table",
-              null,
-              h("thead", null, h("tr", null, ["Rank", "Tested condition", "Score", "Denominator", "Release", "Availability"].map((label) => h("th", { key: label, scope: "col" }, label)))),
-              h("tbody", null, rows.map((row, index) => h(
+              { "aria-label": `${title} benchmark leaderboard` },
+              h("thead", null, h("tr", null, leaderboardColumns.map((definition) => h(SortableHeader, { key: definition.id, column: definition, sort: leaderboardSort.sort, onSort: leaderboardSort.onSort })))),
+              h("tbody", null, rows.map((row) => h(
                 "tr",
                 { key: row.id },
-                h("td", null, `#${index + 1}`),
+                h("td", null, `#${row.canonicalRank}`),
                 h("td", null, h("button", { type: "button", className: "acc-table-link", onClick: () => go({ view: "benchmarks", domain, condition: row.conditionId }) }, row.condition.shortName)),
                 h("td", { className: "acc-score-cell" }, `${row.score.toFixed(1)}%`),
                 h("td", null, row.denominator),
@@ -1764,11 +2958,23 @@
               )))
             )
           ),
+          h("div", { className: "acc-mobile-sort-controls", "aria-label": `${title} leaderboard sort controls` }, leaderboardColumns.map((definition) => {
+            const active = leaderboardSort.sort?.column === definition.id;
+            const direction = active ? leaderboardSort.sort.direction : null;
+            return h("button", {
+              key: definition.id,
+              type: "button",
+              className: "acc-sort-button",
+              "aria-label": `Sort by ${definition.label}`,
+              "aria-pressed": active,
+              onClick: () => leaderboardSort.onSort(definition.id)
+            }, h("span", null, definition.label), h("span", { className: "acc-sort-indicator", "aria-hidden": "true" }, direction === "ascending" ? "\u2191" : direction === "descending" ? "\u2193" : "\u2195"));
+          })),
           h("div", { className: "acc-mobile-ranking" }, rows.map(
-            (row, index) => h(
+            (row) => h(
               "button",
               { type: "button", key: row.id, className: "acc-mobile-row", onClick: () => go({ view: "benchmarks", domain, condition: row.conditionId }) },
-              h("span", { className: "acc-rank" }, `#${index + 1}`),
+              h("span", { className: "acc-rank" }, `#${row.canonicalRank}`),
               h("span", { className: "acc-mobile-row__identity" }, h("strong", null, row.condition.shortName), h("small", null, `${row.release} \xB7 n=${row.denominator}`)),
               h("span", { className: "acc-score" }, `${row.score.toFixed(1)}%`)
             )
@@ -1783,10 +2989,19 @@
       );
     }
     function Skills({ route, go }) {
-      const skill = route.skill ? fixtures.skills.find((item) => item.id === route.skill) : null;
+      const registry = getShowcaseSkills();
+      const skill = route.skill ? registry.operationalSkills.find((item) => item.id === route.skill) : null;
       if (skill) {
-        const claims = getEffectiveSkillClaims(skill);
-        const fields = [["Purpose", skill.purpose], ["Provenance", skill.provenance], ["Stewardship", claims.stewardship], ["Publication", claims.publication], ["Validation", `${skill.validation} \xB7 ${skill.lastValidated}`], ["Operating envelope", skill.envelope], ["Metadata source", skill.repo]];
+        const fields = [
+          ["Purpose", skill.description],
+          ["Version", skill.version],
+          ["Category", skill.category],
+          ["License", skill.license || "Unknown"],
+          ["Platforms", skill.platforms?.join(", ") || "Unknown"],
+          ["Metadata status", skill.metadataStatus],
+          ["Validation", skill.validationStatus],
+          ["Projection refreshed", registry.refreshedAt]
+        ];
         return h(
           "div",
           { className: "acc-view" },
@@ -1805,30 +3020,43 @@
         "div",
         { className: "acc-view" },
         h(SectionHeading, { eyebrow: "Durable reusable artifacts", title: "Skill Registry" }),
-        h("p", { className: "acc-lede" }, "A curated projection of authored or materially maintained skills that encode repeatable delivery knowledge. Enable, edit, install, and full inventory actions stay in Hermes."),
+        h("p", { className: "acc-lede" }, "A frozen frontmatter projection of selected operational skills. Enable, edit, install, and full inventory actions stay in Hermes Skills."),
         h(
           "div",
           { className: "acc-registry-summary", "aria-label": "Skill registry summary" },
-          h("div", null, h("strong", null, fixtures.skills.length), h("span", null, "Curated skills")),
-          h("div", null, h("strong", null, fixtures.skills.filter((item) => item.validation === "validated").length), h("span", null, "Validated")),
-          h("div", null, h("strong", null, new Set(fixtures.skills.map((item) => item.category)).size), h("span", null, "Domains"))
+          h("div", null, h("strong", null, registry.operationalSkills.length), h("span", null, "Operational skills")),
+          h("div", null, h("strong", null, registry.showcaseEditions.length), h("span", null, "Showcase editions")),
+          h("div", null, h("strong", null, new Set(registry.operationalSkills.map((item) => item.category)).size), h("span", null, "Domains"))
         ),
-        h("div", { className: "acc-skill-list" }, fixtures.skills.map((item) => {
-          const claims = getEffectiveSkillClaims(item);
-          return h(
+        h(
+          "section",
+          { className: "acc-portfolio-group", "aria-labelledby": "acc-showcase-editions-title" },
+          h("div", { className: "acc-section-heading" }, h("div", null, h("p", { className: "acc-eyebrow" }, "Approved independent releases"), h("h3", { id: "acc-showcase-editions-title" }, "Showcase Editions"))),
+          registry.showcaseEditions.length ? h("div", { className: "acc-skill-list" }, registry.showcaseEditions.map((item) => h(
+            "a",
+            { key: item.id, className: "acc-skill-row", href: item.repositoryUrl, rel: "noreferrer" },
+            h("span", { className: "acc-skill-row__identity" }, h("small", null, item.repository), h("strong", null, item.name)),
+            h("span", { className: "acc-skill-row__states" }, h(Badge, { tone: "good" }, item.visibility), h(Badge, null, item.independenceStatus), h(Badge, null, item.validationStatus))
+          ))) : h("p", { className: "acc-empty-state" }, registry.showcaseEmptyState)
+        ),
+        h(
+          "section",
+          { className: "acc-portfolio-group", "aria-labelledby": "acc-operational-skills-title" },
+          h("div", { className: "acc-section-heading" }, h("div", null, h("p", { className: "acc-eyebrow" }, "Selected local frontmatter"), h("h3", { id: "acc-operational-skills-title" }, "Operational Skills"))),
+          h("div", { className: "acc-skill-list" }, registry.operationalSkills.map((item) => h(
             "button",
             { type: "button", key: item.id, className: "acc-skill-row", onClick: () => go({ view: "skills", skill: item.id }) },
-            h("span", { className: "acc-skill-row__identity" }, h("small", null, item.category), h("strong", null, item.name), h("span", { className: "acc-skill-row__purpose" }, item.purpose)),
+            h("span", { className: "acc-skill-row__identity" }, h("small", null, item.category), h("strong", null, item.name), h("span", { className: "acc-skill-row__purpose" }, item.description)),
             h(
               "span",
               { className: "acc-skill-row__states" },
-              h(Badge, null, item.provenance),
-              h(StatusBadge, { state: item.validation }),
-              claims.publication === "unknown" ? null : h(StatusBadge, { state: claims.publication })
+              h(Badge, null, `v${item.version}`),
+              h(Badge, null, item.metadataStatus),
+              h(StatusBadge, { state: item.validationStatus.toLowerCase() })
             )
-          );
-        })),
-        h("div", { className: "acc-prototype-note" }, "This curated prototype snapshot is derived from selected local SKILL.md metadata. Publication and stewardship claims remain withheld until a canonical metadata adapter is connected.")
+          )))
+        ),
+        h("div", { className: "acc-prototype-note" }, registry.boundary)
       );
     }
     function Evidence({ route, go }) {
@@ -1910,7 +3138,7 @@
           setMessage(payload.results.length ? `${payload.results.length} source-linked result${payload.results.length === 1 ? "" : "s"}` : "No approved Wiki pages matched this search.");
         } catch {
           setSearchState("error");
-          setMessage("Hive Mind search is unavailable on this device. Open ACC on The Ark to use the local protected bridge.");
+          setMessage("Hive Mind search is unavailable on this device. Open ACC on the approved local host to use the protected bridge.");
         }
       }
       return h(
@@ -1972,7 +3200,7 @@
             result.snippet ? h("pre", { className: "acc-search-result__snippet" }, result.snippet) : null
           )
         )) : null,
-        h("div", { className: "acc-prototype-note" }, "This interface uses a protected server-side bridge inside The Ark Lab. QMD credentials and certificate trust never enter the browser; the ACC dev surface remains trusted-LAN only.")
+        h("div", { className: "acc-prototype-note" }, "This interface uses a protected server-side bridge on an approved local host. Search credentials and certificate trust never enter the browser; the ACC dev surface remains trusted-LAN only.")
       );
     }
     function CommandCenterMark() {

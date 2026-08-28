@@ -15,9 +15,119 @@ import {
   parseAccUrl,
   canonicalizeAccRoute,
   getVoicePerformance,
+  getBenchmarkComparison,
+  getMeasuredBenchmarkVisuals,
+  getOverviewProjection,
+  getShowcasePortfolio,
+  getShowcaseSkills,
 } from '../src/model.mjs';
 
 describe('ACC product contract', () => {
+  it('presents only measured model conditions through the three-score benchmark standard', () => {
+    const comparison = getBenchmarkComparison();
+    expect(comparison).toHaveLength(4);
+    expect(comparison.map((profile) => profile.conditionId)).toEqual([
+      'gpt56-luna-max', 'gpt56-sol-max', 'qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b',
+    ]);
+    expect(comparison[0].scores).toMatchObject({
+      instruction: { value: 82.5, evidence: 'verified' },
+      tools: { value: 45.89, evidence: 'verified' },
+      agent: { value: 48, evidence: 'verified' },
+    });
+    expect(comparison[0].note).toMatch(/acc-tau2-fixed-judge-v1\.1/);
+    expect(comparison[1]).toMatchObject({
+      conditionId: 'gpt56-sol-max',
+      evidence: 'measured',
+      scores: {
+        instruction: { value: 90, evidence: 'verified' },
+        tools: { value: 48.55, evidence: 'verified' },
+        agent: { value: 70, evidence: 'verified' },
+      },
+    });
+    expect(comparison[1].note).toMatch(/69\.52% equal-weight macro/i);
+    expect(comparison[0].operational).toMatchObject({
+      evidence: 'verified-aggregate',
+      candidateUsage: { inputTokens: 18549208, outputTokens: 1603165, totalTokens: 20152373, cachedInputTokens: null, reasoningTokens: null, retainedBridgeEvents: 4304 },
+      performance: { class: 'frontier-route', successfulResponses: 4290, bridgeErrorEvents: 14, latencySeconds: { median: 6.3779, mean: 8.8543, p95: 21.8786 }, endToEndOutputTokensPerSecond: 42.2052 },
+      judgeUsage: { totalTokens: 19655 },
+      billing: { route: 'ChatGPT/Codex subscription', marginalApiChargeUsd: 0, monthlySubscriptionUsd: 200, candidateApiEquivalentUsd: 5.63, judgeApiEquivalentUsd: 0.12 },
+    });
+    expect(comparison[1].operational).toMatchObject({
+      evidence: 'verified-aggregate',
+      candidateUsage: { inputTokens: 22636604, outputTokens: 1851898, totalTokens: 24488502, cachedInputTokens: null, reasoningTokens: null, retainedBridgeEvents: 4657 },
+      performance: { class: 'frontier-route', successfulResponses: 4586, bridgeErrorEvents: 71, latencySeconds: { median: 8.7603, mean: 13.3428, p95: 35.5755 }, endToEndOutputTokensPerSecond: 30.2647 },
+      judgeUsage: { totalTokens: 40330 },
+      billing: { route: 'ChatGPT/Codex subscription', marginalApiChargeUsd: 0, monthlySubscriptionUsd: 200, candidateApiEquivalentUsd: 127.58, judgeApiEquivalentUsd: 0.23 },
+    });
+    expect(comparison[2]).toMatchObject({
+      conditionId: 'qwen38-2b-mlx', evidence: 'measured',
+      currentAverage: { value: 15.61, verifiedSuites: 2, totalSuites: 3, complete: false },
+      scores: {
+        instruction: { value: 22.5, evidence: 'verified', denominator: '9 / 40 strict prompts' },
+        tools: { value: 8.72, evidence: 'verified', denominator: '150 / 150 frozen scored cases' },
+        agent: { value: null, evidence: 'pending', progress: { current: 23, total: 50, state: 'in-progress' } },
+      },
+      operational: {
+        evidence: 'verified-partial',
+        candidateUsage: { inputTokens: 9839500, outputTokens: 1130727, totalTokens: 10970227, cachedInputTokens: 2135136, reasoningTokens: null },
+        performance: { class: 'local-runtime', successfulResponses: 1608, bridgeErrorEvents: 0, latencySeconds: { median: 11.6742, mean: 21.2696, p95: 78.2772 }, endToEndOutputTokensPerSecond: 29.4517 },
+        localRuntime: { hardwareProfile: 'edge-node-a-mac-mini-m2-24gb-20260826', processor: 'Apple M2 · 8-core CPU', memory: '24 GB unified memory', accelerator: 'Apple M2 · 10-core GPU · Metal', os: 'macOS 26.5.2', backend: 'MLX/Metal', context: '262,144 tokens', concurrency: 1, retries: 0 },
+      },
+    });
+    expect(comparison[2].note).toMatch(/BFCL scored 8\.72%/i);
+    expect(comparison[3]).toMatchObject({
+      conditionId: 'qwen36-35b-heretic-gpu-b', evidence: 'measured',
+      currentAverage: { value: 77.5, verifiedSuites: 1, totalSuites: 3, complete: false },
+      scores: {
+        instruction: { value: 77.5, evidence: 'verified', denominator: '31 / 40 strict prompts' },
+        tools: { value: null, evidence: 'pending', progress: { current: 180, total: 261, state: 'in-progress' } },
+        agent: { value: null, evidence: 'pending', progress: { current: 0, total: 50, state: 'queued' } },
+      },
+      operational: {
+        evidence: 'verified-partial',
+        candidateUsage: { inputTokens: 2596, outputTokens: 157506, totalTokens: 160102 },
+        performance: { class: 'local-runtime', successfulResponses: 40, bridgeErrorEvents: 0, latencySeconds: { median: 38.2466, mean: 45.7059, p95: 109.7134 }, endToEndOutputTokensPerSecond: 86.1519 },
+        localRuntime: { hardwareProfile: 'gpu-node-b-hardware-unresolved-20260826', machine: 'Not captured in retained run evidence', processor: 'Not captured', memory: 'Not captured', accelerator: 'Not captured', os: 'Not captured', context: '262,144 total · 131,072 per slot', slots: 2, concurrency: 1, retries: 0 },
+      },
+    });
+    expect(comparison.slice(0, 2).every((profile) => profile.operational.pricing.assumption === 'All retained input priced as uncached')).toBe(true);
+    expect(comparison.map((profile) => profile.currentAverage.value)).toEqual([58.8, 69.52, 15.61, 77.5]);
+    expect(comparison.every((profile) => profile.evidence === 'measured')).toBe(true);
+    expect(comparison.some((profile) => profile.evidence === 'illustrative')).toBe(false);
+    expect(comparison.every((profile) => Object.keys(profile.scores).join(',') === 'instruction,tools,agent')).toBe(true);
+  });
+
+  it('builds per-suite visuals from measured evidence only and preserves missing coverage', () => {
+    const visual = getMeasuredBenchmarkVisuals();
+    expect(visual).not.toHaveProperty('overallScore');
+    expect(visual).not.toHaveProperty('winner');
+    expect(visual.profiles.map((profile) => profile.conditionId)).toEqual([
+      'gpt56-luna-max', 'gpt56-sol-max', 'qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b',
+    ]);
+    expect(visual.profiles.map((profile) => profile.coverage)).toEqual([
+      { instruction: 'verified', tools: 'verified', agent: 'verified' },
+      { instruction: 'verified', tools: 'verified', agent: 'verified' },
+      { instruction: 'verified', tools: 'verified', agent: 'in-progress' },
+      { instruction: 'verified', tools: 'in-progress', agent: 'queued' },
+    ]);
+    expect(visual.suites.map((suite) => suite.id)).toEqual(['instruction', 'tools', 'agent']);
+    expect(visual.suites.map((suite) => suite.label)).toEqual(['IFEval', 'BFCL V4', 'tau2']);
+    expect(visual.suites[0].rows.map((row) => [row.conditionId, row.value])).toEqual([
+      ['gpt56-sol-max', 90], ['gpt56-luna-max', 82.5], ['qwen36-35b-heretic-gpu-b', 77.5], ['qwen38-2b-mlx', 22.5],
+    ]);
+    expect(visual.suites[1].rows.map((row) => row.conditionId)).toEqual(['gpt56-sol-max', 'gpt56-luna-max', 'qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b']);
+    expect(visual.suites[2].rows.map((row) => row.conditionId)).toEqual(['gpt56-sol-max', 'gpt56-luna-max', 'qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b']);
+    expect(visual.suites[0].rows[0].denominator).toBe('36 / 40 strict prompts');
+    expect(visual.suites[1].rows.at(-1)).toMatchObject({ kind: 'progress', evidence: 'in-progress', progress: { current: 180, total: 261 } });
+    expect(visual.suites[1].rows.at(-1).barValue).toBeCloseTo(69.0, 1);
+    expect(visual.suites[2].rows.slice(-2)).toMatchObject([
+      { conditionId: 'qwen38-2b-mlx', kind: 'progress', evidence: 'in-progress', barValue: 46, progress: { current: 23, total: 50 } },
+      { conditionId: 'qwen36-35b-heretic-gpu-b', kind: 'progress', evidence: 'queued', barValue: 0, progress: { current: 0, total: 50 } },
+    ]);
+    expect(visual.suites.flatMap((suite) => suite.rows).filter((row) => row.kind === 'score').every((row) => row.value != null && row.evidence === 'verified')).toBe(true);
+    expect(JSON.stringify(visual)).not.toMatch(/illustrative/i);
+  });
+
   it('projects the measured Prime voice comparison as exact route evidence', () => {
     const snapshot = getVoicePerformance();
     expect(snapshot.id).toBe('voice-performance-2026-07-26');
@@ -32,6 +142,25 @@ describe('ACC product contract', () => {
     expect(NAV_ITEMS.map((item) => item.label)).toEqual([
       'Overview', 'Portfolio', 'Analytics', 'Benchmarks', 'Skill Registry', 'Hive Mind',
     ]);
+  });
+
+  it('prioritizes provider headroom and keeps Overview destination summaries compact', () => {
+    const overview = getOverviewProjection();
+    expect(overview.sectionOrder).toEqual([
+      'provider-usage', 'source-exceptions', 'destinations', 'recently-landed',
+    ]);
+    expect(overview.sourceExceptions.map((source) => source.id)).toEqual([
+      'runtime', 'skill-meta',
+    ]);
+    expect(overview.destinations).toEqual([
+      { id: 'portfolio', label: 'Portfolio', summary: 'Products and durable capabilities' },
+      { id: 'analytics', label: 'Analytics', summary: 'Traffic, service usage, and coverage' },
+      { id: 'benchmarks', label: 'Benchmarks', summary: 'Measured model evidence' },
+      { id: 'skills', label: 'Skills', summary: 'Reusable delivery knowledge' },
+    ]);
+    expect(overview.sectionOrder).not.toEqual(expect.arrayContaining([
+      'durable-capabilities', 'model-leaders', 'decision-pending',
+    ]));
   });
 
   it('round-trips analytics domain, subject, range, and fixture mode', () => {
@@ -109,22 +238,26 @@ describe('ACC product contract', () => {
     }
   });
 
-  it('separates skill provenance, stewardship, publication, and validation', () => {
-    expect(fixtures.skills.length).toBeGreaterThanOrEqual(8);
-    for (const skill of fixtures.skills) {
-      expect(skill.purpose.length).toBeGreaterThan(20);
-      expect(skill).toHaveProperty('provenance');
-      expect(skill).toHaveProperty('stewardship');
-      expect(skill).toHaveProperty('publication');
-      expect(skill).toHaveProperty('validation');
+  it('projects selected operational skill frontmatter without inventing validation authority', () => {
+    const registry = getShowcaseSkills();
+    expect(registry.operationalSkills).toHaveLength(8);
+    expect(registry.showcaseEditions).toEqual([]);
+    for (const skill of registry.operationalSkills) {
+      expect(skill.description.length).toBeGreaterThan(20);
+      expect(skill.version).toBeTruthy();
+      expect(skill.metadataStatus).toBe('frontmatter');
+      expect(skill.validationStatus).toBe('Unknown');
     }
   });
 
-  it('projects named products and capabilities in the portfolio', () => {
-    expect(fixtures.products.map((product) => product.id)).toEqual(expect.arrayContaining([
-      'autobot-command-center', 'jarvis', 'voice-lab', 'web-analytics', 'model-serving', 'benchmark-program',
+  it('separates exact public showcase membership from internal products and capabilities', () => {
+    const portfolio = getShowcasePortfolio();
+    expect(portfolio.githubShowcaseProjects.map((project) => project.id)).toEqual(['jarvis', 'stacklogic', '8-ball']);
+    expect(portfolio.internalProducts.map((product) => product.id)).toEqual(expect.arrayContaining([
+      'autobot-command-center', 'voice-lab', 'web-analytics', 'model-serving', 'benchmark-program',
     ]));
-    expect(new Set(fixtures.products.map((product) => product.kind))).toEqual(new Set(['Product', 'Capability']));
+    expect(portfolio.internalProducts.some((product) => product.id === 'jarvis')).toBe(false);
+    expect(new Set(portfolio.internalProducts.map((product) => product.kind))).toEqual(new Set(['Product', 'Capability']));
   });
 
   it('degrades claims visibly when an authoritative source is stale or missing', () => {
@@ -170,7 +303,7 @@ describe('ACC product contract', () => {
   });
 
   it('limits the registry to authored or materially maintained artifacts', () => {
-    expect(fixtures.skills.every((skill) => skill.provenance.includes('authored') || skill.stewardship.includes('maintained'))).toBe(true);
+    expect(fixtures.skills.every((skill) => skill.metadataStatus === 'frontmatter' && skill.validationStatus === 'Unknown')).toBe(true);
   });
 
   it('round-trips stable query-string deep links including benchmark domain', () => {

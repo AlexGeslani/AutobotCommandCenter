@@ -1,0 +1,145 @@
+{
+  "githubProjects": [
+    {
+      "architectureUrl": "https://github.com/AlexGeslani/Jarvis/blob/main/docs/architecture/jarvis-architecture.svg",
+      "description": "Local-first voice assistant for the browser and Amazfit Active Max, with bounded speech, reasoning, and playback pipelines.",
+      "id": "jarvis",
+      "name": "Jarvis",
+      "productBriefUrl": "https://github.com/AlexGeslani/Jarvis/blob/main/README.md",
+      "repository": "AlexGeslani/Jarvis",
+      "repositoryUrl": "https://github.com/AlexGeslani/Jarvis",
+      "visibility": "PUBLIC"
+    },
+    {
+      "demoUrl": "https://alexgeslani.github.io/StackLogic/",
+      "description": "Browser falling-block puzzle with solo and real-time multiplayer, developed with locally run Qwen 3.5 and Qwen 3.6 models.",
+      "id": "stacklogic",
+      "name": "StackLogic",
+      "productBriefUrl": "https://github.com/AlexGeslani/StackLogic/blob/main/README.md",
+      "repository": "AlexGeslani/StackLogic",
+      "repositoryUrl": "https://github.com/AlexGeslani/StackLogic",
+      "visibility": "PUBLIC"
+    },
+    {
+      "demoUrl": "https://alexgeslani.github.io/8-Ball/",
+      "description": "End-to-end Zepp OS experiment that builds, tests, previews, packages, and delivers an offline 8 Ball app to a physical Amazfit Active Max.",
+      "id": "8-ball",
+      "name": "8-Ball",
+      "productBriefUrl": "https://github.com/AlexGeslani/8-Ball/blob/main/README.md",
+      "repository": "AlexGeslani/8-Ball",
+      "repositoryUrl": "https://github.com/AlexGeslani/8-Ball",
+      "visibility": "PUBLIC"
+    }
+  ],
+  "operationalSkills": [
+    {
+      "category": "Agent orchestration",
+      "description": "Use when a consequential decision benefits from a configured multi-model panel.",
+      "id": "autobots",
+      "license": "Private",
+      "metadataStatus": "frontmatter",
+      "name": "autobots",
+      "validationStatus": "Unknown",
+      "version": "3.2.0"
+    },
+    {
+      "category": "Product design",
+      "description": "Design outcome-focused operational dashboards and visual control planes that project canonical evidence, integrate with existing host surfaces, support mobile use, and avoid becoming a duplicate Wiki, task manager, or source of truth.",
+      "id": "dashboard-product-design",
+      "license": "MIT",
+      "metadataStatus": "frontmatter",
+      "name": "operational-dashboard-product-design",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "validationStatus": "Unknown",
+      "version": "1.10.0"
+    },
+    {
+      "category": "Model evaluation",
+      "description": "Build and operate small, frozen, executable model-comparison harnesses across local and cloud OpenAI-compatible runtimes.",
+      "id": "local-model-evaluation",
+      "license": "MIT",
+      "metadataStatus": "frontmatter",
+      "name": "local-model-evaluation",
+      "platforms": [
+        "macos",
+        "linux"
+      ],
+      "validationStatus": "Unknown",
+      "version": "1.9.5"
+    },
+    {
+      "category": "Integration safety",
+      "description": "Use for portable, secret-safe integration safety harnesses.",
+      "id": "portable-safety-harnesses",
+      "license": "MIT",
+      "metadataStatus": "frontmatter",
+      "name": "portable-integration-safety-harnesses",
+      "platforms": [
+        "linux",
+        "macos",
+        "windows"
+      ],
+      "validationStatus": "Unknown",
+      "version": "1.7.4"
+    },
+    {
+      "category": "Reliability",
+      "description": "Version, back up, restore-test, and safely publish private intranet application baselines.",
+      "id": "intranet-recovery",
+      "license": "MIT",
+      "metadataStatus": "frontmatter",
+      "name": "intranet-app-versioning-recovery",
+      "platforms": [
+        "macos",
+        "linux"
+      ],
+      "validationStatus": "Unknown",
+      "version": "1.0.0"
+    },
+    {
+      "category": "Platform operations",
+      "description": "Build, operate, verify, and troubleshoot Docker-compatible container hosting on macOS—especially LAN-only shared web-app labs—with live-state discovery, DNS/network approval gates, validated configuration changes, bind-mount safety, port-binding differential tests, rollback evidence, and independent-client acceptance.",
+      "id": "container-hosting",
+      "license": "MIT",
+      "metadataStatus": "frontmatter",
+      "name": "macos-container-hosting-operations",
+      "platforms": [
+        "macos"
+      ],
+      "validationStatus": "Unknown",
+      "version": "1.2.1"
+    },
+    {
+      "category": "Media production",
+      "description": "Use when assembling mixed-media footage into an event film.",
+      "id": "event-film",
+      "license": "MIT",
+      "metadataStatus": "frontmatter",
+      "name": "mixed-media-event-film-production",
+      "validationStatus": "Unknown",
+      "version": "1.0.0"
+    },
+    {
+      "category": "Documentation",
+      "description": "Maintain a repository's default-branch README as an accurate product landing page, including canonical links, release-aware screenshots, controls, setup, and rendered verification.",
+      "id": "repository-docs",
+      "license": "MIT",
+      "metadataStatus": "frontmatter",
+      "name": "repository-documentation-operations",
+      "platforms": [
+        "linux",
+        "macos",
+        "windows"
+      ],
+      "validationStatus": "Unknown",
+      "version": "1.7.0"
+    }
+  ],
+  "refreshedAt": "2026-08-27T12:25:47.515Z",
+  "schemaVersion": "showcase-projection-v1",
+  "showcaseEditions": []
+}

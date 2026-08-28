@@ -10,6 +10,16 @@ async function routeWebAnalytics(page) {
   const realProjection = structuredClone(showcaseProjection);
   realProjection.dataKind = 'real';
   realProjection.subject = { id: 'kungfuclan.com', label: 'Kung Fu Clan', domain: 'web' };
+  const extraCountries = [
+    { code: 'ES', requests: 80, edgeResponseBytes: 8000 },
+    { code: 'MX', requests: 70, edgeResponseBytes: 7000 },
+    { code: 'NZ', requests: 60, edgeResponseBytes: 6000 },
+    { code: 'ZA', requests: 50, edgeResponseBytes: 5000 },
+  ];
+  const sourceCountry = realProjection.ranges['30d'].countries[0];
+  sourceCountry.requests -= extraCountries.reduce((sum, country) => sum + country.requests, 0);
+  sourceCountry.edgeResponseBytes -= extraCountries.reduce((sum, country) => sum + country.edgeResponseBytes, 0);
+  realProjection.ranges['30d'].countries.push(...extraCountries);
   delete realProjection.notice;
   await page.route('**/data/analytics/web/kungfuclan.com.v2.json', async (route) => {
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify(realProjection) });
@@ -59,17 +69,51 @@ async function routeHiveMind(page) {
   }
 }
 
-test('ten-second facts are visible and primary IA is bounded', async ({ page }) => {
+function captureBrowserErrors(page) {
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`));
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(`console: ${message.text()}`);
+  });
+  return errors;
+}
+
+async function exerciseEverySortHeader(table, labels) {
+  await expect(table.getByRole('columnheader')).toHaveCount(labels.length);
+  for (const label of labels) {
+    const header = table.getByRole('columnheader', { name: new RegExp(`Sort by ${label}`) });
+    const button = header.getByRole('button', { name: `Sort by ${label}` });
+    await button.click();
+    await expect(header).toHaveAttribute('aria-sort', 'ascending');
+    await expect(table.locator('[aria-sort]')).toHaveCount(1);
+  }
+}
+
+test('Overview prioritizes provider headroom and keeps destination summaries compact', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page);
   await page.goto(pluginUrl);
   await expect(page.getByRole('heading', { name: 'Autobot Command Center' })).toBeVisible();
   await expect(page.locator('img.acc-command-mark')).toHaveAttribute('src', /^data:image\/jpeg;base64,/);
   if (pluginUrl === '/') await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/autobot-mark.jpg?v=1');
+
+  const overview = page.locator('.acc-overview');
+  const sections = overview.locator(':scope > section');
+  await expect(sections.first().getByRole('heading', { name: 'Provider usage' })).toBeVisible();
+  await expect(sections.nth(1).getByRole('heading', { name: 'Source exceptions' })).toBeVisible();
+  await expect(sections.nth(2).getByRole('heading', { name: 'Explore details' })).toBeVisible();
   await expect(page.getByText('Recently landed', { exact: true })).toBeVisible();
-  await expect(page.getByText('Durable capabilities', { exact: true })).toBeVisible();
-  await expect(page.getByText('Model leaders', { exact: true })).toBeVisible();
-  await expect(page.getByText('Decision pending', { exact: true })).toBeVisible();
+  await expect(page.getByText('Durable capabilities', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Model leaders', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Decision pending', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Open Portfolio' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open Analytics' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open Benchmarks' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open Skills' })).toBeVisible();
+
   const localNav = page.getByRole('navigation', { name: 'Command Center sections' });
   await expect(localNav.getByRole('button')).toHaveCount(6);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  expect(browserErrors).toEqual([]);
 });
 
 test('Analytics exposes scalable domains and a truthful KFC real-data route', async ({ page }) => {
@@ -90,13 +134,31 @@ test('Analytics exposes scalable domains and a truthful KFC real-data route', as
   await expect(page.getByLabel('Analytics summary').getByText('Cloudflare Visits', { exact: true })).toBeVisible();
   await expect(page.getByText(/Page-entry events from direct traffic or an external referrer/i)).toBeVisible();
   await expect(page.getByText('Strict cache-hit share', { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'World request map' })).toBeVisible();
+  const countryTable = page.getByRole('table', { name: 'Authoritative requests by country' });
+  await expect(countryTable.locator('tbody tr')).toHaveCount(10);
+  await page.getByRole('button', { name: 'Show all 12 countries' }).click();
+  await expect(countryTable.locator('tbody tr')).toHaveCount(12);
+  await page.getByRole('button', { name: 'Collapse to Top 10 countries' }).click();
+  await expect(countryTable.locator('tbody tr')).toHaveCount(10);
+  const mapHeading = page.getByRole('heading', { name: 'World request map' });
+  await expect(mapHeading).toBeHidden();
+  await page.getByText('Show world request map', { exact: true }).click();
+  await expect(mapHeading).toBeVisible();
   const unitedStates = page.locator('.acc-world-map__country[data-country="US"]');
   await expect(unitedStates).toHaveAttribute('data-state', 'observed');
   await expect(unitedStates).toHaveAttribute('aria-label', /United States.*requests/i);
   await unitedStates.focus();
   await expect(unitedStates).toBeFocused();
   await expect(page.getByText(/US state breakdown unavailable/i)).toBeVisible();
+  await expect(page.locator('[data-traffic-tick]')).toHaveCount(5);
+  await expect(page.locator('[data-traffic-tick]').filter({ hasText: /^0$/ })).toHaveCount(1);
+  await expect(page.locator('[data-traffic-tick]').filter({ hasText: /^3,799$/ })).toHaveCount(1);
+  await expect(page.locator('.acc-traffic-point title', { hasText: '2026-07-17: 1,440 requests' })).toHaveCount(1);
+  await expect(page.locator('[data-period-delta]')).toHaveCount(0);
+  await expect(page.getByText(/period.over.period|previous period/i)).toHaveCount(0);
+  const compactPanels = page.locator('.acc-analytics-compact-breakdowns');
+  await expect(compactPanels.locator('.acc-analytics-panel')).toHaveCount(2);
+  expect(await compactPanels.evaluate((element) => getComputedStyle(element).alignItems)).toBe('start');
   await expect(page.getByText('ILLUSTRATIVE FIXTURE', { exact: false })).toHaveCount(0);
   await expect(page.getByText(/Visits are entry events, not unique people or sessions/i)).toBeVisible();
 });
@@ -145,6 +207,30 @@ test('Hive Mind search returns source-linked QMD results', async ({ page }) => {
   await expect(page.getByText(/reliability-first modernization/i)).toBeVisible();
 });
 
+test('Portfolio and Skills render only the frozen source-backed showcase projection', async ({ page }) => {
+  await page.goto(pluginUrl + '?view=portfolio');
+  const publicProjects = page.getByRole('region', { name: 'GitHub Showcase Projects' });
+  await expect(publicProjects.locator('[data-showcase-project]')).toHaveCount(3);
+  for (const repository of ['AlexGeslani/Jarvis', 'AlexGeslani/StackLogic', 'AlexGeslani/8-Ball']) {
+    await expect(publicProjects.getByText(repository, { exact: true })).toBeVisible();
+  }
+  await expect(publicProjects.getByText('Public', { exact: true })).toHaveCount(3);
+  const jarvis = publicProjects.locator('[data-showcase-project="jarvis"]');
+  await expect(jarvis.getByRole('link', { name: 'Live demo' })).toHaveCount(0);
+  await expect(jarvis.getByRole('link', { name: 'Architecture' })).toBeVisible();
+  const internal = page.getByRole('region', { name: 'Internal Products & Capabilities' });
+  await expect(internal.getByText('Jarvis Voice Agent', { exact: true })).toHaveCount(0);
+
+  await page.goto(pluginUrl + '?view=skills');
+  await expect(page.getByRole('heading', { name: 'Showcase Editions' })).toBeVisible();
+  await expect(page.getByText(/No independently approved public showcase editions/i)).toBeVisible();
+  const operational = page.getByRole('region', { name: 'Operational Skills' });
+  await expect(operational.locator('.acc-skill-row')).toHaveCount(8);
+  await expect(operational.getByText('v3.2.0', { exact: true })).toBeVisible();
+  await expect(operational.getByText('unknown', { exact: true })).toHaveCount(8);
+  await expect(page.getByText(/projection, not synchronization/i)).toBeVisible();
+});
+
 test('Voice Lab exposes the measured six-route performance visual and reliability boundary', async ({ page }) => {
   await page.goto(pluginUrl + '?view=portfolio&product=voice-lab');
   await expect(page.getByRole('heading', { name: 'Voice runtime comparison' })).toBeVisible();
@@ -164,8 +250,115 @@ test('Voice Lab comparison is readable without mobile horizontal overflow', asyn
   await expect(page.locator('.acc-voice-desktop')).toBeHidden();
 });
 
-test('leaderboard opens exact tested condition then run evidence', async ({ page }) => {
+test('measured benchmark view distinguishes verified capability, live completion, and coverage-labeled averages', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page);
   await page.goto(pluginUrl + '?view=benchmarks');
+  const measuredVisuals = page.getByRole('region', { name: 'Measured benchmark evidence visuals' });
+  await expect(measuredVisuals.getByRole('heading', { name: 'Measured suite comparison' })).toBeVisible();
+  await expect(measuredVisuals.locator('[data-measured-suite]')).toHaveCount(3);
+  await expect(measuredVisuals.locator('[data-measured-condition]')).toHaveCount(4);
+  await expect(measuredVisuals.locator('[data-measured-suite="instruction"] [data-score-bar]')).toHaveCount(4);
+  await expect(measuredVisuals.locator('[data-measured-suite="tools"] [data-score-bar]')).toHaveCount(4);
+  await expect(measuredVisuals.locator('[data-measured-suite="agent"] [data-score-bar]')).toHaveCount(4);
+  await expect(measuredVisuals.getByRole('cell', { name: /in-progress/ })).toHaveCount(2);
+  await expect(measuredVisuals.getByRole('cell', { name: /queued/ })).toHaveCount(1);
+  await expect(measuredVisuals.getByText('69% done', { exact: true })).toBeVisible();
+  await expect(measuredVisuals.getByText('46% done', { exact: true })).toBeVisible();
+  await expect(measuredVisuals.getByText('36 / 40 strict prompts', { exact: true })).toBeVisible();
+  await expect(measuredVisuals.getByText('Illustrative', { exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  await expect(page.getByRole('heading', { name: 'Three-score model comparison' })).toBeVisible();
+  const comparison = page.getByRole('region', { name: 'Three-score model comparison' });
+  await expect(comparison.locator('[data-benchmark-profile]')).toHaveCount(4);
+  const luna = comparison.locator('[data-benchmark-profile="gpt56-luna-max"]');
+  await expect(luna.getByText('82.5', { exact: true })).toBeVisible();
+  await expect(luna.getByText('45.9', { exact: true })).toBeVisible();
+  await expect(luna.getByText('48.0', { exact: true })).toBeVisible();
+  await expect(luna.getByText('58.8', { exact: true })).toBeVisible();
+  await expect(luna.getByText('Complete · 3/3 verified', { exact: true })).toBeVisible();
+  await expect(luna.getByText('3 verified', { exact: true })).toBeVisible();
+  const sol = comparison.locator('[data-benchmark-profile="gpt56-sol-max"]');
+  await expect(sol.getByText('90.0', { exact: true })).toBeVisible();
+  await expect(sol.getByText('48.5', { exact: true })).toBeVisible();
+  await expect(sol.getByText('70.0', { exact: true })).toBeVisible();
+  await expect(sol.getByText('69.5', { exact: true })).toBeVisible();
+  await expect(sol.getByText('3 verified', { exact: true })).toBeVisible();
+  const qwen2b = comparison.locator('[data-benchmark-profile="qwen38-2b-mlx"]');
+  await expect(qwen2b.getByText('22.5', { exact: true })).toBeVisible();
+  await expect(qwen2b.getByText('8.7', { exact: true })).toBeVisible();
+  await expect(qwen2b.getByText('In progress', { exact: true })).toHaveCount(1);
+  await expect(qwen2b.getByText('15.6', { exact: true })).toBeVisible();
+  await expect(qwen2b.getByText('In progress · 2/3 verified', { exact: true })).toBeVisible();
+  await expect(qwen2b.getByText('2 verified', { exact: true })).toBeVisible();
+  const gpu35 = comparison.locator('[data-benchmark-profile="qwen36-35b-heretic-gpu-b"]');
+  await expect(gpu35.locator('.acc-three-score__value').getByText('77.5', { exact: true })).toBeVisible();
+  await expect(gpu35.getByText('In progress', { exact: true })).toHaveCount(1);
+  await expect(gpu35.getByText('Queued', { exact: true })).toHaveCount(1);
+  await expect(gpu35.getByText('In progress · 1/3 verified', { exact: true })).toBeVisible();
+  await expect(gpu35.getByText('1 verified', { exact: true })).toBeVisible();
+  await expect(comparison.getByText('Illustrative', { exact: true })).toHaveCount(0);
+  await expect(comparison.getByText('Current average is the equal-weight arithmetic mean', { exact: false })).toBeVisible();
+  await sol.getByRole('button', { name: /GPT-5\.6 Sol/i }).click();
+  await expect(page).toHaveURL(/condition=gpt56-sol-max/);
+  await expect(page.getByRole('heading', { name: 'GPT-5.6 Sol · Max' })).toBeVisible();
+  await expect(page.getByText('69.52% equal-weight macro', { exact: false })).toBeVisible();
+  const solOperations = page.getByRole('region', { name: 'Operational benchmark footprint' });
+  await expect(solOperations.getByText('22.64M', { exact: true })).toBeVisible();
+  await expect(solOperations.getByText('1.85M', { exact: true })).toBeVisible();
+  await expect(solOperations.getByText('24.49M', { exact: true })).toBeVisible();
+  await expect(solOperations.getByText('$127.58', { exact: true })).toBeVisible();
+  await expect(solOperations.getByText('$0.23', { exact: true })).toBeVisible();
+  await expect(solOperations.getByText('Marginal API charge', { exact: true })).toBeVisible();
+  await expect(solOperations.getByText('$0', { exact: true })).toBeVisible();
+  await expect(solOperations.getByText('API-equivalent estimate (not billed)', { exact: true })).toBeVisible();
+  await expect(solOperations.getByRole('heading', { name: 'Frontier route performance' })).toBeVisible();
+  await expect(solOperations.getByText('13.34s', { exact: true })).toBeVisible();
+  await expect(solOperations.getByText('35.58s', { exact: true })).toBeVisible();
+  await expect(solOperations.getByText('30.26 tok/s', { exact: true })).toBeVisible();
+  await page.goto(pluginUrl + '?view=benchmarks');
+  await luna.getByRole('button', { name: /GPT-5\.6 Luna/i }).click();
+  await expect(page).toHaveURL(/condition=gpt56-luna-max/);
+  await expect(page.getByRole('heading', { name: 'GPT-5.6 Luna · Max' })).toBeVisible();
+  await expect(page.getByText('Non-live AST', { exact: true })).toBeVisible();
+  await expect(page.getByText('12 / 25 · 48.0%', { exact: true })).toHaveCount(2);
+  await expect(page.getByText('acc-tau2-fixed-judge-v1.1 · GPT-5.5 Low', { exact: true })).toBeVisible();
+  const lunaOperations = page.getByRole('region', { name: 'Operational benchmark footprint' });
+  await expect(lunaOperations.getByText('18.55M', { exact: true })).toBeVisible();
+  await expect(lunaOperations.getByText('1.60M', { exact: true })).toBeVisible();
+  await expect(lunaOperations.getByText('20.15M', { exact: true })).toBeVisible();
+  await expect(lunaOperations.getByText('$5.63', { exact: true })).toBeVisible();
+  await expect(lunaOperations.getByText('$0.12', { exact: true })).toBeVisible();
+  await expect(lunaOperations.getByText('Cached input', { exact: true })).toBeVisible();
+  await expect(lunaOperations.getByText('Not separately reported', { exact: true })).toHaveCount(2);
+  await expect(lunaOperations.getByRole('heading', { name: 'Frontier route performance' })).toBeVisible();
+  await expect(lunaOperations.getByText('8.85s', { exact: true })).toBeVisible();
+  await expect(lunaOperations.getByText('21.88s', { exact: true })).toBeVisible();
+  await expect(lunaOperations.getByText('42.21 tok/s', { exact: true })).toBeVisible();
+  await page.goto(pluginUrl + '?view=benchmarks');
+  await qwen2b.getByRole('button', { name: /Qwen 3\.8 2B Distill/i }).click();
+  await expect(page).toHaveURL(/condition=qwen38-2b-mlx/);
+  await expect(page.getByRole('heading', { name: 'Qwen 3.8 2B Distill · 4-bit MLX' })).toBeVisible();
+  await expect(page.getByText('9 / 40 strict prompts', { exact: true })).toBeVisible();
+  await expect(page.getByText('150 / 150 frozen scored cases', { exact: true })).toBeVisible();
+  await expect(page.getByText('Retail 23 / 25 live · score withheld', { exact: true })).toBeVisible();
+  await expect(page.getByText('Current suite average', { exact: true })).toBeVisible();
+  await expect(page.getByText('In progress · 2/3 final-verified suites · pending suites excluded', { exact: true })).toBeVisible();
+  await expect(page.getByText('46.0% collection complete · 23 / 50 frozen tasks · Retail 23 / 25', { exact: true })).toBeVisible();
+  const qwenOperations = page.getByRole('region', { name: 'Operational benchmark footprint' });
+  await expect(qwenOperations.getByText('9.84M', { exact: true })).toBeVisible();
+  await expect(qwenOperations.getByText('1.13M', { exact: true })).toBeVisible();
+  await expect(qwenOperations.getByText('10.97M', { exact: true })).toBeVisible();
+  await expect(qwenOperations.getByRole('heading', { name: 'Local runtime performance' })).toBeVisible();
+  await expect(qwenOperations.getByText('21.27s', { exact: true })).toBeVisible();
+  await expect(qwenOperations.getByText('78.28s', { exact: true })).toBeVisible();
+  await expect(qwenOperations.getByText('29.45 tok/s', { exact: true })).toBeVisible();
+  await expect(qwenOperations.getByText('MLX/Metal', { exact: true })).toBeVisible();
+  await expect(qwenOperations.getByText('Verified partial', { exact: true })).toBeVisible();
+  expect(browserErrors).toEqual([]);
+});
+
+test('leaderboard opens exact tested condition then run evidence', async ({ page }) => {
+  await page.goto(pluginUrl + '?view=benchmarks&domain=tool-use');
   await page.getByRole('button', { name: /Qwen3\.6 35B.*AWQ.*vLLM/i }).click();
   await expect(page).toHaveURL(/condition=qwen36-awq-vllm/);
   await expect(page.getByText('Condition fingerprint', { exact: true })).toBeVisible();
@@ -205,8 +398,8 @@ test('mobile composition has no primary horizontal overflow', async ({ page }) =
   await page.goto(pluginUrl + '?view=benchmarks');
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
-  await expect(page.locator('.acc-mobile-ranking')).toBeVisible();
-  await expect(page.locator('.acc-desktop-table')).toBeHidden();
+  await expect(page.getByRole('region', { name: 'Three-score model comparison' })).toBeVisible();
+  await expect(page.locator('[data-benchmark-profile]')).toHaveCount(4);
   await page.goto(pluginUrl + '?view=benchmarks&domain=rollup');
   const rollupOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(rollupOverflow).toBeLessThanOrEqual(1);
@@ -262,6 +455,9 @@ test('valid coding lineage opens its exact canonical result and run', async ({ p
 
 test('runtime-dependent service claims are withheld in overview and portfolio', async ({ page }) => {
   await page.goto(pluginUrl);
+  const runtimeException = page.locator('.acc-overview-exception').filter({ hasText: 'Runtime telemetry' });
+  await expect(runtimeException.getByText('stale', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Open Portfolio' }).click();
   const service = page.getByRole('button', { name: /Local AI Runtime/i });
   await expect(service.getByText('unknown', { exact: true })).toBeVisible();
   await service.click();
@@ -287,7 +483,7 @@ test('benchmark domain is reload-stable and participates in browser history', as
   await page.goBack();
   await expect(page.getByRole('heading', { name: 'Comparable rollup' })).toBeVisible();
   await page.goBack();
-  await expect(page.getByRole('heading', { name: 'Tool Use' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Three-score model comparison' })).toBeVisible();
   expect(errors.filter((message) => /hooks|rendered fewer|rendered more/i.test(message))).toEqual([]);
 });
 
@@ -297,6 +493,94 @@ test('mobile detail routes retain an immediate fixture warning', async ({ page }
   const label = page.getByText('Prototype fixtures', { exact: true });
   await expect(label).toBeVisible();
   expect(await label.evaluate((node) => node.getBoundingClientRect().top)).toBeLessThan(844);
+});
+
+test('every Analytics and Benchmarks data column is stably sortable with accessible state', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page);
+  await page.goto(pluginUrl + '?view=analytics&domain=web&subject=kungfuclan.com&range=30d');
+  await page.getByText('Daily values and gap states', { exact: true }).click();
+
+  const daily = page.getByRole('table', { name: 'Daily traffic exact values' });
+  const countries = page.getByRole('table', { name: 'Authoritative requests by country' });
+  await exerciseEverySortHeader(daily, ['Date', 'State', 'Requests', 'Cloudflare Visits', 'Transfer']);
+  await exerciseEverySortHeader(countries, ['Country', 'Requests', 'Transfer']);
+
+  const countryButton = countries.getByRole('button', { name: 'Sort by Country' });
+  await countryButton.click();
+  const ascendingCountries = await countries.locator('tbody tr').evaluateAll((rows) => rows.map((row) => row.cells[0].textContent.trim()));
+  expect(ascendingCountries).toEqual([...ascendingCountries].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base', numeric: true })));
+  await countryButton.click();
+  const descendingCountries = await countries.locator('tbody tr').evaluateAll((rows) => rows.map((row) => row.cells[0].textContent.trim()));
+  expect(descendingCountries).toEqual([...descendingCountries].sort((a, b) => b.localeCompare(a, 'en', { sensitivity: 'base', numeric: true })));
+
+  const dailyRequests = daily.getByRole('button', { name: 'Sort by Requests' });
+  await dailyRequests.click();
+  const ascendingRequests = await daily.locator('tbody tr').evaluateAll((rows) => rows.map((row) => row.cells[2].textContent.trim()));
+  expect(ascendingRequests.findIndex((value) => value === '—')).toBeGreaterThan(0);
+  expect(ascendingRequests.slice(ascendingRequests.findIndex((value) => value === '—')).every((value) => value === '—')).toBe(true);
+  await dailyRequests.click();
+  const descendingRequests = await daily.locator('tbody tr').evaluateAll((rows) => rows.map((row) => row.cells[2].textContent.trim()));
+  expect(descendingRequests.slice(descendingRequests.findIndex((value) => value === '—')).every((value) => value === '—')).toBe(true);
+
+  await page.goto(pluginUrl + '?view=benchmarks');
+  const coverage = page.getByRole('table', { name: 'Measured evidence coverage' });
+  await exerciseEverySortHeader(coverage, ['Tested condition', 'Instruction following', 'Native tool use', 'Multi-turn agent']);
+  for (const suite of ['IFEval', 'BFCL V4', 'tau2']) {
+    await exerciseEverySortHeader(page.getByRole('table', { name: `${suite} measured suite comparison` }), ['Tested condition', 'Score or completion']);
+  }
+  const comparison = page.getByRole('table', { name: 'Three-score model comparison' });
+  await exerciseEverySortHeader(comparison, ['Tested condition', 'Instruction following', 'Native tool use', 'Multi-turn agent', 'Current average', 'Verified suites']);
+  const agentButton = comparison.getByRole('button', { name: 'Sort by Multi-turn agent' });
+  await agentButton.click();
+  expect(await comparison.locator('[data-benchmark-profile]').evaluateAll((rows) => rows.slice(-2).map((row) => row.getAttribute('data-benchmark-profile')))).toEqual(['qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b']);
+  await agentButton.click();
+  expect(await comparison.locator('[data-benchmark-profile]').evaluateAll((rows) => rows.slice(-2).map((row) => row.getAttribute('data-benchmark-profile')))).toEqual(['qwen38-2b-mlx', 'qwen36-35b-heretic-gpu-b']);
+
+  await page.goto(pluginUrl + '?view=benchmarks&domain=tool-use');
+  const leaderboard = page.getByRole('table', { name: 'Tool Use benchmark leaderboard' });
+  await exerciseEverySortHeader(leaderboard, ['Rank', 'Tested condition', 'Score', 'Denominator', 'Release', 'Availability']);
+  const releaseButton = leaderboard.getByRole('button', { name: 'Sort by Release' });
+  await releaseButton.focus();
+  await page.keyboard.press('Enter');
+  await expect(leaderboard.getByRole('columnheader', { name: /Sort by Release/ })).toHaveAttribute('aria-sort', 'ascending');
+  await page.keyboard.press('Space');
+  await expect(leaderboard.getByRole('columnheader', { name: /Sort by Release/ })).toHaveAttribute('aria-sort', 'descending');
+  expect(browserErrors).toEqual([]);
+});
+
+test('mobile sort controls remain visible, touch-safe, and overflow-safe', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const routes = [
+    '?view=analytics&domain=web&subject=kungfuclan.com&range=30d',
+    '?view=benchmarks',
+    '?view=benchmarks&domain=tool-use',
+  ];
+  for (const route of routes) {
+    await page.goto(pluginUrl + route);
+    if (route.startsWith('?view=analytics')) await page.getByText('Daily values and gap states', { exact: true }).click();
+    const controls = page.locator('.acc-sort-button:visible');
+    await expect(controls.first(), route).toBeVisible();
+    expect(await controls.count(), route).toBeGreaterThan(0);
+    const undersized = await controls.evaluateAll((nodes) => nodes.flatMap((node) => {
+      const rect = node.getBoundingClientRect();
+      return rect.width + 0.01 >= 44 && rect.height + 0.01 >= 44 ? [] : [{ label: node.textContent.trim(), width: rect.width, height: rect.height }];
+    }));
+    expect(undersized, route).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), route).toBeLessThanOrEqual(1);
+  }
+});
+
+test('mobile benchmark condition controls meet the 44px touch-target floor', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(pluginUrl + '?view=benchmarks');
+  const undersized = await page.locator('.acc-evidence-matrix .acc-table-link, .acc-three-score .acc-table-link').evaluateAll((nodes) => nodes.flatMap((node) => {
+    const rect = node.getBoundingClientRect();
+    const style = getComputedStyle(node);
+    if (style.display === 'none' || style.visibility === 'hidden' || rect.width === 0 || rect.height === 0) return [];
+    if (rect.width + 0.01 >= 44 && rect.height + 0.01 >= 44) return [];
+    return [{ label: node.textContent.trim(), width: rect.width, height: rect.height }];
+  }));
+  expect(undersized).toEqual([]);
 });
 
 test('every visible mobile ACC control meets the 44px touch-target floor', async ({ page }) => {
@@ -328,7 +612,7 @@ test('every visible mobile ACC control meets the 44px touch-target floor', async
 });
 
 test('SPA navigation moves focus to the main result region', async ({ page }) => {
-  await page.goto(pluginUrl + '?view=benchmarks');
+  await page.goto(pluginUrl + '?view=benchmarks&domain=tool-use');
   await page.getByRole('button', { name: /Qwen3\.6 35B.*AWQ.*vLLM/i }).click();
   await expect(page.locator('.acc-main')).toBeFocused();
 });

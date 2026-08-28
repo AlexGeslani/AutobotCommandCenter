@@ -1,3 +1,8 @@
+import showcaseProjectionSnapshot from './generated/showcase-projection.v1.json' with { type: 'json' };
+import { getPortfolioProjection, getSkillsProjection, validateShowcaseProjection } from './showcase/projection.mjs';
+
+const showcaseProjection = validateShowcaseProjection(showcaseProjectionSnapshot);
+
 export const NAV_ITEMS = [
   { id: 'overview', label: 'Overview' },
   { id: 'portfolio', label: 'Portfolio' },
@@ -44,14 +49,7 @@ export const fixtures = {
       worksNow: ['Responsive product projection', 'Provider-usage snapshots', 'Web analytics destination', 'Evidence-linked benchmark views'],
       evidence: ['Browser acceptance matrix', 'Application test suite', 'Public-safety scanner'], evaluations: [],
     },
-    {
-      id: 'jarvis', name: 'Jarvis Voice Agent', kind: 'Product', state: 'Development', verified: '2026-08-16', source: 'Development acceptance record',
-      value: 'A thin push-to-talk assistant joining local speech, web research, and home-control capabilities behind explicit boundaries.',
-      outcome: 'Development Web and Watch surfaces share the same bounded voice path while production remains frozen for acceptance.',
-      limitation: 'Web Search, Home Assistant, and physical-device behavior must pass the development gate before production promotion.',
-      worksNow: ['Development web client', 'Watch push-to-talk client', 'Local speech path', 'Bounded tool integration'],
-      evidence: ['Development browser checks', 'Voice route acceptance records'], evaluations: ['eval-voice-latency'],
-    },
+
     {
       id: 'voice-lab', name: 'Prime Voice Lab', kind: 'Product', state: 'Human gate', verified: '2026-07-26', source: 'Prime voice benchmark',
       value: 'Reusable intranet-first voice interaction core for tutors, agents, avatars, calls, and meetings.',
@@ -89,6 +87,13 @@ export const fixtures = {
     { id: 'qwen36', name: 'Qwen3.6 35B-A3B', publisher: 'Qwen', architecture: 'MoE', license: 'Known in source manifest', roles: ['Local agent', 'Evaluation candidate'] },
     { id: 'gpt56', name: 'GPT-5.6', publisher: 'OpenAI', architecture: 'Hosted', license: 'Provider terms', roles: ['Review lane'] },
     { id: 'devstral', name: 'Devstral Small 2 24B', publisher: 'Mistral AI', architecture: 'Dense', license: 'Known in source manifest', roles: ['Offline-safe coding candidate'] },
+    { id: 'gpt56-luna', name: 'GPT-5.6 Luna', publisher: 'OpenAI', architecture: 'Hosted', license: 'Provider terms', roles: ['Cloud reference', 'Agent benchmark'] },
+    { id: 'gpt56-sol', name: 'GPT-5.6 Sol', publisher: 'OpenAI', architecture: 'Hosted', license: 'Provider terms', roles: ['Cloud reference', 'Agent benchmark'] },
+    { id: 'qwen38-2b', name: 'Qwen 3.8 2B Distill', publisher: 'Community', architecture: 'Dense', license: 'See source model card', roles: ['Local baseline', 'Instruction-following candidate'] },
+    { id: 'qwen36-35b', name: 'Qwen3.6 35B-A3B', publisher: 'Qwen', architecture: 'MoE', license: 'Known in source manifest', roles: ['Local flagship', 'Agent candidate'] },
+    { id: 'qwen36-27b', name: 'Qwen3.6 27B', publisher: 'Qwen', architecture: 'Dense', license: 'Known in source manifest', roles: ['Local reasoning', 'Agent candidate'] },
+    { id: 'bonsai', name: 'Bonsai 8B', publisher: 'Community', architecture: 'Dense', license: 'Evaluation manifest pending', roles: ['Efficient local agent', 'Shadow candidate'] },
+    { id: 'qwen35-4b', name: 'Qwen3.5 4B', publisher: 'Qwen', architecture: 'Dense', license: 'Known in source manifest', roles: ['Small local baseline', 'Edge candidate'] },
   ],
   conditions: [
     {
@@ -108,6 +113,177 @@ export const fixtures = {
       context: '64K tested', output: '8K cap', availability: 'unavailable', availabilityNote: 'Not currently loaded',
       fingerprint: 'devstral-small2-24b|fp8|vllm|direct|ctx64k|out8k|gpu-node-b',
       results: [],
+    },
+    {
+      id: 'gpt56-luna-max', familyId: 'gpt56-luna', shortName: 'GPT-5.6 Luna · Max', provider: 'ChatGPT', runtime: 'Codex Luna bridge', quantization: 'Provider managed', reasoning: 'Max', host: 'Cloud',
+      context: 'Provider envelope', output: 'Suite-defined', availability: 'unknown', availabilityNote: 'Availability is separate from benchmark evidence',
+      fingerprint: 'gpt-5.6-luna|max|codex-luna-bridge|ootb-intake-v1', results: [],
+    },
+    {
+      id: 'gpt56-sol-max', familyId: 'gpt56-sol', shortName: 'GPT-5.6 Sol · Max', provider: 'ChatGPT', runtime: 'Codex Sol bridge', quantization: 'Provider managed', reasoning: 'Max', host: 'Cloud',
+      context: 'Provider envelope', output: 'Suite-defined', availability: 'unknown', availabilityNote: 'Benchmark collection is complete; runtime availability is not inferred',
+      fingerprint: 'gpt-5.6-sol|max|codex-sol-bridge|ootb-intake-v1', results: [],
+    },
+    {
+      id: 'qwen38-2b-mlx', familyId: 'qwen38-2b', shortName: 'Qwen 3.8 2B Distill · 4-bit MLX', provider: 'Edge Node A', runtime: 'MLX/Metal', quantization: 'Affine 4-bit · group 64', reasoning: 'Thinking off', host: 'Edge Node A',
+      context: '256K tested', output: '8K cap', availability: 'unknown', availabilityNote: 'Benchmark evidence does not establish current runtime availability',
+      fingerprint: 'edge-node-a|qwen38-2b-distill|mlx-metal|affine-4bit-g64|thinking-off|ctx256k|out8k|ootb-intake-v1', results: [],
+    },
+    {
+      id: 'qwen36-35b-heretic-gpu-b', familyId: 'qwen36-35b', shortName: 'Qwen3.6 35B Heretic · Q4_K_M · MTP-N2', provider: 'GPU Node B', runtime: 'llama.cpp b9172', quantization: 'Q4_K_M Heretic', reasoning: 'Thinking on', host: 'GPU Node B',
+      context: '256K total · 128K per slot', output: '32K cap', availability: 'unknown', availabilityNote: 'Benchmark evidence is immutable; current runtime availability is tracked separately',
+      fingerprint: 'qwen3.6-35b-a3b-heretic|q4-k-m|mtp-n2|llamacpp-b9172|thinking-on|ctx262144|2slots|out32768|gpu-node-b|ootb-intake-v1', results: [],
+    },
+    {
+      id: 'qwen36-27b', familyId: 'qwen36-27b', shortName: 'Qwen3.6 27B · Q6', provider: 'GPU Node B', runtime: 'llama.cpp', quantization: 'Q6', reasoning: 'Direct', host: 'GPU Node B',
+      context: 'Example envelope', output: 'Example envelope', availability: 'unknown', availabilityNote: 'Illustrative Dev fixture', fingerprint: 'example|qwen3.6-27b|q6|llamacpp|direct', results: [],
+    },
+    {
+      id: 'bonsai-8b', familyId: 'bonsai', shortName: 'Bonsai 8B · Q8', provider: 'Edge Node A', runtime: 'llama.cpp', quantization: 'Q8', reasoning: 'Direct', host: 'Edge Node A',
+      context: 'Example envelope', output: 'Example envelope', availability: 'unknown', availabilityNote: 'Illustrative Dev fixture', fingerprint: 'example|bonsai-8b|q8|llamacpp|direct', results: [],
+    },
+    {
+      id: 'qwen35-4b', familyId: 'qwen35-4b', shortName: 'Qwen3.5 4B · Q8', provider: 'Edge Node A', runtime: 'llama.cpp', quantization: 'Q8', reasoning: 'Direct', host: 'Edge Node A',
+      context: 'Example envelope', output: 'Example envelope', availability: 'unknown', availabilityNote: 'Illustrative Dev fixture', fingerprint: 'example|qwen3.5-4b|q8|llamacpp|direct', results: [],
+    },
+  ],
+  benchmarkComparison: [
+    {
+      conditionId: 'gpt56-luna-max', evidence: 'measured', note: 'All three frozen suites passed final verification. tau2 uses the versioned acc-tau2-fixed-judge-v1.1 profile (effective GPT-5.5 Low); future comparisons must use that same judge profile.',
+      operational: {
+        evidence: 'verified-aggregate',
+        candidateUsage: { inputTokens: 18549208, outputTokens: 1603165, totalTokens: 20152373, cachedInputTokens: null, reasoningTokens: null, retainedBridgeEvents: 4304 },
+        performance: {
+          class: 'frontier-route', successfulResponses: 4290, bridgeErrorEvents: 14,
+          latencySeconds: { minimum: 1.1463, median: 6.3779, mean: 8.8543, p95: 21.8786, maximum: 296.4456, total: 37984.9964 },
+          endToEndOutputTokensPerSecond: 42.2052,
+          measurementBoundary: 'Client bridge end-to-end wall time on the ChatGPT/Codex subscription route',
+          variability: 'Route-window evidence, not intrinsic model speed; network path, provider queueing, service demand, and bridge overhead remain variables.',
+        },
+        judgeUsage: { role: 'Fixed tau2 judge', totalTokens: 19655 },
+        billing: {
+          route: 'ChatGPT/Codex subscription', marginalApiChargeUsd: 0, monthlySubscriptionUsd: 200,
+          candidateApiEquivalentUsd: 5.63, judgeApiEquivalentUsd: 0.12,
+          subscriptionAttribution: 'Flat existing plan · not allocated per benchmark request',
+        },
+        pricing: {
+          source: 'OpenAI standard model pricing reviewed 2026-08-26',
+          candidateRates: '$0.20/M input · $1.20/M output', judgeRates: '$5/M input · $30/M output',
+          assumption: 'All retained input priced as uncached', longContextRequests: 0,
+        },
+        outcomes: [
+          ['IFEval strict misses', '7 / 40 prompts · 8 / 95 instructions'],
+          ['BFCL custody', '150 scored cases · category-level grader evidence retained'],
+          ['BFCL bridge non-OK events', '9 · retained under the frozen scoring rules'],
+          ['tau2 unsuccessful', '26 / 50 tasks · includes 5 provider transport failures'],
+        ],
+      },
+      scores: {
+        instruction: { label: 'Instruction following', benchmark: 'IFEval', value: 82.5, evidence: 'verified', denominator: '33 / 40 strict prompts', detail: [['Instruction checks', '87 / 95 · 91.6%'], ['Mean request', '35.1s'], ['Completion tokens', '74,587']] },
+        tools: { label: 'Native tool use', benchmark: 'BFCL V4', value: 45.89, evidence: 'verified', denominator: '150 frozen scored cases', detail: [['Non-live AST', '86.7%'], ['Live', '37.5%'], ['Multi-turn tools', '56.3%'], ['Memory', '63.0%'], ['Latency mean / p95', '6.37s / 14.48s']] },
+        agent: { label: 'Multi-turn agent', benchmark: 'tau2', value: 48.0, evidence: 'verified', denominator: '24 / 50 frozen tasks', detail: [['Retail', '12 / 25 · 48.0%'], ['Telecom', '12 / 25 · 48.0%'], ['Provider transport failures', '5 · retained as scored zeros'], ['Harness errors', '0'], ['Fixed judge profile', 'acc-tau2-fixed-judge-v1.1 · GPT-5.5 Low']] },
+      },
+    },
+    {
+      conditionId: 'gpt56-sol-max', evidence: 'measured', note: 'All three frozen suites passed final verification: IFEval 90.00%, BFCL 48.55%, and tau2 70.00%. The secondary 69.52% equal-weight macro is the unweighted mean of those three primary suite scores. tau2 used acc-tau2-fixed-judge-v1.1 and retained two post-dispatch provider transport failures plus six completed empty model responses as denominator-preserving zeros; harness errors are zero.',
+      operational: {
+        evidence: 'verified-aggregate',
+        candidateUsage: { inputTokens: 22636604, outputTokens: 1851898, totalTokens: 24488502, cachedInputTokens: null, reasoningTokens: null, retainedBridgeEvents: 4657 },
+        performance: {
+          class: 'frontier-route', successfulResponses: 4586, bridgeErrorEvents: 71,
+          latencySeconds: { minimum: 1.4928, median: 8.7603, mean: 13.3428, p95: 35.5755, maximum: 435.3947, total: 61189.9788 },
+          endToEndOutputTokensPerSecond: 30.2647,
+          measurementBoundary: 'Client bridge end-to-end wall time on the ChatGPT/Codex subscription route',
+          variability: 'Route-window evidence, not intrinsic model speed; network path, provider queueing, service demand, and bridge overhead remain variables.',
+        },
+        judgeUsage: { role: 'Fixed tau2 judge', totalTokens: 40330 },
+        billing: {
+          route: 'ChatGPT/Codex subscription', marginalApiChargeUsd: 0, monthlySubscriptionUsd: 200,
+          candidateApiEquivalentUsd: 127.58, judgeApiEquivalentUsd: 0.23,
+          subscriptionAttribution: 'Flat existing plan · not allocated per benchmark request',
+        },
+        pricing: {
+          source: 'OpenAI standard model pricing reviewed 2026-08-26',
+          candidateRates: '$4/M input · $20/M output', judgeRates: '$5/M input · $30/M output',
+          assumption: 'All retained input priced as uncached', longContextRequests: 0,
+        },
+        outcomes: [
+          ['IFEval strict misses', '4 / 40 prompts · 4 / 95 instructions'],
+          ['Pre-dispatch control stops', '65 · 61 recovered/accounted denials plus 4 later safe halts · not provider failures'],
+          ['BFCL operational failures', '4 provider transport-error rows retained as scored zeros'],
+          ['tau2 unsuccessful', '15 / 50 tasks · includes 2 transport failures and 6 empty responses'],
+        ],
+      },
+      scores: {
+        instruction: { label: 'Instruction following', benchmark: 'IFEval', value: 90.0, evidence: 'verified', denominator: '36 / 40 strict prompts', detail: [['Instruction checks', '91 / 95 · 95.8%'], ['Mean request', '37.6s'], ['Completion tokens', '55,171'], ['Final verification', 'Passed · exact response model']] },
+        tools: { label: 'Native tool use', benchmark: 'BFCL V4', value: 48.55, evidence: 'verified', denominator: '150 / 150 scored rows', detail: [['Generated traces', '261 / 261'], ['Provider transport-error rows', '4 · retained'], ['Recovered denial rows', '61 · exact replay'], ['Final verification', 'Passed']] },
+        agent: { label: 'Multi-turn agent', benchmark: 'tau2', value: 70.0, evidence: 'verified', denominator: '35 / 50 frozen tasks', detail: [['Retail', '22 / 25 · 88.0%'], ['Telecom', '13 / 25 · 52.0%'], ['Provider transport failures', '2 · retained as scored zeros'], ['Empty model responses', '6 · retained as scored zeros'], ['Harness errors', '0'], ['Fixed judge profile', 'acc-tau2-fixed-judge-v1.1 · GPT-5.5 Low'], ['Final verification', 'Passed']] },
+      },
+    },
+    {
+      conditionId: 'qwen38-2b-mlx', evidence: 'measured', note: 'IFEval and BFCL are final-verified for the exact 4-bit MLX/Metal condition. IFEval repeated exactly at 9 / 40 strict prompts and 47 / 95 instructions; BFCL scored 8.72% across the frozen 150-case selection after all 261 required rows were generated. tau2 Retail is active at 23 / 25 completed simulations in the captured progress snapshot; Telecom remains queued, so the tau2 primary score stays Pending rather than zero.',
+      operational: {
+        evidence: 'verified-partial',
+        candidateUsage: { inputTokens: 9839500, outputTokens: 1130727, totalTokens: 10970227, cachedInputTokens: 2135136, reasoningTokens: null, retainedBridgeEvents: 1648, basis: 'Final-verified IFEval matched repeat plus final-verified BFCL · incomplete tau2 usage excluded' },
+        performance: {
+          class: 'local-runtime', successfulResponses: 1608, bridgeErrorEvents: 0,
+          latencySeconds: { minimum: 1.2452, median: 11.6742, mean: 21.2696, p95: 78.2772, maximum: 367.2935, total: 34201.4525 },
+          endToEndOutputTokensPerSecond: 29.4517,
+          measurementBoundary: 'BFCL bridge end-to-end non-streaming request wall time across all retained prerequisite and scored requests',
+          variability: 'The displayed runtime distribution is BFCL-specific and includes transport, prompt evaluation, and generation. IFEval repeat performance remains in the instruction-score detail. TTFT, pure decoder throughput, peak RSS, Metal memory, and thermal/power state were not captured.',
+        },
+        localRuntime: {
+          hardwareProfile: 'edge-node-a-mac-mini-m2-24gb-20260826', capturedAt: '2026-08-26', machine: 'Mac mini', processor: 'Apple M2 · 8-core CPU', memory: '24 GB unified memory', accelerator: 'Apple M2 · 10-core GPU · Metal', os: 'macOS 26.5.2',
+          host: 'Edge Node A', backend: 'MLX/Metal', modelRevision: 'SiddhJagani/Qwen3.8-2B-mlx-4Bit · pinned revision',
+          quantization: 'Affine 4-bit · group size 64', context: '262,144 tokens', outputCap: '8,192 tokens', slots: 1, concurrency: 1, retries: 0, thinking: 'Off', streaming: 'No',
+          competingWorkload: 'One benchmark slot; broader host workload telemetry unavailable',
+        },
+        outcomes: [
+          ['IFEval repeated result', '9 / 40 prompts · 47 / 95 instructions · identical across two runs'],
+          ['Repeat consistency', '40 / 40 exact response-text matches · 40 / 40 exact usage matches'],
+          ['BFCL final result', '8.72% · 261 / 261 generated · 150 / 150 scored · final verification passed'],
+          ['BFCL custody', '1,608 / 1,608 bridge requests succeeded · 0 transport errors · 0 retries'],
+          ['tau2 progress snapshot', '23 / 50 frozen tasks completed · Retail 23 / 25 · Telecom queued · score withheld as Pending'],
+        ],
+        methodNote: 'Local performance is specific to this host, runtime, quantization, context/output envelope, serial slot, and warm-state collection. Candidate usage includes only final-verified IFEval and BFCL evidence; incomplete tau2 usage is excluded. Pure generation speed and resource peaks were unavailable in the retained evidence.',
+      },
+      scores: {
+        instruction: { label: 'Instruction following', benchmark: 'IFEval', value: 22.5, evidence: 'verified', denominator: '9 / 40 strict prompts', detail: [['Instruction checks', '47 / 95 · 49.5%'], ['Matched repeats', '2 · identical scores'], ['Exact response matches', '40 / 40'], ['Repeat mean / p95', '51.29s / 136.39s'], ['Completion tokens', '123,437'], ['Final verification', 'Passed · both runs']] },
+        tools: { label: 'Native tool use', benchmark: 'BFCL V4', value: 8.72, evidence: 'verified', denominator: '150 / 150 frozen scored cases', detail: [['Generated traces', '261 / 261'], ['Non-live AST', '39.17%'], ['Live', '0.00%'], ['Multi-turn tools', '1.25%'], ['Memory', '7.14%'], ['Bridge requests', '1,608 / 1,608 succeeded · 0 transport errors · 0 retries'], ['Latency median / mean / p95', '11.67s / 21.27s / 78.28s'], ['Final verification', 'Passed']] },
+        agent: { label: 'Multi-turn agent', benchmark: 'tau2', value: null, evidence: 'pending', denominator: 'Retail 23 / 25 live · score withheld', progress: { current: 23, total: 50, label: '23 / 50 frozen tasks · Retail 23 / 25', state: 'in-progress', capturedAt: '2026-08-27T21:29:24Z' }, detail: [['Frozen inventory', '25 Retail + 25 Telecom'], ['Completed simulations', 'Retail 23 / 25 · 23 / 50 total'], ['Harness errors', '0 observed in current progress artifact'], ['Telecom', 'Queued after Retail'], ['Scoring state', 'Pending full frozen inventory and final verification']] },
+      },
+    },
+    {
+      conditionId: 'qwen36-35b-heretic-gpu-b', evidence: 'measured', note: 'IFEval is final-verified for the exact GPU Node B Qwen3.6 35B Heretic Q4_K_M MTP-N2 condition. The live BFCL controller had generated 180 / 261 required rows in the captured 2026-08-27 progress snapshot and remained active; tau2 is queued. Both unfinished primary scores remain Pending rather than zero. Hardware identity beyond the retained public-safe host label and runtime/deployment geometry was not captured and is shown as unavailable rather than inferred.',
+      operational: {
+        evidence: 'verified-partial',
+        candidateUsage: { inputTokens: 2596, outputTokens: 157506, totalTokens: 160102, cachedInputTokens: null, reasoningTokens: null, retainedBridgeEvents: 40, basis: 'Final-verified IFEval · 40 requests' },
+        performance: {
+          class: 'local-runtime', successfulResponses: 40, bridgeErrorEvents: 0,
+          latencySeconds: { minimum: 10.6960, median: 38.2466, mean: 45.7059, p95: 109.7134, maximum: 159.8997, total: 1828.2351 },
+          endToEndOutputTokensPerSecond: 86.1519,
+          measurementBoundary: 'Single-flight bridge end-to-end non-streaming wall time',
+          variability: 'This is exact-condition host/runtime evidence, not intrinsic model speed. TTFT, peak RSS, accelerator memory, thermal state, and competing-host workload were not retained.',
+        },
+        localRuntime: {
+          hardwareProfile: 'gpu-node-b-hardware-unresolved-20260826', capturedAt: '2026-08-26', machine: 'Not captured in retained run evidence', processor: 'Not captured', memory: 'Not captured', accelerator: 'Not captured', os: 'Not captured',
+          host: 'GPU Node B', backend: 'llama.cpp b9172 lineage', modelRevision: 'Qwen3.6-35B-A3B-Heretic-Q4_K_M-MTP-N2', quantization: 'Q4_K_M Heretic · MTP-N2',
+          context: '262,144 total · 131,072 per slot', outputCap: '32,768 tokens', slots: 2, concurrency: 1, retries: 0, thinking: 'On', streaming: 'No', competingWorkload: 'Requests serialized; broader host workload telemetry unavailable',
+        },
+        outcomes: [
+          ['IFEval final result', '31 / 40 prompts · 86 / 95 instructions'],
+          ['IFEval failures', '0 provider failures · 0 measurement-path failures'],
+          ['BFCL progress snapshot', '180 / 261 required rows generated · controller active · score withheld as Pending'],
+          ['Coverage boundary', 'BFCL scoring incomplete; tau2 queued · unfinished scores are not estimated or represented as zero'],
+          ['Hardware boundary', 'Processor, RAM, accelerator, and OS were not captured in retained run evidence'],
+        ],
+        methodNote: 'The displayed score is final-verified IFEval evidence only. BFCL and tau2 are not averaged, estimated, or represented as zero while collection is incomplete.',
+      },
+      scores: {
+        instruction: { label: 'Instruction following', benchmark: 'IFEval', value: 77.5, evidence: 'verified', denominator: '31 / 40 strict prompts', detail: [['Instruction checks', '86 / 95 · 90.5%'], ['Median / mean request', '38.25s / 45.71s'], ['Request p95', '109.71s'], ['Completion tokens', '157,506'], ['End-to-end output throughput', '86.15 tok/s'], ['Final verification', 'Passed · exact model and runtime lineage']] },
+        tools: { label: 'Native tool use', benchmark: 'BFCL V4', value: null, evidence: 'pending', denominator: '180 / 261 generated at snapshot · score withheld', progress: { current: 180, total: 261, label: '180 / 261 required rows generated', state: 'in-progress', capturedAt: '2026-08-27T21:30:56Z' }, detail: [['Frozen inventory', '261 generated / 150 scored rows'], ['Progress snapshot', '180 / 261 generated · captured 2026-08-27'], ['Current workload', 'Multi-turn long-context'], ['Scoring state', 'Generation in progress · evaluator not yet run']] },
+        agent: { label: 'Multi-turn agent', benchmark: 'tau2', value: null, evidence: 'pending', denominator: 'Queued · score withheld', progress: { current: 0, total: 50, label: '0 / 50 tasks · queued after BFCL', state: 'queued', capturedAt: '2026-08-27' }, detail: [['Frozen inventory', '25 Retail + 25 Telecom'], ['Progress snapshot', '0 / 50 · queued'], ['Scoring state', 'Queued after BFCL']] },
+      },
     },
   ],
   results: [
@@ -159,16 +335,7 @@ export const fixtures = {
       affectedObjects: [{ type: 'skill', id: 'autobots', label: '/autobots' }],
     },
   ],
-  skills: [
-    { id: 'autobots', name: '/autobots', category: 'Agent orchestration', purpose: 'Runs bounded specialist coding lanes with explicit pause, resume, review, and delivery contracts.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Claude CLI + Codex CLI; isolated transport', repo: 'Local SKILL.md metadata snapshot' },
-    { id: 'dashboard-product-design', name: 'operational-dashboard-product-design', category: 'Product design', purpose: 'Designs evidence-backed command centers that answer durable questions without duplicating operational systems.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Dashboard IA, source authority, desktop/mobile acceptance', repo: 'Local SKILL.md metadata snapshot' },
-    { id: 'local-model-evaluation', name: 'local-model-evaluation', category: 'Model evaluation', purpose: 'Builds frozen, executable comparisons across local and hosted inference conditions.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Local/cloud OpenAI-compatible runtimes; evidence-first', repo: 'Local SKILL.md metadata snapshot' },
-    { id: 'portable-safety-harnesses', name: 'portable-integration-safety-harnesses', category: 'Integration safety', purpose: 'Creates secret-safe integration checks that travel across environments without carrying private infrastructure assumptions.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Portable fixtures, fail-closed checks, redacted evidence', repo: 'Local SKILL.md metadata snapshot' },
-    { id: 'intranet-recovery', name: 'intranet-app-versioning-recovery', category: 'Reliability', purpose: 'Versions, backs up, restore-tests, and safely publishes private application baselines.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Private intranet applications; reversible releases', repo: 'Local SKILL.md metadata snapshot' },
-    { id: 'container-hosting', name: 'macos-container-hosting-operations', category: 'Platform operations', purpose: 'Operates LAN-only container hosting with validated routing, bind-mount safety, and independent-client acceptance.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'macOS container hosts; shared Caddy ingress', repo: 'Local SKILL.md metadata snapshot' },
-    { id: 'event-film', name: 'mixed-media-event-film-production', category: 'Media production', purpose: 'Assembles mixed-source footage into a scene-tagged event film with selective restoration and conservative finishing.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Mixed photo/video/audio; reviewable editorial stages', repo: 'Local SKILL.md metadata snapshot' },
-    { id: 'repository-docs', name: 'repository-documentation-operations', category: 'Documentation', purpose: 'Keeps a repository README aligned with the actual default-branch product and operating state.', provenance: 'authored here', stewardship: 'owned and maintained here', publication: 'internal', validation: 'validated', lastValidated: '2026-08-16', envelope: 'Repository-backed products; evidence-based documentation', repo: 'Local SKILL.md metadata snapshot' },
-  ],
+  skills: showcaseProjection.operationalSkills,
 };
 
 for (const condition of fixtures.conditions) {
@@ -183,6 +350,60 @@ export const RELEASES = {
 
 export function getCondition(id) {
   return fixtures.conditions.find((condition) => condition.id === id) || null;
+}
+
+export function getBenchmarkComparison(conditionId = null) {
+  const profiles = fixtures.benchmarkComparison.map((profile) => {
+    const verifiedScores = Object.values(profile.scores).filter((score) => score.evidence === 'verified' && score.value != null);
+    const currentAverage = verifiedScores.length
+      ? Number((verifiedScores.reduce((sum, score) => sum + score.value, 0) / verifiedScores.length).toFixed(2))
+      : null;
+    return {
+      ...profile,
+      condition: getCondition(profile.conditionId),
+      currentAverage: {
+        value: currentAverage,
+        verifiedSuites: verifiedScores.length,
+        totalSuites: Object.keys(profile.scores).length,
+        complete: verifiedScores.length === Object.keys(profile.scores).length,
+      },
+    };
+  });
+  return conditionId ? profiles.find((profile) => profile.conditionId === conditionId) || null : profiles;
+}
+
+export function getMeasuredBenchmarkVisuals() {
+  const suiteOrder = ['instruction', 'tools', 'agent'];
+  const measured = getBenchmarkComparison().filter((profile) => profile.evidence === 'measured');
+  return {
+    profiles: measured.map((profile) => ({
+      conditionId: profile.conditionId,
+      shortName: profile.condition.shortName,
+      provider: profile.condition.provider,
+      runtime: profile.condition.runtime,
+      coverage: Object.fromEntries(suiteOrder.map((suiteId) => [suiteId, profile.scores[suiteId].progress?.state || profile.scores[suiteId].evidence])),
+    })),
+    suites: suiteOrder.map((suiteId) => ({
+      id: suiteId,
+      label: measured[0].scores[suiteId].benchmark,
+      rows: measured
+        .map((profile) => {
+          const score = profile.scores[suiteId];
+          if (score.value != null && score.evidence === 'verified') return {
+            conditionId: profile.conditionId, shortName: profile.condition.shortName, value: score.value, barValue: score.value,
+            denominator: score.denominator, evidence: 'verified', kind: 'score', progress: null,
+          };
+          if (score.progress) return {
+            conditionId: profile.conditionId, shortName: profile.condition.shortName, value: null,
+            barValue: score.progress.total ? (score.progress.current / score.progress.total) * 100 : 0,
+            denominator: score.progress.label, evidence: score.progress.state, kind: 'progress', progress: score.progress,
+          };
+          return null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => (a.kind === b.kind ? b.barValue - a.barValue : a.kind === 'score' ? -1 : 1)),
+    })),
+  };
 }
 
 export function getFamily(id) {
@@ -269,11 +490,12 @@ export function getCapabilityRollup() {
       resultIds,
     };
   });
+  const representedRows = rows.filter((row) => row.coverage > 0);
   const byIndex = (a, b) => (b.index ?? -1) - (a.index ?? -1);
   return {
     domains: domainState.map(({ resultByCondition, ...domain }) => domain),
-    complete: rows.filter((row) => row.complete).sort(byIndex),
-    partial: rows.filter((row) => !row.complete).sort(byIndex),
+    complete: representedRows.filter((row) => row.complete).sort(byIndex),
+    partial: representedRows.filter((row) => !row.complete).sort(byIndex),
   };
 }
 
@@ -287,6 +509,27 @@ export function getVoicePerformance(id = fixtures.voicePerformance.id) {
 
 export function getSourceTrust() {
   return fixtures.sources;
+}
+
+export function getShowcasePortfolio() {
+  return getPortfolioProjection(showcaseProjection, fixtures.products);
+}
+
+export function getShowcaseSkills() {
+  return getSkillsProjection(showcaseProjection);
+}
+
+export function getOverviewProjection() {
+  return {
+    sectionOrder: ['provider-usage', 'source-exceptions', 'destinations', 'recently-landed'],
+    sourceExceptions: getSourceTrust().filter((source) => source.invalidatesClaims),
+    destinations: [
+      { id: 'portfolio', label: 'Portfolio', summary: 'Products and durable capabilities' },
+      { id: 'analytics', label: 'Analytics', summary: 'Traffic, service usage, and coverage' },
+      { id: 'benchmarks', label: 'Benchmarks', summary: 'Measured model evidence' },
+      { id: 'skills', label: 'Skills', summary: 'Reusable delivery knowledge' },
+    ],
+  };
 }
 
 export function buildAccUrl(state = {}, basePath = '/autobot-command-center') {
