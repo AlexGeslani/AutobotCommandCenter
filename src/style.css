@@ -373,6 +373,12 @@
   .acc-shell *, .acc-shell *::before, .acc-shell *::after { scroll-behavior: auto !important; transition-duration: .001ms !important; animation-duration: .001ms !important; animation-iteration-count: 1 !important; }
 }
 
+@media (max-width: 1480px) {
+  .acc-hero { align-items: flex-start; flex-direction: column; }
+  .acc-brand-lockup, .acc-hero__actions { width: 100%; }
+  .acc-hero__actions { justify-content: flex-start; }
+}
+
 @media (max-width: 900px) {
   .acc-overview-destination-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .acc-portfolio-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

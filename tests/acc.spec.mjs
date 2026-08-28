@@ -281,6 +281,26 @@ test('theme preference persists locally while status colors and reduced motion s
   await expect(page.locator('.acc-shell')).toHaveAttribute('data-acc-theme', 'current-dark');
 });
 
+test('desktop hero controls do not overlap the identity at 1210px', async ({ page }) => {
+  await page.setViewportSize({ width: 1210, height: 700 });
+  await page.goto(pluginUrl);
+  await page.getByLabel('Presentation theme').selectOption('matrix');
+  const geometry = await page.locator('.acc-hero h1').evaluate((heading) => {
+    const range = document.createRange();
+    range.selectNodeContents(heading);
+    const text = range.getBoundingClientRect();
+    const actions = document.querySelector('.acc-hero__actions').getBoundingClientRect();
+    return {
+      clipped: heading.scrollWidth > heading.clientWidth + 1,
+      overlaps: text.left < actions.right
+        && text.right > actions.left
+        && text.top < actions.bottom
+        && text.bottom > actions.top,
+    };
+  });
+  expect(geometry).toEqual({ clipped: false, overlaps: false });
+});
+
 test('mobile hero exposes a 44px Search button and Search has no horizontal overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(pluginUrl);
