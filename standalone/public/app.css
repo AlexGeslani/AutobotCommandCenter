@@ -70,7 +70,7 @@ body {
 .acc-shell button:focus-visible, .acc-shell a:focus-visible, .acc-shell input:focus-visible, .acc-shell select:focus-visible { outline: 2px solid var(--color-ring); outline-offset: 3px; }
 
 .acc-hero {
-  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  display: flex; align-items: flex-start; flex-direction: column; justify-content: space-between; gap: .75rem;
   padding: clamp(.9rem, 1.8vw, 1.35rem); margin-bottom: .65rem; overflow: hidden; position: relative;
   border: 1px solid var(--acc-edge); border-radius: calc(var(--radius) + .25rem);
   background:
@@ -79,9 +79,9 @@ body {
 }
 .acc-hero::after { content: ''; position: absolute; inset: auto 0 0; height: 2px; background: linear-gradient(90deg, var(--acc-accent-primary), var(--acc-accent-secondary), transparent 80%); opacity: .75; }
 .acc-kicker, .acc-eyebrow { margin: 0 0 .3rem; color: var(--acc-accent-primary); font: 700 .68rem/1.2 var(--font-mono, ui-monospace, monospace); letter-spacing: .14em; text-transform: uppercase; }
-.acc-hero h1 { margin: 0; max-width: none; font-size: clamp(1.8rem, 4.15vw, 3.35rem); line-height: 1; letter-spacing: -.045em; white-space: nowrap; }
+.acc-hero h1 { margin: 0; max-width: none; font-size: clamp(1.6rem, 3vw, 2.6rem); line-height: 1; letter-spacing: -.035em; text-align: left; white-space: nowrap; }
 .acc-hero__subtitle { max-width: 52rem; margin: .45rem 0 0; color: var(--color-muted-foreground); font-size: clamp(.9rem, 1.35vw, 1rem); }
-.acc-hero__actions { display: flex; flex: 0 0 auto; align-items: center; gap: .5rem; flex-wrap: wrap; justify-content: flex-end; }
+.acc-hero__actions { display: flex; flex: 0 0 auto; align-items: center; gap: .5rem; flex-wrap: wrap; justify-content: flex-end; width: 100%; }
 .acc-theme-select, .acc-hero-search { display: flex; align-items: center; gap: .45rem; }
 .acc-theme-select > span { color: var(--color-muted-foreground); font: 800 .65rem/1 var(--font-mono, ui-monospace, monospace); letter-spacing: .06em; text-transform: uppercase; }
 .acc-theme-select select, .acc-hero-search input, .acc-hero-search button { min-height: 44px; border: 1px solid var(--acc-presentation-border); border-radius: var(--radius); color: var(--color-foreground); background: color-mix(in srgb, var(--color-background) 90%, var(--acc-accent-primary) 10%); font: inherit; }
@@ -89,7 +89,7 @@ body {
 .acc-hero-search input { width: min(14rem, 22vw); padding: 0 .65rem; }
 .acc-hero-search button { padding: 0 .8rem; color: var(--acc-accent-primary); font-weight: 800; cursor: pointer; }
 .acc-hero-search-mobile { display: none; }
-.acc-brand-lockup { display: flex; flex: 1 1 auto; align-items: center; gap: clamp(.65rem, 1.4vw, 1rem); min-width: 0; }
+.acc-brand-lockup { display: flex; flex: 1 1 auto; align-items: center; gap: clamp(.65rem, 1.4vw, 1rem); min-width: 0; width: 100%; }
 .acc-brand-lockup > div { min-width: 0; }
 .acc-command-mark { display: block; flex: 0 0 auto; width: clamp(44px, 4.6vw, 56px); height: clamp(44px, 4.6vw, 56px); object-fit: contain; border-radius: 10px; background: #fff; filter: drop-shadow(0 0 10px color-mix(in srgb, var(--acc-cyan) 24%, transparent)); user-select: none; }
 
@@ -404,12 +404,6 @@ body {
   .acc-shell *, .acc-shell *::before, .acc-shell *::after { scroll-behavior: auto !important; transition-duration: .001ms !important; animation-duration: .001ms !important; animation-iteration-count: 1 !important; }
 }
 
-@media (max-width: 1480px) {
-  .acc-hero { align-items: flex-start; flex-direction: column; }
-  .acc-brand-lockup, .acc-hero__actions { width: 100%; }
-  .acc-hero__actions { justify-content: flex-start; }
-}
-
 @media (max-width: 900px) {
   .acc-overview-destination-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .acc-portfolio-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -430,6 +424,7 @@ body {
   .acc-brand-lockup { align-items: flex-start; }
   .acc-command-mark { width: 38px; height: 38px; }
   .acc-shell--subview .acc-hero { align-items: center; flex-direction: row; padding: .7rem .8rem; }
+  .acc-shell--subview .acc-brand-lockup, .acc-shell--subview .acc-hero__actions { width: auto; }
   .acc-shell--subview .acc-command-mark { width: 32px; height: 32px; }
   .acc-shell--subview .acc-brand-lockup { align-items: center; gap: .55rem; }
   .acc-shell--subview .acc-hero .acc-kicker,

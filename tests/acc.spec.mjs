@@ -281,16 +281,24 @@ test('theme preference persists locally while status colors and reduced motion s
   await expect(page.locator('.acc-shell')).toHaveAttribute('data-acc-theme', 'current-dark');
 });
 
-test('desktop hero controls do not overlap the identity at 1210px', async ({ page }) => {
+test('desktop hero is concise with a smaller left title and right-aligned controls below', async ({ page }) => {
   await page.setViewportSize({ width: 1210, height: 700 });
   await page.goto(pluginUrl);
   await page.getByLabel('Presentation theme').selectOption('matrix');
+  await expect(page.getByText('AUTOBOT SYSTEMS · READ-ONLY PROJECTION', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('What we built, what the evidence established, and what is available now.', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Prototype fixtures', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Dev fixtures', { exact: true })).toBeVisible();
   const geometry = await page.locator('.acc-hero h1').evaluate((heading) => {
     const range = document.createRange();
     range.selectNodeContents(heading);
     const text = range.getBoundingClientRect();
     const actions = document.querySelector('.acc-hero__actions').getBoundingClientRect();
     return {
+      fontSize: Number.parseFloat(getComputedStyle(heading).fontSize),
+      leftAligned: getComputedStyle(heading).textAlign === 'left' || getComputedStyle(heading).textAlign === 'start',
+      controlsBelow: actions.top > text.bottom,
+      controlsAlignment: getComputedStyle(document.querySelector('.acc-hero__actions')).justifyContent,
       clipped: heading.scrollWidth > heading.clientWidth + 1,
       overlaps: text.left < actions.right
         && text.right > actions.left
@@ -298,7 +306,15 @@ test('desktop hero controls do not overlap the identity at 1210px', async ({ pag
         && text.bottom > actions.top,
     };
   });
-  expect(geometry).toEqual({ clipped: false, overlaps: false });
+  expect(geometry).toEqual({
+    fontSize: expect.any(Number),
+    leftAligned: true,
+    controlsBelow: true,
+    controlsAlignment: 'flex-end',
+    clipped: false,
+    overlaps: false,
+  });
+  expect(geometry.fontSize).toBeLessThanOrEqual(42);
 });
 
 test('mobile hero exposes a 44px Search button and Search has no horizontal overflow', async ({ page }) => {
@@ -612,10 +628,10 @@ test('benchmark domain is reload-stable and participates in browser history', as
   expect(errors.filter((message) => /hooks|rendered fewer|rendered more/i.test(message))).toEqual([]);
 });
 
-test('mobile detail routes retain an immediate fixture warning', async ({ page }) => {
+test('mobile detail routes retain an immediate Dev fixture disclosure', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(pluginUrl + '?view=benchmarks&condition=qwen36-awq-vllm');
-  const label = page.getByText('Prototype fixtures', { exact: true });
+  const label = page.getByText('Dev fixtures', { exact: true });
   await expect(label).toBeVisible();
   expect(await label.evaluate((node) => node.getBoundingClientRect().top)).toBeLessThan(844);
 });

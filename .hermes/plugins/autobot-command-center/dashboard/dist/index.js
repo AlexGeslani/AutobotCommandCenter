@@ -2261,6 +2261,7 @@
             "div",
             { className: "acc-trust__title-row" },
             h("h2", { id: "acc-trust-title" }, invalid.length ? "Source confidence degraded" : "Sources verified"),
+            h(Badge, { tone: "warn" }, "Dev fixtures"),
             h(Badge, { tone: invalid.length ? "warn" : "good" }, `${sources.length - invalid.length}/${sources.length} claim-safe`)
           ),
           h("p", null, invalid.length ? "Availability and publication claims are withheld where authority is stale or missing." : "All displayed claims are backed by current authoritative sources.")
@@ -3438,9 +3439,7 @@
             h(
               "div",
               null,
-              h("p", { className: "acc-kicker" }, "AUTOBOT SYSTEMS \xB7 READ-ONLY PROJECTION"),
-              h("h1", null, "Autobot Command Center"),
-              h("p", { className: "acc-hero__subtitle" }, "What we built, what the evidence established, and what is available now.")
+              h("h1", null, "Autobot Command Center")
             )
           ),
           h(
@@ -3471,7 +3470,7 @@
               h("button", { type: "submit" }, "Search")
             ),
             h("button", { type: "button", className: "acc-secondary-button acc-hero-search-mobile", onClick: () => go({ view: "search" }) }, "Search"),
-            h(Badge, { tone: analyticsFixture ? "warn" : isAnalytics ? "good" : "warn" }, analyticsFixture ? "Illustrative fixture" : isAnalytics ? "Read-only analytics" : "Prototype fixtures"),
+            isAnalytics ? h(Badge, { tone: analyticsFixture ? "warn" : "good" }, analyticsFixture ? "Illustrative fixture" : "Read-only analytics") : null,
             h("button", { type: "button", className: "acc-secondary-button", onClick: () => go({ view: "evidence" }) }, "Evidence index")
           )
         ),
