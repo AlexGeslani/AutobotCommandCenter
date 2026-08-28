@@ -3034,13 +3034,86 @@
         availability: (row) => getEffectiveAvailability(row.condition)
       });
       const leaderboardSort = useSortableRows(getLeaderboard(domain, RELEASES[domain]).map((row, index) => ({ ...row, canonicalRank: index + 1 })), leaderboardColumns);
+      if (route.mode === "methodology") return h(
+        "article",
+        { className: "acc-view acc-detail acc-benchmark-methodology" },
+        h(
+          "div",
+          { className: "acc-detail__hero" },
+          h(
+            "div",
+            null,
+            h("p", { className: "acc-eyebrow" }, "Model Observatory"),
+            h("h2", null, "Testing philosophy"),
+            h("p", { className: "acc-lede" }, "Three complementary suites test whether an exact model condition can follow instructions, use native tools, and complete sustained multi-turn work.")
+          ),
+          h("button", { type: "button", className: "acc-back", onClick: () => go({ view: "benchmarks" }) }, "Back to Benchmarks")
+        ),
+        h(
+          "section",
+          { className: "acc-methodology-principles", "aria-labelledby": "acc-methodology-principles-title" },
+          h("h3", { id: "acc-methodology-principles-title" }, "What the comparison is designed to answer"),
+          h("p", null, "The goal is not a universal intelligence score. It is a repeatable operational comparison of exact tested conditions across three capabilities that matter in daily agent work."),
+          h(
+            "ul",
+            null,
+            h("li", null, h("strong", null, "Same work:"), " every condition receives the same frozen selection within a suite release."),
+            h("li", null, h("strong", null, "Exact condition identity:"), " model, provider or runtime, quantization, reasoning mode, and deployment geometry stay attached to the result."),
+            h("li", null, h("strong", null, "Verified evidence only:"), " a capability score appears only after final verification. Active and queued work remains progress, never a zero score."),
+            h("li", null, h("strong", null, "No hidden universal rank:"), " suite scores remain separate. The current average is an equal-weight summary of verified suites available for that condition, with coverage shown explicitly.")
+          )
+        ),
+        h(
+          "section",
+          { "aria-labelledby": "acc-methodology-suites-title" },
+          h("h3", { id: "acc-methodology-suites-title" }, "Why these benchmarks"),
+          h(
+            "div",
+            { className: "acc-methodology-grid" },
+            h(
+              "article",
+              { className: "acc-methodology-card" },
+              h("p", { className: "acc-eyebrow" }, "Instruction following"),
+              h("h3", null, "IFEval"),
+              h("strong", { className: "acc-methodology-size" }, "40 frozen prompts"),
+              h("p", null, "Chosen because it checks whether a model follows explicit, objectively verifiable instructions instead of merely producing a plausible answer. The primary score is strict prompt-level success across the frozen selection.")
+            ),
+            h(
+              "article",
+              { className: "acc-methodology-card" },
+              h("p", { className: "acc-eyebrow" }, "Native tool use"),
+              h("h3", null, "BFCL V4"),
+              h("strong", { className: "acc-methodology-size" }, "150 frozen scored cases"),
+              h("p", null, "Chosen because real agent work depends on selecting the right function and producing valid arguments across single-turn and multi-turn tool situations. Complete collection requires 261 generated rows for the 150 scored cases.")
+            ),
+            h(
+              "article",
+              { className: "acc-methodology-card" },
+              h("p", { className: "acc-eyebrow" }, "Multi-turn agent work"),
+              h("h3", null, "tau2"),
+              h("strong", { className: "acc-methodology-size" }, "50 frozen tasks"),
+              h("small", null, "25 Retail \xB7 25 Telecom"),
+              h("p", null, "Chosen because it tests whether a model can preserve state, reason through a workflow, use tools, and recover across a sustained simulated interaction\u2014not just answer one isolated prompt.")
+            )
+          )
+        ),
+        h(
+          "section",
+          { className: "acc-boundary", "aria-labelledby": "acc-methodology-boundary-title" },
+          h("h3", { id: "acc-methodology-boundary-title" }, "Interpretation boundary"),
+          h("p", null, "Scores compare the represented tested conditions on these frozen selections. They do not claim universal capability, current service availability, or performance outside the recorded release and deployment envelope.")
+        )
+      );
       const condition = !isRollup && route.condition ? getCondition(route.condition) : null;
       if (condition) return h(ConditionDetail, { condition, route, go, domain });
       if (!route.domain) return h(
         "div",
-        { className: "acc-view" },
-        h(SectionHeading, { eyebrow: "Model Observatory", title: "Benchmarks" }),
-        h("p", { className: "acc-lede" }, "Compare every tested model through the same three operational scores, then open a condition for suite-level evidence and caveats."),
+        { className: "acc-view acc-benchmark-view" },
+        h(SectionHeading, {
+          eyebrow: "Model Observatory",
+          title: "Benchmarks",
+          action: h("button", { type: "button", className: "acc-secondary-button", onClick: () => go({ view: "benchmarks", mode: "methodology" }) }, "Testing philosophy")
+        }),
         h(ThreeScoreComparison, { go }),
         h(MeasuredBenchmarkVisuals, { go })
       );

@@ -408,6 +408,16 @@
 .acc-detail__hero .acc-lede { margin: .55rem 0 0; }
 .acc-detail-grid, .acc-fact-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
 .acc-detail-grid > section, .acc-fact-grid > div { padding: .85rem; border: 1px solid var(--color-border); border-radius: var(--radius); }
+.acc-methodology-principles { display: grid; gap: .65rem; }
+.acc-methodology-principles p, .acc-methodology-principles ul { margin: 0; color: var(--color-muted-foreground); line-height: 1.6; }
+.acc-methodology-principles ul { display: grid; gap: .45rem; padding-left: 1.25rem; }
+.acc-methodology-principles strong { color: var(--color-foreground); }
+.acc-methodology-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; margin-top: .65rem; }
+.acc-methodology-card { display: grid; align-content: start; gap: .65rem; padding: 1rem; border: 1px solid var(--color-border); border-radius: var(--radius); background: color-mix(in srgb, var(--color-muted) 34%, transparent); }
+.acc-methodology-card h3, .acc-methodology-card p { margin: 0; }
+.acc-methodology-card p:last-child { color: var(--color-muted-foreground); line-height: 1.55; }
+.acc-methodology-card small { color: var(--color-muted-foreground); }
+.acc-methodology-size { color: var(--acc-amber); font: 850 1.05rem var(--font-mono, ui-monospace, monospace); }
 .acc-detail-grid h3, .acc-related h3, .acc-detail section > h3 { margin: 0 0 .55rem; font-size: .85rem; }
 .acc-detail-grid p, .acc-detail-grid ul { margin: 0; color: var(--color-muted-foreground); font-size: .82rem; line-height: 1.55; }
 .acc-detail-grid ul { padding-left: 1rem; }
@@ -680,6 +690,7 @@
   .acc-mobile-row__identity small { color: var(--color-muted-foreground); font-size: .65rem; }
   .acc-mobile-row .acc-score { font-size: .95rem; }
   .acc-detail__hero, .acc-result-line { align-items: flex-start; flex-direction: column; }
+  .acc-methodology-grid { grid-template-columns: 1fr; }
   .acc-result-line .acc-secondary-button { width: 100%; }
   .acc-footer { flex-direction: column; }
 }

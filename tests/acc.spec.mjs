@@ -190,6 +190,29 @@ test('benchmark landing prioritizes the model comparison and leaves suite detail
   }
 });
 
+test('benchmark heading opens a detailed testing philosophy without a landing-page description', async ({ page }) => {
+  await page.goto(pluginUrl + '?view=benchmarks');
+  const landing = page.locator('.acc-benchmark-view');
+  await expect(landing.locator(':scope > .acc-lede')).toHaveCount(0);
+  const philosophyButton = landing.locator('.acc-section-heading').first().getByRole('button', { name: 'Testing philosophy' });
+  await expect(philosophyButton).toBeVisible();
+  await philosophyButton.click();
+  await expect(page).toHaveURL(/view=benchmarks.*mode=methodology/);
+  await expect(page.getByRole('heading', { name: 'Testing philosophy' })).toBeVisible();
+  for (const benchmark of ['IFEval', 'BFCL V4', 'tau2']) {
+    await expect(page.getByRole('heading', { name: benchmark })).toBeVisible();
+  }
+  await expect(page.getByText('40 frozen prompts', { exact: true })).toBeVisible();
+  await expect(page.getByText('150 frozen scored cases', { exact: true })).toBeVisible();
+  await expect(page.getByText('50 frozen tasks', { exact: true })).toBeVisible();
+  await expect(page.getByText('25 Retail · 25 Telecom', { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Testing philosophy' })).toBeVisible();
+  await page.getByRole('button', { name: 'Back to Benchmarks' }).click();
+  await expect(page).toHaveURL(/view=benchmarks(?!.*mode=methodology)/);
+  await expect(page.getByRole('heading', { name: 'Three-score model comparison' })).toBeVisible();
+});
+
 test('Analytics exposes scalable domains and a truthful KFC real-data route', async ({ page }) => {
   await routeWebAnalytics(page);
   await page.goto(pluginUrl + '?view=analytics');
