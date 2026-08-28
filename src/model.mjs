@@ -9,7 +9,7 @@ export const NAV_ITEMS = [
   { id: 'analytics', label: 'Analytics' },
   { id: 'benchmarks', label: 'Benchmarks' },
   { id: 'skills', label: 'Skill Registry' },
-  { id: 'hivemind', label: 'Hive Mind' },
+  { id: 'search', label: 'Search' },
 ];
 
 export const fixtures = {
@@ -525,6 +525,73 @@ export function getShowcaseSkills() {
   return getSkillsProjection(showcaseProjection);
 }
 
+export function getLocalAccSearchRecords() {
+  const portfolio = getShowcasePortfolio();
+  const skills = getShowcaseSkills();
+  const portfolioRecords = portfolio.internalProducts.map((product) => ({
+    id: `portfolio:${product.id}`,
+    kind: 'portfolio',
+    title: product.name,
+    summary: product.value,
+    keywords: [product.kind, product.state, product.outcome, product.limitation, ...(product.worksNow || [])],
+    route: { view: 'portfolio', product: product.id },
+  }));
+  const skillRecords = skills.operationalSkills.map((skill) => ({
+    id: `skills:${skill.id}`,
+    kind: 'skills',
+    title: skill.name,
+    summary: skill.description,
+    keywords: [skill.category, skill.version, 'skill registry reusable operational knowledge'],
+    route: { view: 'skills', skill: skill.id },
+  }));
+  const benchmarkRecords = getBenchmarkComparison().map((profile) => ({
+    id: `benchmarks:${profile.conditionId}`,
+    kind: 'benchmarks',
+    title: profile.condition.shortName,
+    summary: `${profile.condition.provider} · ${profile.condition.runtime} · ${profile.condition.quantization}`,
+    keywords: [
+      'benchmark condition measured IFEval BFCL tau2',
+      profile.condition.reasoning,
+      profile.note,
+      ...Object.values(profile.scores).flatMap((score) => [score.label, score.benchmark, score.denominator]),
+    ],
+    route: { view: 'benchmarks', condition: profile.conditionId },
+  }));
+  const analyticsRecords = [
+    {
+      id: 'analytics:kungfuclan.com', kind: 'analytics', title: 'Kung Fu Clan analytics',
+      summary: 'Cloudflare edge aggregates with requests, visits, transfer, cache behavior, countries, and coverage.',
+      keywords: ['kungfuclan.com KFC web property cloudflare visits traffic world map'],
+      route: { view: 'analytics', domain: 'web', subject: 'kungfuclan.com', range: '30d' },
+    },
+    {
+      id: 'analytics:alexgeslani.com', kind: 'analytics', title: 'alexgeslani.com analytics',
+      summary: 'Cloudflare edge aggregate reporting for alexgeslani.com.',
+      keywords: ['web property cloudflare visits traffic coverage'],
+      route: { view: 'analytics', domain: 'web', subject: 'alexgeslani.com', range: '30d' },
+    },
+    {
+      id: 'analytics:provider-usage', kind: 'analytics', title: 'Provider usage',
+      summary: 'Sanitized subscription and search quota windows with explicit authority boundaries.',
+      keywords: ['codex chatgpt claude antigravity brave search limits quota analytics'],
+      route: { view: 'analytics', domain: 'ai', subject: 'provider-usage' },
+    },
+  ];
+  return [...portfolioRecords, ...skillRecords, ...benchmarkRecords, ...analyticsRecords];
+}
+
+export function filterLocalAcc(query) {
+  const terms = String(query || '').normalize('NFKC').toLocaleLowerCase('en').trim().split(/\s+/).filter(Boolean);
+  if (!terms.length) return [];
+  return getLocalAccSearchRecords().filter((record) => {
+    const haystack = [record.title, record.summary, record.kind, ...(record.keywords || [])]
+      .join(' ')
+      .normalize('NFKC')
+      .toLocaleLowerCase('en');
+    return terms.every((term) => haystack.includes(term));
+  });
+}
+
 export function getOverviewProjection() {
   return {
     sectionOrder: ['provider-usage', 'source-exceptions', 'destinations', 'recently-landed'],
@@ -538,27 +605,35 @@ export function getOverviewProjection() {
   };
 }
 
+const ROUTE_KEYS = ['view', 'q', 'domain', 'subject', 'range', 'mode', 'product', 'condition', 'result', 'release', 'run', 'skill', 'evaluation'];
+
 export function buildAccUrl(state = {}, basePath = '/autobot-command-center') {
+  const normalizedBase = basePath === '/' ? '' : String(basePath).replace(/\/$/, '');
+  const standaloneSearch = state.view === 'search' && !normalizedBase;
   const params = new URLSearchParams();
-  for (const key of ['view', 'domain', 'subject', 'range', 'mode', 'product', 'condition', 'result', 'release', 'run', 'skill', 'evaluation']) {
+  for (const key of ROUTE_KEYS) {
+    if (standaloneSearch && key === 'view') continue;
     if (state[key]) params.set(key, state[key]);
   }
   const query = params.toString();
-  return `${basePath}${query ? `?${query}` : ''}`;
+  const path = standaloneSearch ? '/search' : (normalizedBase || '/');
+  return `${path}${query ? `?${query}` : ''}`;
 }
 
 export function parseAccUrl(input) {
   const url = new URL(input, 'http://localhost');
   const state = {};
-  for (const key of ['view', 'domain', 'subject', 'range', 'mode', 'product', 'condition', 'result', 'release', 'run', 'skill', 'evaluation']) {
+  for (const key of ROUTE_KEYS) {
     const value = url.searchParams.get(key);
     if (value) state[key] = value;
   }
+  if (url.pathname === '/search') state.view = 'search';
   if (!state.view) state.view = 'overview';
   return state;
 }
 
 export function canonicalizeAccRoute(route = {}) {
   if (route.view === 'usage') return { view: 'analytics', domain: 'ai', subject: 'provider-usage' };
+  if (route.view === 'hivemind') return { view: 'search', ...(route.q ? { q: route.q } : {}) };
   return { ...route };
 }

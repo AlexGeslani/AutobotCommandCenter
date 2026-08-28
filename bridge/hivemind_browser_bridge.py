@@ -18,6 +18,124 @@ DEFAULT_ALLOWED_ORIGINS = (
     "http://localhost:9129",
 )
 MAX_REQUEST_BYTES = 64 * 1024
+ACC_PATH_SCHEMA_VERSION = "acc-path-config-v1"
+PATH_CONTRACT_FILE = Path(__file__).parents[1] / "config" / "paths.v1.json"
+PATH_ENV_KEYS = {
+    "hiveMindClient": "HIVEMIND_CLIENT_PATH",
+    "hiveMindTokenFile": "HIVEMIND_TOKEN_FILE",
+    "hiveMindTlsPinFile": "HIVEMIND_TLS_PIN_FILE",
+    "providerUsagePrivateCacheDir": "ACC_PROVIDER_USAGE_PRIVATE_DIR",
+    "braveHermesEnvFile": "ACC_BRAVE_HERMES_ENV_FILE",
+    "showcaseSkillsRoot": "HERMES_SKILLS_ROOT",
+}
+
+
+class PathConfigError(ValueError):
+    """Raised when path-only configuration violates the shared ACC contract."""
+
+
+def _load_path_contract() -> dict[str, Any]:
+    try:
+        value = json.loads(PATH_CONTRACT_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise PathConfigError("ACC path contract is unavailable") from exc
+    if not isinstance(value, dict) or value.get("schemaVersion") != ACC_PATH_SCHEMA_VERSION:
+        raise PathConfigError(f"path contract must use {ACC_PATH_SCHEMA_VERSION}")
+    if set(value) != {"schemaVersion", "paths"} or not isinstance(value.get("paths"), dict):
+        raise PathConfigError("path contract has an invalid field set")
+    if set(value["paths"]) != set(PATH_ENV_KEYS):
+        raise PathConfigError("path contract has an incomplete or unknown path set")
+    for name, spec in value["paths"].items():
+        if not isinstance(spec, dict) or set(spec) != {"kind", "required", "default"}:
+            raise PathConfigError(f"{name} has an invalid path specification")
+        default = spec.get("default")
+        if spec.get("kind") not in {"file", "directory"} or not isinstance(spec.get("required"), bool):
+            raise PathConfigError(f"{name} has an invalid path type")
+        if not isinstance(default, str) or not default.strip() or Path(default).is_absolute() or default == ".." or default.startswith("../"):
+            raise PathConfigError(f"{name} default must be a portable home-relative path")
+    return value
+
+
+def _portable_path(raw: object, home: Path, name: str) -> Path:
+    if not isinstance(raw, str) or not raw.strip():
+        raise PathConfigError(f"{name} must be a non-empty path string")
+    value = raw.strip()
+    if "\0" in value:
+        raise PathConfigError(f"{name} contains an invalid path character")
+    if value == "~":
+        return Path(os.path.abspath(home))
+    if value.startswith("~/"):
+        return Path(os.path.abspath(home / value[2:]))
+    candidate = Path(value)
+    if candidate.is_absolute():
+        return Path(os.path.abspath(candidate))
+    if value == ".." or value.startswith("../"):
+        raise PathConfigError(f"{name} relative path cannot escape the configured home")
+    return Path(os.path.abspath(home / candidate))
+
+
+def resolve_path_config(
+    *,
+    home: Path | None = None,
+    env: dict[str, str] | os._Environ[str] | None = None,
+    local_config: object = None,
+    overrides: dict[str, str] | None = None,
+) -> dict[str, Path]:
+    contract = _load_path_contract()
+    home = Path.home() if home is None else Path(home)
+    env = os.environ if env is None else env
+    overrides = {} if overrides is None else overrides
+    if not isinstance(overrides, dict):
+        raise PathConfigError("path overrides must be an object")
+    if local_config is None:
+        local_paths: dict[str, object] = {}
+    else:
+        if not isinstance(local_config, dict) or local_config.get("schemaVersion") != ACC_PATH_SCHEMA_VERSION:
+            raise PathConfigError(f"local path config must use {ACC_PATH_SCHEMA_VERSION}")
+        if set(local_config) != {"schemaVersion", "paths"} or not isinstance(local_config.get("paths"), dict):
+            raise PathConfigError("local path config has a non-path field")
+        local_paths = local_config["paths"]
+    names = set(contract["paths"])
+    for source in (local_paths, overrides):
+        for name, raw in source.items():
+            if name not in names:
+                raise PathConfigError(f"unknown path {name}")
+            if raw is not None and not isinstance(raw, str):
+                raise PathConfigError(f"{name} must be a path string")
+    return {
+        name: _portable_path(
+            local_paths.get(name) or overrides.get(name) or env.get(PATH_ENV_KEYS[name]) or spec["default"],
+            home,
+            name,
+        )
+        for name, spec in contract["paths"].items()
+    }
+
+
+def load_path_config(
+    *,
+    config_path: str | None = None,
+    home: Path | None = None,
+    env: dict[str, str] | os._Environ[str] | None = None,
+    overrides: dict[str, str] | None = None,
+) -> dict[str, Path]:
+    home = Path.home() if home is None else Path(home)
+    env = os.environ if env is None else env
+    selected = config_path or env.get("ACC_PATH_CONFIG")
+    local_config = None
+    if selected:
+        path = _portable_path(selected, home, "pathConfig")
+        try:
+            local_config = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise PathConfigError("external ACC path config is unavailable or invalid") from exc
+    return resolve_path_config(home=home, env=env, local_config=local_config, overrides=overrides)
+
+
+def validate_required_bridge_paths(paths: dict[str, Path]) -> None:
+    required = ("hiveMindClient", "hiveMindTokenFile", "hiveMindTlsPinFile")
+    if any(not isinstance(paths.get(name), Path) or not paths[name].is_file() for name in required):
+        raise PathConfigError("required protected bridge resource is unavailable")
 
 
 def normalize_search_request(
@@ -181,11 +299,27 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bind", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8788)
+    parser.add_argument("--path-config", default=None)
+    parser.add_argument("--client-path", default=None)
+    parser.add_argument("--token-file", default=None)
+    parser.add_argument("--tls-pin-file", default=None)
     args = parser.parse_args()
-    home = Path.home()
-    client_path = Path(os.environ.get("HIVEMIND_CLIENT_PATH", home / "Projects/hive-mind/scripts/hivemind_search.py"))
-    token_file = Path(os.environ.get("HIVEMIND_TOKEN_FILE", home / ".hermes/secrets/hivemind-qmd-adapter-token"))
-    tls_pin_file = Path(os.environ.get("HIVEMIND_TLS_PIN_FILE", home / ".hermes/trust/hivemind-qmd-dsm-cert.sha256"))
+    paths = load_path_config(
+        config_path=args.path_config,
+        overrides={
+            name: value
+            for name, value in {
+                "hiveMindClient": args.client_path,
+                "hiveMindTokenFile": args.token_file,
+                "hiveMindTlsPinFile": args.tls_pin_file,
+            }.items()
+            if value is not None
+        },
+    )
+    validate_required_bridge_paths(paths)
+    client_path = paths["hiveMindClient"]
+    token_file = paths["hiveMindTokenFile"]
+    tls_pin_file = paths["hiveMindTlsPinFile"]
     base_url = os.environ.get("HIVEMIND_BASE_URL", "").strip()
     approved_collections = tuple(
         item.strip()

@@ -137,9 +137,9 @@ describe('ACC product contract', () => {
     expect(snapshot.method).toMatch(/same sentence/i);
     expect(snapshot.observedAt).toBe('2026-07-26');
   });
-  it('adds Analytics as the sixth durable primary destination without renaming existing areas', () => {
+  it('keeps the durable primary destinations and names the sixth area Search', () => {
     expect(NAV_ITEMS.map((item) => item.label)).toEqual([
-      'Overview', 'Portfolio', 'Analytics', 'Benchmarks', 'Skill Registry', 'Hive Mind',
+      'Overview', 'Portfolio', 'Analytics', 'Benchmarks', 'Skill Registry', 'Search',
     ]);
   });
 

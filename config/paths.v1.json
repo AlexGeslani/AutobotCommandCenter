@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "acc-path-config-v1",
+  "paths": {
+    "hiveMindClient": {
+      "kind": "file",
+      "required": true,
+      "default": "Projects/hive-mind/scripts/hivemind_search.py"
+    },
+    "hiveMindTokenFile": {
+      "kind": "file",
+      "required": true,
+      "default": ".hermes/secrets/hivemind-qmd-adapter-token"
+    },
+    "hiveMindTlsPinFile": {
+      "kind": "file",
+      "required": true,
+      "default": ".hermes/trust/hivemind-qmd-dsm-cert.sha256"
+    },
+    "providerUsagePrivateCacheDir": {
+      "kind": "directory",
+      "required": false,
+      "default": ".acc-provider-usage"
+    },
+    "braveHermesEnvFile": {
+      "kind": "file",
+      "required": false,
+      "default": ".hermes/.env"
+    },
+    "showcaseSkillsRoot": {
+      "kind": "directory",
+      "required": false,
+      "default": ".hermes/skills"
+    }
+  }
+}

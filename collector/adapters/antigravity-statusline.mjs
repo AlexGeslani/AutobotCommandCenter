@@ -1,8 +1,8 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { homedir } from 'node:os';
+import { dirname } from 'node:path';
+import { DEFAULT_ACC_PATHS, pathInPrivateCache } from '../../src/path-config.mjs';
 
-export const ANTIGRAVITY_CACHE_PATH = join(process.env.ACC_PROVIDER_USAGE_PRIVATE_DIR || join(homedir(), '.acc-provider-usage'), 'antigravity-statusline.json');
+export const ANTIGRAVITY_CACHE_PATH = pathInPrivateCache('antigravity-statusline.json', DEFAULT_ACC_PATHS);
 
 const WINDOWS = {
   'gemini-5h': 'Gemini 5-hour window',

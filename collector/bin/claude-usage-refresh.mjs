@@ -2,15 +2,16 @@
 import { spawnSync } from 'node:child_process';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { homedir } from 'node:os';
-import { CLAUDE_CACHE_PATH } from '../adapters/claude-statusline.mjs';
+import { loadAccPathConfig, pathInPrivateCache } from '../../src/path-config.mjs';
 import {
   CLAUDE_USAGE_COMMAND_TIMEOUT_MS,
   buildClaudeUsageExpectProgram,
   refreshClaudeUsageCache,
 } from '../lib/claude-usage-refresh.mjs';
 
-const privateDir = process.env.ACC_PROVIDER_USAGE_PRIVATE_DIR || join(homedir(), '.acc-provider-usage');
+const paths = await loadAccPathConfig();
+const privateDir = paths.providerUsagePrivateCacheDir;
+const claudeCachePath = pathInPrivateCache('claude-statusline.json', paths);
 const emptyMcpPath = join(privateDir, 'claude-empty-mcp.json');
 
 async function writeAtomicJson(path, value) {
@@ -21,7 +22,7 @@ async function writeAtomicJson(path, value) {
 }
 
 async function readRecord() {
-  return JSON.parse(await readFile(CLAUDE_CACHE_PATH, 'utf8'));
+  return JSON.parse(await readFile(claudeCachePath, 'utf8'));
 }
 
 async function runUsage() {
@@ -41,7 +42,7 @@ try {
   const result = await refreshClaudeUsageCache({
     readRecord,
     runUsage,
-    writeRecord: (record) => writeAtomicJson(CLAUDE_CACHE_PATH, record),
+    writeRecord: (record) => writeAtomicJson(claudeCachePath, record),
   });
   process.stdout.write(`claude-usage-refresh=${result.outcome}\n`);
 } catch {

@@ -22,10 +22,12 @@ import {
   getShowcaseSkills,
   getSourceTrust,
   getOverviewProjection,
+  filterLocalAcc,
   buildAccUrl,
   parseAccUrl,
   canonicalizeAccRoute,
 } from './model.mjs';
+import { THEME_PRESENTATION, loadStoredTheme, persistTheme } from './theme.mjs';
 
 export function registerAutobotCommandCenter() {
   'use strict';
@@ -850,27 +852,32 @@ export function registerAutobotCommandCenter() {
     );
   }
 
-  function HiveMindSearch() {
+  function Search({ route, go }) {
     const apiBase = window.__ACC_HIVEMIND_API__ || 'http://127.0.0.1:8788';
-    const [query, setQuery] = useState('');
+    const [query, setQuery] = useState(route.q || '');
+    const [protectedQuery, setProtectedQuery] = useState(route.q || '');
     const [scope, setScope] = useState('all');
-    const [bridgeState, setBridgeState] = useState('checking');
+    const [bridgeState, setBridgeState] = useState('idle');
     const [searchState, setSearchState] = useState('idle');
     const [results, setResults] = useState([]);
     const [message, setMessage] = useState('');
 
     useEffect(() => {
-      let active = true;
-      fetch(`${apiBase}/health`, { cache: 'no-store' }).then(
-        (response) => { if (active) setBridgeState(response.ok ? 'ready' : 'unavailable'); },
-        () => { if (active) setBridgeState('unavailable'); },
-      );
-      return () => { active = false; };
-    }, [apiBase]);
+      setQuery(route.q || '');
+    }, [route.q]);
+
+    const localResults = filterLocalAcc(query);
+
+    function updateLocalQuery(event) {
+      const nextQuery = event.target.value;
+      setQuery(nextQuery);
+      const next = { view: 'search', ...(nextQuery ? { q: nextQuery } : {}) };
+      window.history.replaceState({}, '', buildAccUrl(next, window.__ACC_BASE_PATH__ || '/autobot-command-center'));
+    }
 
     async function submit(event) {
       event.preventDefault();
-      const cleanQuery = query.trim();
+      const cleanQuery = protectedQuery.trim();
       if (!cleanQuery) return;
       const collections = scope === 'all' ? ['wiki-hermes', 'wiki-openai'] : [scope];
       setSearchState('loading');
@@ -886,54 +893,77 @@ export function registerAutobotCommandCenter() {
         const payload = await response.json();
         if (!response.ok || !Array.isArray(payload.results)) throw new Error('search unavailable');
         setResults(payload.results);
+        setBridgeState('available');
         setSearchState('done');
         setMessage(payload.results.length ? `${payload.results.length} source-linked result${payload.results.length === 1 ? '' : 's'}` : 'No approved Wiki pages matched this search.');
       } catch {
+        setBridgeState('unavailable');
         setSearchState('error');
-        setMessage('Hive Mind search is unavailable on this device. Open ACC on the approved local host to use the protected bridge.');
+        setMessage('Protected knowledge search is unavailable. Local ACC results remain available above.');
       }
     }
 
-    return h('div', { className: 'acc-view acc-hivemind' },
+    return h('div', { className: 'acc-view acc-search' },
       h(SectionHeading, {
-        eyebrow: 'Live QMD retrieval',
-        title: 'Search Hive Mind',
-        action: h(StatusBadge, { state: bridgeState === 'ready' ? 'available' : bridgeState === 'checking' ? 'unknown' : 'unavailable' }),
+        eyebrow: 'Local-first discovery',
+        title: 'Search',
+        action: h(Badge, { tone: 'good' }, 'Local index'),
       }),
-      h('p', { className: 'acc-lede' }, 'Search approved current-authority pages across wiki-hermes and wiki-openai. Results are read-only evidence with source paths—not a replacement for canonical Markdown.'),
-      h('form', { className: 'acc-hivemind-form', onSubmit: submit },
-        h('label', { className: 'acc-field acc-field--query' },
-          h('span', null, 'Search query'),
-          h('input', {
-            type: 'search', value: query, maxLength: 2048, autoComplete: 'off', placeholder: 'Project Grin, benchmark policy, voice decisions…',
-            onChange: (event) => setQuery(event.target.value),
-          }),
-        ),
-        h('label', { className: 'acc-field' },
-          h('span', null, 'Wiki scope'),
-          h('select', { value: scope, onChange: (event) => setScope(event.target.value) },
-            h('option', { value: 'all' }, 'Both Wikis'),
-            h('option', { value: 'wiki-hermes' }, 'wiki-hermes'),
-            h('option', { value: 'wiki-openai' }, 'wiki-openai'),
-          ),
-        ),
-        h('button', { type: 'submit', className: 'acc-primary-button', disabled: searchState === 'loading' || !query.trim() }, searchState === 'loading' ? 'Searching…' : 'Search'),
+      h('p', { className: 'acc-lede' }, 'Typing filters the bundled ACC index immediately. Results cover Portfolio, Skills, measured benchmark conditions, and analytics subjects without a network request.'),
+      h('label', { className: 'acc-field acc-local-search-field' },
+        h('span', null, 'Search ACC'),
+        h('input', {
+          type: 'search', value: query, maxLength: 256, autoComplete: 'off', placeholder: 'Portfolio, skills, Qwen 35B, Cloudflare visits…',
+          onChange: updateLocalQuery,
+        }),
       ),
-      message ? h('p', { className: cx('acc-search-status', searchState === 'error' && 'is-error'), role: 'status' }, message) : null,
-      results.length ? h('section', { className: 'acc-search-results', 'aria-label': 'Hive Mind search results' }, results.map((result, index) =>
-        h('article', { className: 'acc-search-result', key: `${result.file}-${result.line ?? index}` },
-          h('div', { className: 'acc-search-result__heading' },
-            h('div', null, h('span', { className: 'acc-rank' }, `#${index + 1}`), h('h3', null, result.title || result.file)),
-            h(Badge, null, result.file.startsWith('wiki-hermes/') ? 'wiki-hermes' : 'wiki-openai'),
-          ),
-          h('div', { className: 'acc-search-result__source' },
-            h('code', { className: 'acc-search-result__path' }, result.file),
-            result.line ? h('span', null, `Line ${result.line}`) : null,
-          ),
-          result.snippet ? h('pre', { className: 'acc-search-result__snippet' }, result.snippet) : null,
+      query ? h('section', { className: 'acc-local-search-results', 'aria-label': 'Local ACC search results', 'aria-live': 'polite' },
+        h('p', { className: 'acc-search-status' }, `${localResults.length} local result${localResults.length === 1 ? '' : 's'}`),
+        localResults.map((record) => h('button', {
+          type: 'button', key: record.id, className: 'acc-local-search-result', onClick: () => go(record.route),
+        }, h('span', null, h(Badge, null, record.kind), h('strong', null, record.title), h('small', null, record.summary)), h('span', { 'aria-hidden': true }, '→'))),
+        !localResults.length ? h('p', { className: 'acc-empty-state' }, 'No local ACC records matched. Try a product, skill, benchmark condition, or analytics subject.') : null,
+      ) : h('p', { className: 'acc-empty-state' }, 'Start typing to filter the deterministic local index.'),
+      h('section', { className: 'acc-protected-search', 'aria-labelledby': 'acc-protected-search-title' },
+        h('div', { className: 'acc-ranking-heading' },
+          h('div', null, h('p', { className: 'acc-eyebrow' }, 'Explicit protected fallback'), h('h2', { id: 'acc-protected-search-title' }, 'Protected knowledge')),
+          h(StatusBadge, { state: bridgeState === 'available' ? 'available' : bridgeState === 'unavailable' ? 'unavailable' : 'unknown' }),
         ),
-      )) : null,
-      h('div', { className: 'acc-prototype-note' }, 'This interface uses a protected server-side bridge on an approved local host. Search credentials and certificate trust never enter the browser; the ACC dev surface remains trusted-LAN only.'),
+        h('p', { className: 'acc-protected-search__copy' }, 'Submit a separate bounded request only when local ACC results are not enough. Nothing is sent while you type, and failed requests are not retried.'),
+        h('form', { className: 'acc-hivemind-form', onSubmit: submit },
+          h('label', { className: 'acc-field acc-field--query' },
+            h('span', null, 'Protected knowledge query'),
+          h('input', {
+              type: 'search', value: protectedQuery, maxLength: 2048, autoComplete: 'off', placeholder: 'Project Grin, benchmark policy, voice decisions…',
+              onChange: (event) => setProtectedQuery(event.target.value),
+            }),
+          ),
+          h('label', { className: 'acc-field' },
+            h('span', null, 'Approved scope'),
+            h('select', { value: scope, onChange: (event) => setScope(event.target.value) },
+              h('option', { value: 'all' }, 'Both approved Wikis'),
+              h('option', { value: 'wiki-hermes' }, 'wiki-hermes'),
+              h('option', { value: 'wiki-openai' }, 'wiki-openai'),
+            ),
+          ),
+          h('button', { type: 'submit', className: 'acc-primary-button', disabled: searchState === 'loading' || !protectedQuery.trim() }, searchState === 'loading' ? 'Searching…' : 'Search protected knowledge'),
+        ),
+        message ? h('p', { className: cx('acc-search-status', searchState === 'error' && 'is-error'), role: 'status' }, message) : null,
+        results.length ? h('section', { className: 'acc-search-results', 'aria-label': 'Protected knowledge search results' }, results.map((result, index) =>
+          h('article', { className: 'acc-search-result', key: `${result.file}-${result.line ?? index}` },
+            h('div', { className: 'acc-search-result__heading' },
+              h('div', null, h('span', { className: 'acc-rank' }, `#${index + 1}`), h('h3', null, result.title || result.file)),
+              h(Badge, null, 'Read-only source'),
+            ),
+            h('div', { className: 'acc-search-result__source' },
+              h('code', { className: 'acc-search-result__path' }, result.file),
+              result.line ? h('span', null, `Line ${result.line}`) : null,
+            ),
+            result.snippet ? h('pre', { className: 'acc-search-result__snippet' }, result.snippet) : null,
+          ),
+        )) : null,
+        h('div', { className: 'acc-prototype-note' }, 'The protected bridge holds credentials and certificate trust outside the browser. Results are source-linked, read-only evidence—not a replacement for canonical Markdown.'),
+      ),
     );
   }
 
@@ -946,6 +976,8 @@ export function registerAutobotCommandCenter() {
   function App() {
     const [route, setRoute] = useState(() => canonicalizeAccRoute(parseAccUrl(window.location.href)));
     const [providerUsage, setProviderUsage] = useState(() => providerUsageFallback());
+    const [theme, setTheme] = useState(() => loadStoredTheme());
+    const [heroQuery, setHeroQuery] = useState('');
     const mainRef = useRef(null);
     useEffect(() => {
       let active = true;
@@ -957,7 +989,7 @@ export function registerAutobotCommandCenter() {
     }, []);
     useEffect(() => {
       const parsed = parseAccUrl(window.location.href);
-      if (parsed.view === 'usage') {
+      if (parsed.view === 'usage' || parsed.view === 'hivemind') {
         const target = canonicalizeAccRoute(parsed);
         window.history.replaceState({}, '', buildAccUrl(target, window.__ACC_BASE_PATH__ || '/autobot-command-center'));
         setRoute(target);
@@ -981,20 +1013,30 @@ export function registerAutobotCommandCenter() {
       window.scrollTo({ top: 0, behavior: 'auto' });
     }
 
+    function submitHeroSearch(event) {
+      event.preventDefault();
+      const query = heroQuery.trim();
+      go({ view: 'search', ...(query ? { q: query } : {}) });
+    }
+
+    function selectTheme(event) {
+      setTheme(persistTheme(event.target.value));
+    }
+
     const primaryView = NAV_ITEMS.some((item) => item.id === route.view) ? route.view : null;
     let content;
     if (route.view === 'portfolio') content = h(Portfolio, { route, go });
     else if (route.view === 'analytics') content = h(Analytics, { route, go, providerUsage });
     else if (route.view === 'benchmarks') content = h(Benchmarks, { route, go });
     else if (route.view === 'skills') content = h(Skills, { route, go });
-    else if (route.view === 'hivemind') content = h(HiveMindSearch);
+    else if (route.view === 'search') content = h(Search, { route, go });
     else if (route.view === 'evidence') content = h(Evidence, { route, go });
     else content = h(Overview, { go, providerUsage });
 
     const isAnalytics = route.view === 'analytics';
     const analyticsFixture = isAnalytics && route.mode === 'fixture';
 
-    return h('div', { className: cx('acc-shell', route.view !== 'overview' && 'acc-shell--subview') },
+    return h('div', { className: cx('acc-shell', route.view !== 'overview' && 'acc-shell--subview'), 'data-acc-theme': theme },
       h('header', { className: 'acc-hero' },
         h('div', { className: 'acc-brand-lockup' },
           h(CommandCenterMark),
@@ -1005,6 +1047,21 @@ export function registerAutobotCommandCenter() {
           ),
         ),
         h('div', { className: 'acc-hero__actions' },
+          h('label', { className: 'acc-theme-select' },
+            h('span', null, 'Theme'),
+            h('select', { value: theme, 'aria-label': 'Presentation theme', onChange: selectTheme },
+              Object.entries(THEME_PRESENTATION).map(([value, option]) => h('option', { value, key: value }, option.label)),
+            ),
+          ),
+          h('form', { className: 'acc-hero-search', role: 'search', onSubmit: submitHeroSearch },
+            h('label', { className: 'acc-sr-only', htmlFor: 'acc-hero-search-input' }, 'Search ACC from header'),
+            h('input', {
+              id: 'acc-hero-search-input', type: 'search', value: heroQuery, placeholder: 'Search ACC', autoComplete: 'off',
+              onChange: (event) => setHeroQuery(event.target.value),
+            }),
+            h('button', { type: 'submit' }, 'Search'),
+          ),
+          h('button', { type: 'button', className: 'acc-secondary-button acc-hero-search-mobile', onClick: () => go({ view: 'search' }) }, 'Search'),
           h(Badge, { tone: analyticsFixture ? 'warn' : isAnalytics ? 'good' : 'warn' }, analyticsFixture ? 'Illustrative fixture' : isAnalytics ? 'Read-only analytics' : 'Prototype fixtures'),
           h('button', { type: 'button', className: 'acc-secondary-button', onClick: () => go({ view: 'evidence' }) }, 'Evidence index'),
         ),

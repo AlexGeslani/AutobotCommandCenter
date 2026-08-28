@@ -1,6 +1,7 @@
 import importlib.util
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 
 MODULE_PATH = Path(__file__).parents[1] / "bridge" / "hivemind_browser_bridge.py"
@@ -33,6 +34,78 @@ class HiveMindBridgeRequestTests(unittest.TestCase):
                 {"query": "release notes", "collections": ["archive"], "limit": 5},
                 ("docs", "research"),
             )
+
+    def test_path_precedence_is_external_config_then_cli_then_environment_then_default(self):
+        bridge = load_bridge()
+        with TemporaryDirectory() as directory:
+            home = Path(directory) / "home"
+            resolved = bridge.resolve_path_config(
+                home=home,
+                env={
+                    "HIVEMIND_CLIENT_PATH": "/env/client.py",
+                    "HIVEMIND_TOKEN_FILE": "/env/token",
+                    "ACC_PROVIDER_USAGE_PRIVATE_DIR": "/env/provider-cache",
+                },
+                local_config={
+                    "schemaVersion": "acc-path-config-v1",
+                    "paths": {
+                        "hiveMindClient": "local/client.py",
+                        "hiveMindTokenFile": "local/token",
+                        "showcaseSkillsRoot": "local/skills",
+                    },
+                },
+                overrides={
+                    "hiveMindClient": "/cli/client.py",
+                    "hiveMindTlsPinFile": "/cli/tls-pin",
+                },
+            )
+            self.assertEqual(resolved["hiveMindClient"], home / "local/client.py")
+            self.assertEqual(resolved["hiveMindTokenFile"], home / "local/token")
+            self.assertEqual(resolved["showcaseSkillsRoot"], home / "local/skills")
+            self.assertEqual(resolved["hiveMindTlsPinFile"], Path("/cli/tls-pin"))
+            self.assertEqual(resolved["providerUsagePrivateCacheDir"], Path("/env/provider-cache"))
+
+    def test_missing_required_bridge_resources_fail_closed_before_server_construction(self):
+        bridge = load_bridge()
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            client = root / "client.py"
+            token = root / "token"
+            pin = root / "pin"
+            client.write_text("def search(**kwargs): return {'results': []}\n", encoding="utf-8")
+            paths = {
+                "hiveMindClient": client,
+                "hiveMindTokenFile": token,
+                "hiveMindTlsPinFile": pin,
+            }
+            with self.assertRaisesRegex(bridge.PathConfigError, "required protected bridge resource"):
+                bridge.validate_required_bridge_paths(paths)
+            token.write_text("opaque", encoding="utf-8")
+            pin.write_text("opaque", encoding="utf-8")
+            bridge.validate_required_bridge_paths(paths)
+
+    def test_path_config_rejects_unknown_non_path_and_escape_values(self):
+        bridge = load_bridge()
+        with TemporaryDirectory() as directory:
+            home = Path(directory)
+            with self.assertRaisesRegex(bridge.PathConfigError, "unknown path"):
+                bridge.resolve_path_config(
+                    home=home,
+                    env={},
+                    local_config={"schemaVersion": "acc-path-config-v1", "paths": {"unknown": "/tmp/x"}},
+                )
+            with self.assertRaisesRegex(bridge.PathConfigError, "path string"):
+                bridge.resolve_path_config(
+                    home=home,
+                    env={},
+                    local_config={"schemaVersion": "acc-path-config-v1", "paths": {"hiveMindClient": {"secret": "no"}}},
+                )
+            with self.assertRaisesRegex(bridge.PathConfigError, "escape"):
+                bridge.resolve_path_config(
+                    home=home,
+                    env={},
+                    local_config={"schemaVersion": "acc-path-config-v1", "paths": {"hiveMindClient": "../escape.py"}},
+                )
 
 
 if __name__ == "__main__":

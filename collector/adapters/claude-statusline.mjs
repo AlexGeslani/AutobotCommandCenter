@@ -1,8 +1,8 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { homedir } from 'node:os';
+import { dirname } from 'node:path';
+import { DEFAULT_ACC_PATHS, pathInPrivateCache } from '../../src/path-config.mjs';
 
-export const CLAUDE_CACHE_PATH = join(process.env.ACC_PROVIDER_USAGE_PRIVATE_DIR || join(homedir(), '.acc-provider-usage'), 'claude-statusline.json');
+export const CLAUDE_CACHE_PATH = pathInPrivateCache('claude-statusline.json', DEFAULT_ACC_PATHS);
 
 function iso(value) {
   if (typeof value === 'number') return new Date(value > 10_000_000_000 ? value : value * 1000).toISOString();

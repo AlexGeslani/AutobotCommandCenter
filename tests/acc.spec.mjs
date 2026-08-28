@@ -3,6 +3,9 @@ import AxeBuilder from '@axe-core/playwright';
 import { readFile } from 'node:fs/promises';
 
 const pluginUrl = process.env.ACC_PLUGIN_PATH || '/autobot-command-center';
+const pathSearchMode = pluginUrl === '/' || Boolean(process.env.ACC_BASE_URL);
+const searchUrl = pathSearchMode ? '/search' : `${pluginUrl}?view=search`;
+const searchDeepLink = (query = '') => `${searchUrl}${query ? `${searchUrl.includes('?') ? '&' : '?'}q=${encodeURIComponent(query).replaceAll('%20', '+')}` : ''}`;
 const showcaseBuild = process.env.ACC_ANALYTICS_SHOWCASE === '1';
 const showcaseProjection = JSON.parse(await readFile(new URL('./fixtures/analytics/kungfuclan-demo.v2.json', import.meta.url), 'utf8'));
 
@@ -43,14 +46,21 @@ async function routeProviderUsage(page, providers, generatedAt = '2026-07-31T23:
   });
 }
 
-async function routeHiveMind(page) {
+async function routeProtectedKnowledge(page, { failure = false } = {}) {
+  const counts = { search: 0, health: 0 };
   for (const pattern of ['http://127.0.0.1:8788/health', '**/api/hivemind/health']) {
     await page.route(pattern, async (route) => {
-      await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ status: 'ok' }) });
+      counts.health += 1;
+      await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'health_probe_forbidden' }) });
     });
   }
   for (const pattern of ['http://127.0.0.1:8788/search', '**/api/hivemind/search']) {
     await page.route(pattern, async (route) => {
+      counts.search += 1;
+      if (failure) {
+        await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'fixture_unavailable' }) });
+        return;
+      }
       const request = route.request().postDataJSON();
       expect(request).toEqual({ query: 'Project Grin', collections: ['wiki-openai'], limit: 10 });
       await route.fulfill({
@@ -67,6 +77,7 @@ async function routeHiveMind(page) {
       });
     });
   }
+  return counts;
 }
 
 function captureBrowserErrors(page) {
@@ -194,17 +205,93 @@ test('legacy usage URL redirects to the canonical Analytics provider route', asy
   await expect(page.getByRole('heading', { name: 'Usage & limits' })).toBeVisible();
 });
 
-test('Hive Mind search returns source-linked QMD results', async ({ page }) => {
-  await routeHiveMind(page);
-  await page.goto(pluginUrl + '?view=hivemind');
-  await expect(page.getByRole('heading', { name: 'Search Hive Mind' })).toBeVisible();
-  await expect(page.getByText('Live QMD retrieval', { exact: true })).toBeVisible();
-  await page.getByLabel('Search query').fill('Project Grin');
-  await page.getByLabel('Wiki scope').selectOption('wiki-openai');
-  await page.getByRole('button', { name: 'Search', exact: true }).click();
+test('Search deep links, filters locally, and sends one explicit protected request', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page);
+  const counts = await routeProtectedKnowledge(page);
+  await page.goto(searchDeepLink('Qwen 35B'));
+  await expect(page.getByRole('heading', { name: 'Search', exact: true })).toBeVisible();
+  const navigation = page.getByRole('navigation', { name: 'Command Center sections' });
+  await expect(navigation.getByRole('button')).toHaveText(['Overview', 'Portfolio', 'Analytics', 'Benchmarks', 'Skill Registry', 'Search']);
+  await expect(page.getByText('Hive Mind', { exact: true })).toHaveCount(0);
+  const local = page.getByLabel('Search ACC', { exact: true });
+  await expect(local).toHaveValue('Qwen 35B');
+  await expect(page.getByText('Qwen3.6 35B Heretic · Q4_K_M · MTP-N2', { exact: true })).toBeVisible();
+  await local.fill('cloudflare visits');
+  await expect(page).toHaveURL(pathSearchMode ? /\/search\?q=cloudflare\+visits$/ : /\/autobot-command-center\?view=search&q=cloudflare\+visits$/);
+  await expect(page.getByText('Kung Fu Clan analytics', { exact: true })).toBeVisible();
+  expect(counts).toEqual({ search: 0, health: 0 });
+
+  await page.getByLabel('Protected knowledge query').fill('Project Grin');
+  await page.getByLabel('Approved scope').selectOption('wiki-openai');
+  expect(counts.search).toBe(0);
+  await page.getByRole('button', { name: 'Search protected knowledge' }).click();
   await expect(page.getByRole('heading', { name: 'Project Grin — 2005 Subaru Forester XT' })).toBeVisible();
   await expect(page.getByText('wiki-openai/projects/project-grin.md', { exact: true })).toBeVisible();
   await expect(page.getByText(/reliability-first modernization/i)).toBeVisible();
+  await expect(page.getByText('Read-only source', { exact: true })).toBeVisible();
+  expect(counts).toEqual({ search: 1, health: 0 });
+  expect(browserErrors).toEqual([]);
+});
+
+test('Search failure is unavailable without retry and keeps local results usable', async ({ page }) => {
+  const counts = await routeProtectedKnowledge(page, { failure: true });
+  await page.goto(searchDeepLink('skills'));
+  await expect(page.getByText('autobots', { exact: true }).first()).toBeVisible();
+  await page.getByLabel('Protected knowledge query').fill('Unavailable fixture');
+  expect(counts).toEqual({ search: 0, health: 0 });
+  await page.getByRole('button', { name: 'Search protected knowledge' }).click();
+  await expect(page.getByText(/Protected knowledge search is unavailable/)).toBeVisible();
+  await page.waitForTimeout(250);
+  expect(counts).toEqual({ search: 1, health: 0 });
+  await expect(page.getByText('autobots', { exact: true }).first()).toBeVisible();
+});
+
+test('legacy search view redirects one way and desktop hero Search creates a deep link', async ({ page }) => {
+  await page.goto(`${pluginUrl}?view=hivemind&q=portfolio`);
+  await expect(page).toHaveURL(pathSearchMode ? /\/search\?q=portfolio$/ : /\/autobot-command-center\?view=search&q=portfolio$/);
+  await expect(page.getByRole('heading', { name: 'Search', exact: true })).toBeVisible();
+  await page.goto(pluginUrl);
+  await page.locator('.acc-hero-search').getByPlaceholder('Search ACC').fill('Cloudflare visits');
+  await page.locator('.acc-hero-search').getByRole('button', { name: 'Search' }).click();
+  await expect(page).toHaveURL(pathSearchMode ? /\/search\?q=Cloudflare\+visits$/ : /\/autobot-command-center\?view=search&q=Cloudflare\+visits$/);
+  await expect(page.getByText('Kung Fu Clan analytics', { exact: true })).toBeVisible();
+});
+
+test('theme preference persists locally while status colors and reduced motion stay invariant', async ({ page }) => {
+  await page.goto(pluginUrl);
+  const shell = page.locator('.acc-shell');
+  const current = await shell.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { good: style.getPropertyValue('--acc-status-good').trim(), accent: style.getPropertyValue('--acc-accent-primary').trim() };
+  });
+  await page.getByLabel('Presentation theme').selectOption('matrix');
+  await expect(shell).toHaveAttribute('data-acc-theme', 'matrix');
+  const matrix = await shell.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { good: style.getPropertyValue('--acc-status-good').trim(), accent: style.getPropertyValue('--acc-accent-primary').trim() };
+  });
+  expect(matrix.good).toBe(current.good);
+  expect(matrix.accent).not.toBe(current.accent);
+  await page.reload();
+  await expect(page.locator('.acc-shell')).toHaveAttribute('data-acc-theme', 'matrix');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  expect(await page.locator('.acc-view').evaluate((element) => getComputedStyle(element).animationName)).toBe('none');
+  await page.evaluate(() => localStorage.setItem('acc.presentation-theme.v1', 'light'));
+  await page.reload();
+  await expect(page.locator('.acc-shell')).toHaveAttribute('data-acc-theme', 'current-dark');
+});
+
+test('mobile hero exposes a 44px Search button and Search has no horizontal overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(pluginUrl);
+  const searchButton = page.locator('.acc-hero-search-mobile');
+  await expect(searchButton).toBeVisible();
+  expect((await searchButton.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await searchButton.click();
+  await expect(page).toHaveURL(new RegExp(`${searchUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
+  await page.locator('.acc-local-search-field').getByRole('searchbox', { name: 'Search ACC' }).fill('qwen heretic');
+  await expect(page.getByText('Qwen3.6 35B Heretic · Q4_K_M · MTP-N2', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 
 test('Portfolio and Skills render only the frozen source-backed showcase projection', async ({ page }) => {

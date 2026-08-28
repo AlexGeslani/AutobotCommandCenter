@@ -1,9 +1,9 @@
 import { mkdir, readFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 import { writeAtomicJson } from '../lib/atomic-json.mjs';
+import { DEFAULT_ACC_PATHS, pathInPrivateCache } from '../../src/path-config.mjs';
 
-export const BRAVE_CACHE_PATH = join(process.env.ACC_PROVIDER_USAGE_PRIVATE_DIR || join(homedir(), '.acc-provider-usage'), 'brave-search.json');
+export const BRAVE_CACHE_PATH = pathInPrivateCache('brave-search.json', DEFAULT_ACC_PATHS);
 export const BRAVE_REFRESH_AFTER_MS = 23 * 60 * 60 * 1000;
 
 function csvIntegers(headers, name) {
@@ -96,7 +96,7 @@ function notConfigured(now) {
 export function createBraveSearchAdapter({
   apiKey = null,
   cachePath = BRAVE_CACHE_PATH,
-  envPath = join(process.env.HERMES_HOME || join(homedir(), '.hermes'), '.env'),
+  envPath = DEFAULT_ACC_PATHS.braveHermesEnvFile,
   refreshAfterMs = BRAVE_REFRESH_AFTER_MS,
   fetchImpl = globalThis.fetch,
 } = {}) {

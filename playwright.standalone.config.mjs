@@ -6,7 +6,7 @@ export default defineConfig({
   timeout: 30_000,
   fullyParallel: false,
   webServer: {
-    command: 'python3 -m http.server 9130 --directory standalone/public',
+    command: 'node scripts/serve-standalone.mjs',
     url: 'http://127.0.0.1:9130',
     reuseExistingServer: false,
   },

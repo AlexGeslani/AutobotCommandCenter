@@ -1,8 +1,8 @@
-import { homedir } from 'node:os';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateShowcasePolicy, validateShowcaseProjection } from '../src/showcase/projection.mjs';
+import { loadAccPathConfig } from '../src/path-config.mjs';
 
 function parseScalar(value) {
   const trimmed = value.trim();
@@ -125,7 +125,7 @@ function parseArgs(argv) {
   const options = {};
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
-    if (!['--config', '--output', '--skills-root'].includes(key) || !argv[index + 1]) throw new Error(`Unknown or incomplete argument ${key}`);
+    if (!['--config', '--output', '--skills-root', '--path-config'].includes(key) || !argv[index + 1]) throw new Error(`Unknown or incomplete argument ${key}`);
     options[key.slice(2)] = argv[index + 1];
     index += 1;
   }
@@ -154,7 +154,11 @@ async function run() {
   const args = parseArgs(process.argv.slice(2));
   const configPath = resolve(root, args.config || 'config/showcase-projection.v1.json');
   const outputPath = resolve(root, args.output || 'src/generated/showcase-projection.v1.json');
-  const skillsRoot = resolve(args['skills-root'] || process.env.HERMES_SKILLS_ROOT || resolve(homedir(), '.hermes/skills'));
+  const paths = await loadAccPathConfig({
+    configPath: args['path-config'],
+    overrides: args['skills-root'] ? { showcaseSkillsRoot: args['skills-root'] } : {},
+  });
+  const skillsRoot = paths.showcaseSkillsRoot;
   const policy = JSON.parse(await readFile(configPath, 'utf8'));
   const snapshot = await buildShowcaseProjection(policy, {
     fetchRepo: (repository) => fetchJson(`https://api.github.com/repos/${repository}`),
