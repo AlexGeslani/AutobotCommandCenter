@@ -1,4 +1,4 @@
-import commandCenterMarkUrl from '../standalone/autobot-mark.jpg';
+import commandCenterMarkMaskUrl from '../standalone/autobot-mark-mask.png';
 import voicePerformanceUrl from '../standalone/voice-performance-comparison.png';
 import { loadProviderUsageSnapshot, providerUsageFallback } from './provider-usage/client.mjs';
 import { createAnalyticsView } from './analytics/view.mjs';
@@ -29,14 +29,9 @@ import {
 } from './model.mjs';
 import { THEME_PRESENTATION, loadStoredTheme, persistTheme } from './theme.mjs';
 
-const MATRIX_STREAMS = Object.freeze([
-  'ﾊﾐﾋｰｳｼﾅﾓﾆ01ｻﾜﾂｵﾘ', '01ﾖﾏｹｾﾃﾈﾎﾍﾑﾒﾗﾘ', 'ｱｲｳｴｵｶｷｸｹｺ10110',
-  'ﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉ01001', 'ｻｼｽｾｿﾊﾋﾌﾍﾎ11010', 'ﾏﾐﾑﾒﾓﾔﾕﾖ01011',
-  'ﾗﾘﾙﾚﾛﾜｦﾝ10101', 'ｶﾀｶﾅ01ｻｲﾊﾞﾄﾛﾝ', '11001ﾃﾚﾄﾗﾝ10110',
-  'ｱｰｸ0101ﾌﾟﾗｲﾑ0110', 'ﾒﾓﾘ011011ｼｽﾃﾑ', 'ﾃﾞｰﾀ100101ﾘﾝｸ',
-  'ｺﾏﾝﾄﾞ0110ｾﾝﾀｰ', '10110ｵｰﾄﾎﾞｯﾄ01', 'ｽｷｬﾝ010011ﾚﾃﾞｨ',
-  'ﾌﾟﾛﾄｺﾙ101001ﾊﾟｽ',
-]);
+const MATRIX_GLYPHS = Object.freeze(Array.from('日ﾊﾋｼﾂｳｰﾅﾐﾓﾆｻﾜｵﾘﾎﾏｴｷﾑﾃｹﾒｶﾕﾗｾﾈｽﾀﾇ0123456789Z*+:=.< >｜¦_').filter((glyph) => glyph !== ' '));
+const MATRIX_SIZE_BANDS = Object.freeze([10, 14, 20]);
+const MATRIX_SPEED_BANDS = Object.freeze([18, 34, 58]);
 
 export function registerAutobotCommandCenter() {
   'use strict';
@@ -57,16 +52,174 @@ export function registerAutobotCommandCenter() {
   }
 
   function MatrixRain() {
-    return h('div', { className: 'acc-matrix-rain', 'aria-hidden': 'true' }, MATRIX_STREAMS.map((characters, index) => h('span', {
-      className: 'acc-matrix-rain__stream',
-      key: index,
-      style: {
-        '--acc-rain-x': `${2 + (index * 6.35)}%`,
-        '--acc-rain-delay': `-${(index * 1.7).toFixed(1)}s`,
-        '--acc-rain-duration': `${10 + ((index % 5) * 2.2)}s`,
-        '--acc-rain-opacity': `${0.22 + ((index % 4) * 0.06)}`,
-      },
-    }, characters)));
+    const canvasRef = useRef(null);
+
+    useEffect(() => {
+      const canvas = canvasRef.current;
+      const context = canvas?.getContext('2d', { alpha: true });
+      if (!canvas || !context) return undefined;
+
+      let animationFrame = 0;
+      let frame = 0;
+      let streams = [];
+      let lastTime = performance.now();
+      const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+      function createRandom(seed) {
+        let state = seed >>> 0;
+        return () => {
+          state = (state * 1664525 + 1013904223) >>> 0;
+          return state / 4294967296;
+        };
+      }
+
+      function randomGlyph(random) {
+        return MATRIX_GLYPHS[Math.floor(random() * MATRIX_GLYPHS.length)];
+      }
+
+      function populateStreams(width, height) {
+        const random = createRandom(0x4d415452 ^ Math.round(width) ^ (Math.round(height) << 8));
+        const count = Math.max(28, Math.min(72, Math.round(width / 22)));
+        streams = Array.from({ length: count }, (_, index) => {
+          const sizeBand = index % MATRIX_SIZE_BANDS.length;
+          const speedBand = (index * 2 + Math.floor(random() * 3)) % MATRIX_SPEED_BANDS.length;
+          const fontSize = MATRIX_SIZE_BANDS[sizeBand];
+          const trailLength = 7 + Math.floor(random() * 22);
+          return {
+            x: random() * width,
+            headY: (random() * (height + trailLength * fontSize)) - (trailLength * fontSize),
+            fontSize,
+            speed: MATRIX_SPEED_BANDS[speedBand] * (0.82 + random() * 0.38),
+            trailLength,
+            opacity: 0.2 + random() * 0.34,
+            highlighted: random() < 0.22,
+            mutationRate: 0.025 + random() * 0.085,
+            travel: 0,
+            glyphs: Array.from({ length: trailLength }, () => randomGlyph(random)),
+            brightness: Array.from({ length: trailLength }, () => 0.72 + random() * 0.28),
+            random,
+          };
+        });
+        canvas.dataset.streamCount = String(streams.length);
+      }
+
+      function draw() {
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+        context.clearRect(0, 0, width, height);
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+
+        streams.forEach((stream) => {
+          context.font = `700 ${stream.fontSize}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
+          stream.glyphs.forEach((glyph, index) => {
+            const y = stream.headY - (index * stream.fontSize);
+            if (y < -stream.fontSize || y > height + stream.fontSize) return;
+            const progress = 1 - (index / stream.trailLength);
+            const alpha = stream.opacity * Math.pow(Math.max(0, progress), 1.55) * stream.brightness[index];
+            if (index === 0 && stream.highlighted) {
+              context.fillStyle = `rgba(224, 255, 228, ${Math.min(0.96, alpha + 0.44)})`;
+              context.shadowColor = 'rgba(148, 255, 164, .82)';
+              context.shadowBlur = stream.fontSize * 0.72;
+            } else if (index === 0) {
+              context.fillStyle = `rgba(112, 255, 132, ${Math.min(0.86, alpha + 0.28)})`;
+              context.shadowColor = 'rgba(68, 255, 94, .48)';
+              context.shadowBlur = stream.fontSize * 0.35;
+            } else {
+              context.fillStyle = `rgba(48, 238, 76, ${alpha})`;
+              context.shadowBlur = 0;
+            }
+            context.fillText(glyph, stream.x, y);
+          });
+        });
+        context.shadowBlur = 0;
+        frame += 1;
+        canvas.dataset.frame = String(frame);
+        canvas.dataset.glyphSignature = streams.slice(0, 12)
+          .map((stream) => stream.glyphs.slice(0, 4).join(''))
+          .join('|');
+      }
+
+      function advance(deltaSeconds) {
+        streams.forEach((stream) => {
+          stream.travel += stream.speed * deltaSeconds;
+          const steps = Math.floor(stream.travel / stream.fontSize);
+          if (!steps) return;
+          stream.travel -= steps * stream.fontSize;
+          for (let step = 0; step < steps; step += 1) {
+            stream.headY += stream.fontSize;
+            stream.glyphs.unshift(randomGlyph(stream.random));
+            stream.glyphs.pop();
+            stream.brightness.unshift(0.72 + stream.random() * 0.28);
+            stream.brightness.pop();
+            stream.glyphs.forEach((glyph, index) => {
+              if (index > 0 && stream.random() < stream.mutationRate) stream.glyphs[index] = randomGlyph(stream.random);
+            });
+          }
+          if ((stream.headY - stream.trailLength * stream.fontSize) > canvas.clientHeight) {
+            stream.headY = -(stream.random() * canvas.clientHeight * 0.72);
+            stream.highlighted = stream.random() < 0.22;
+          }
+        });
+      }
+
+      function tick(now) {
+        const deltaSeconds = Math.min(0.08, Math.max(0, (now - lastTime) / 1000));
+        lastTime = now;
+        advance(deltaSeconds);
+        draw();
+        animationFrame = requestAnimationFrame(tick);
+      }
+
+      function resize() {
+        const width = Math.max(1, Math.round(canvas.clientWidth));
+        const height = Math.max(1, Math.round(canvas.clientHeight));
+        const scale = Math.min(1.5, window.devicePixelRatio || 1);
+        canvas.width = Math.round(width * scale);
+        canvas.height = Math.round(height * scale);
+        context.setTransform(scale, 0, 0, scale, 0, 0);
+        populateStreams(width, height);
+        draw();
+      }
+
+      function syncMotion() {
+        cancelAnimationFrame(animationFrame);
+        canvas.dataset.motion = motion.matches ? 'reduced' : 'running';
+        if (motion.matches) {
+          draw();
+          return;
+        }
+        lastTime = performance.now();
+        animationFrame = requestAnimationFrame(tick);
+      }
+
+      const resizeObserver = new ResizeObserver(resize);
+      resizeObserver.observe(canvas);
+      motion.addEventListener?.('change', syncMotion);
+      resize();
+      syncMotion();
+
+      return () => {
+        cancelAnimationFrame(animationFrame);
+        resizeObserver.disconnect();
+        motion.removeEventListener?.('change', syncMotion);
+      };
+    }, []);
+
+    return h('div', { className: 'acc-matrix-rain', 'aria-hidden': 'true' },
+      h('canvas', {
+        className: 'acc-matrix-rain__canvas',
+        ref: canvasRef,
+        'data-size-bands': String(MATRIX_SIZE_BANDS.length),
+        'data-speed-bands': String(MATRIX_SPEED_BANDS.length),
+        'data-density': 'variable',
+        'data-glyph-mutation': 'true',
+        'data-head-highlights': 'sparse',
+        'data-motion': 'running',
+        'data-stream-count': '0',
+        'data-frame': '0',
+      }),
+    );
   }
 
   function Badge({ children, tone = 'neutral' }) {
@@ -990,8 +1143,24 @@ export function registerAutobotCommandCenter() {
     );
   }
 
+  function G1ConsoleDetail() {
+    return h('div', { className: 'acc-g1-console-detail', 'aria-hidden': 'true' },
+      h('span', { className: 'acc-g1-console-detail__screen acc-g1-console-detail__screen--wide' }),
+      h('span', { className: 'acc-g1-console-detail__screen acc-g1-console-detail__screen--small' }),
+      h('span', { className: 'acc-g1-console-detail__vents' }),
+      h('span', { className: 'acc-g1-console-detail__seam' }),
+      h('span', { className: 'acc-g1-console-detail__indicators' }),
+    );
+  }
+
   function CommandCenterMark() {
-    return h('img', { className: 'acc-command-mark', src: commandCenterMarkUrl, alt: '', 'aria-hidden': 'true', draggable: false });
+    return h('span', {
+      className: 'acc-command-mark',
+      'aria-hidden': 'true',
+      style: {
+        '--acc-command-mark-mask': `url(${commandCenterMarkMaskUrl})`,
+      },
+    });
   }
 
   const Analytics = createAnalyticsView({ React, h, useEffect, useState, Badge, StatusBadge, SectionHeading, ProviderUsage });
@@ -1062,6 +1231,7 @@ export function registerAutobotCommandCenter() {
     return h('div', { className: cx('acc-shell', route.view !== 'overview' && 'acc-shell--subview'), 'data-acc-theme': theme },
       theme === 'matrix' ? h(MatrixRain) : null,
       h('header', { className: 'acc-hero' },
+        theme === 'g1-console' ? h(G1ConsoleDetail) : null,
         h('div', { className: 'acc-brand-lockup' },
           h(CommandCenterMark),
           h('div', null,

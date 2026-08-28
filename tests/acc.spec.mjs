@@ -104,7 +104,13 @@ test('Overview prioritizes provider headroom and keeps destination summaries com
   const browserErrors = captureBrowserErrors(page);
   await page.goto(pluginUrl);
   await expect(page.getByRole('heading', { name: 'Autobot Command Center' })).toBeVisible();
-  await expect(page.locator('img.acc-command-mark')).toHaveAttribute('src', /^data:image\/jpeg;base64,/);
+  const commandMark = page.locator('.acc-command-mark');
+  await expect(commandMark).toHaveAttribute('aria-hidden', 'true');
+  expect(await commandMark.evaluate((element) => element.tagName)).toBe('SPAN');
+  expect(await commandMark.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return style.maskImage || style.webkitMaskImage;
+  })).toMatch(/^url\("data:image\/png;base64,/);
   if (pluginUrl === '/') await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/autobot-mark.jpg?v=1');
 
   const overview = page.locator('.acc-overview');
@@ -257,9 +263,10 @@ test('legacy search view redirects one way and desktop hero Search creates a dee
   await expect(page.getByText('Kung Fu Clan analytics', { exact: true })).toBeVisible();
 });
 
-test('three themes persist locally while status colors and reduced motion stay invariant', async ({ page }) => {
+test('three themes persist locally while status colors, themed mark, and reduced motion stay invariant', async ({ page }) => {
   await page.goto(pluginUrl);
   const shell = page.locator('.acc-shell');
+  const commandMark = page.locator('.acc-command-mark');
   await expect(shell).toHaveAttribute('data-acc-theme', 'g1-console');
   await expect(page.getByLabel('Presentation theme').locator('option')).toHaveCount(3);
   const g1Console = await shell.evaluate((element) => {
@@ -272,7 +279,10 @@ test('three themes persist locally while status colors and reduced motion stay i
       background: style.backgroundColor,
     };
   });
-  expect(g1Console.background).toBe('rgb(27, 13, 10)');
+  expect(g1Console.background).toBe('rgb(22, 12, 7)');
+  const g1MarkColor = await commandMark.evaluate((element) => getComputedStyle(element).backgroundColor);
+  await expect(page.locator('.acc-g1-console-detail')).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.locator('.acc-g1-console-detail > span')).toHaveCount(5);
 
   await page.getByLabel('Presentation theme').selectOption('current-dark');
   await expect(shell).toHaveAttribute('data-acc-theme', 'current-dark');
@@ -288,8 +298,11 @@ test('three themes persist locally while status colors and reduced motion stay i
     };
   });
   expect(terminal.background).toBe('rgb(0, 0, 0)');
-  expect(terminal.foreground).toBe('rgb(141, 255, 159)');
+  expect(terminal.foreground).toBe('rgb(255, 203, 122)');
   expect([terminal.good, terminal.warn, terminal.bad]).toEqual([g1Console.good, g1Console.warn, g1Console.bad]);
+  const terminalMarkColor = await commandMark.evaluate((element) => getComputedStyle(element).backgroundColor);
+  expect(terminalMarkColor).not.toBe(g1MarkColor);
+  await expect(page.locator('.acc-g1-console-detail')).toHaveCount(0);
 
   await page.getByLabel('Presentation theme').selectOption('matrix');
   await expect(shell).toHaveAttribute('data-acc-theme', 'matrix');
@@ -304,16 +317,38 @@ test('three themes persist locally while status colors and reduced motion stay i
   });
   expect([matrix.good, matrix.warn, matrix.bad]).toEqual([g1Console.good, g1Console.warn, g1Console.bad]);
   expect(matrix.accent).not.toBe(g1Console.accent);
+  const matrixMarkColor = await commandMark.evaluate((element) => getComputedStyle(element).backgroundColor);
+  expect(matrixMarkColor).not.toBe(terminalMarkColor);
   await expect(page.locator('.acc-matrix-rain')).toHaveAttribute('aria-hidden', 'true');
-  await expect(page.locator('.acc-matrix-rain__stream')).toHaveCount(16);
+  const rainCanvas = page.locator('.acc-matrix-rain__canvas');
+  await expect(rainCanvas).toHaveCount(1);
+  await expect(rainCanvas).toHaveAttribute('data-size-bands', '3');
+  await expect(rainCanvas).toHaveAttribute('data-speed-bands', '3');
+  await expect(rainCanvas).toHaveAttribute('data-density', 'variable');
+  await expect(rainCanvas).toHaveAttribute('data-glyph-mutation', 'true');
+  await expect(rainCanvas).toHaveAttribute('data-head-highlights', 'sparse');
+  await expect(rainCanvas).toHaveAttribute('data-motion', 'running');
+  await expect(rainCanvas).toHaveAttribute('data-glyph-signature', /.+/);
   expect(await page.locator('.acc-matrix-rain').evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none');
-  expect(await page.locator('.acc-matrix-rain__stream').first().evaluate((element) => getComputedStyle(element).animationName)).toBe('acc-matrix-fall');
+  await expect.poll(async () => Number(await rainCanvas.getAttribute('data-stream-count'))).toBeGreaterThan(24);
+  const firstGlyphSignature = await rainCanvas.getAttribute('data-glyph-signature');
+  await expect.poll(async () => rainCanvas.getAttribute('data-glyph-signature')).not.toBe(firstGlyphSignature);
+  const firstFrame = Number(await rainCanvas.getAttribute('data-frame'));
+  await expect.poll(async () => Number(await rainCanvas.getAttribute('data-frame'))).toBeGreaterThan(firstFrame);
+  await page.evaluate(() => window.scrollTo(0, Math.min(900, document.documentElement.scrollHeight - window.innerHeight)));
+  const scrolledCanvas = await rainCanvas.boundingBox();
+  expect(scrolledCanvas.y).toBeLessThanOrEqual(0);
+  expect(scrolledCanvas.y + scrolledCanvas.height).toBeGreaterThanOrEqual(page.viewportSize().height);
+  await page.evaluate(() => window.scrollTo(0, 0));
 
   await page.reload();
   await expect(page.locator('.acc-shell')).toHaveAttribute('data-acc-theme', 'matrix');
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  expect(await page.locator('.acc-view').evaluate((element) => getComputedStyle(element).animationName)).toBe('none');
-  expect(await page.locator('.acc-matrix-rain__stream').first().evaluate((element) => getComputedStyle(element).animationName)).toBe('none');
+  await expect(page.locator('.acc-view')).toHaveCSS('animation-name', 'none');
+  await expect(page.locator('.acc-matrix-rain__canvas')).toHaveAttribute('data-motion', 'reduced');
+  const reducedFrame = Number(await page.locator('.acc-matrix-rain__canvas').getAttribute('data-frame'));
+  await page.waitForTimeout(120);
+  expect(Number(await page.locator('.acc-matrix-rain__canvas').getAttribute('data-frame'))).toBe(reducedFrame);
   await page.evaluate(() => localStorage.setItem('acc.presentation-theme.v1', 'light'));
   await page.reload();
   await expect(page.locator('.acc-shell')).toHaveAttribute('data-acc-theme', 'g1-console');
@@ -423,7 +458,12 @@ test('measured benchmark view distinguishes verified capability, live completion
   await expect(measuredVisuals.locator('[data-measured-suite="agent"] [data-score-bar]')).toHaveCount(5);
   await expect(measuredVisuals.getByRole('cell', { name: /in-progress/ })).toHaveCount(2);
   await expect(measuredVisuals.getByRole('cell', { name: /queued/ })).toHaveCount(1);
-  await expect(measuredVisuals.getByText('62% done', { exact: true })).toBeVisible();
+  const qwenAgentProgress = measuredVisuals.locator('[data-measured-suite="agent"] [data-score-bar="qwen38-2b-mlx"]');
+  const qwenAgentProgressText = await qwenAgentProgress.innerText();
+  const qwenAgentProgressRatio = qwenAgentProgressText.match(/(\d+)\s*\/\s*(\d+)/);
+  expect(qwenAgentProgressRatio).not.toBeNull();
+  const expectedQwenAgentPercent = Math.round((Number(qwenAgentProgressRatio[1]) / Number(qwenAgentProgressRatio[2])) * 100);
+  await expect(qwenAgentProgress.getByText(`${expectedQwenAgentPercent}% done`, { exact: true })).toBeVisible();
   await expect(measuredVisuals.getByText('36 / 40 strict prompts', { exact: true })).toBeVisible();
   await expect(measuredVisuals.getByText('Illustrative', { exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);

@@ -15,8 +15,8 @@ export const THEME_PRESENTATION = Object.freeze({
   }),
   'current-dark': Object.freeze({
     label: 'Terminal Dark',
-    accentPrimary: '#43ff63',
-    accentSecondary: '#a7ffb3',
+    accentPrimary: '#ffb454',
+    accentSecondary: '#ffe0a3',
   }),
   matrix: Object.freeze({
     label: 'Matrix',
