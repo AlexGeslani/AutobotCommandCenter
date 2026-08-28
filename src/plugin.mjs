@@ -646,28 +646,9 @@ export async function registerAutobotCommandCenter() {
 
   function MeasuredBenchmarkVisuals({ go }) {
     const visual = getMeasuredBenchmarkVisuals();
-    const coverageColumns = defineSortColumns('benchmarks.coverage', {
-      condition: (profile) => profile.shortName,
-      instruction: (profile) => profile.coverage.instruction,
-      tools: (profile) => profile.coverage.tools,
-      agent: (profile) => profile.coverage.agent,
-    });
-    const coverageSort = useSortableRows(visual.profiles, coverageColumns);
-    return h('section', { className: 'acc-measured-visuals', role: 'region', 'aria-label': 'Measured benchmark evidence visuals' },
-      h('div', { className: 'acc-measured-visuals__head' },
-        h('div', null, h('p', { className: 'acc-eyebrow' }, 'Verified evidence only'), h('h2', null, 'Measured suite comparison')),
-        h('div', { className: 'acc-chip-list' }, h(Badge, { tone: 'good' }, `${visual.profiles.length} measured conditions`), h(Badge, null, 'Coverage-labeled average')),
-      ),
-      h('p', { className: 'acc-measured-visuals__method' }, 'Verified bars use each suite’s native 0–100 score. Amber bars show collection completion only, never provisional capability accuracy. Queued work remains at zero completion; conditions without measured evidence are excluded.'),
-      h('div', { className: 'acc-evidence-matrix', role: 'table', 'aria-label': 'Measured evidence coverage' },
-        h('div', { className: 'acc-evidence-matrix__head', role: 'row' }, coverageColumns.map((definition) => h(SortableHeader, { key: definition.id, as: 'span', column: definition, sort: coverageSort.sort, onSort: coverageSort.onSort }))),
-        h('div', { role: 'rowgroup' }, coverageSort.rows.map((profile) => h('div', { className: 'acc-evidence-matrix__row', role: 'row', key: profile.conditionId, 'data-measured-condition': profile.conditionId },
-          h('span', { role: 'rowheader' }, h('button', { type: 'button', className: 'acc-table-link', onClick: () => go({ view: 'benchmarks', condition: profile.conditionId }) }, profile.shortName)),
-          visual.suites.map((suite) => h('span', { key: suite.id, role: 'cell', 'aria-label': `${suite.label}: ${profile.coverage[suite.id]}` }, h(StatusBadge, { state: profile.coverage[suite.id] }))),
-        ))),
-      ),
+    return h('section', { className: 'acc-measured-visuals', role: 'region', 'aria-label': 'Suite score and completion details' },
       h('div', { className: 'acc-measured-suite-grid' }, visual.suites.map((suite) => h(MeasuredSuiteTable, { key: suite.id, suite, go }))),
-      h('p', { className: 'acc-measured-visuals__boundary' }, 'Compare verified capability scores within a suite only. Completion bars are operational progress, not scores. The current suite average below is coverage-labeled and never cross-ranks incomplete with complete conditions.'),
+      h('p', { className: 'acc-measured-visuals__boundary' }, 'Compare verified capability scores within a suite only. Completion bars are operational progress, not scores. The current suite average above is coverage-labeled and never cross-ranks incomplete with complete conditions.'),
     );
   }
 
@@ -921,9 +902,8 @@ export async function registerAutobotCommandCenter() {
     if (!route.domain) return h('div', { className: 'acc-view' },
       h(SectionHeading, { eyebrow: 'Model Observatory', title: 'Benchmarks' }),
       h('p', { className: 'acc-lede' }, 'Compare every tested model through the same three operational scores, then open a condition for suite-level evidence and caveats.'),
-      h('div', { className: 'acc-toolbar' }, h(MetricTabs, { active: 'comparison', onSelect: (nextDomain) => go({ view: 'benchmarks', domain: nextDomain }) }), h(Badge, { tone: 'warn' }, 'Dev draft')),
-      h(MeasuredBenchmarkVisuals, { go }),
       h(ThreeScoreComparison, { go }),
+      h(MeasuredBenchmarkVisuals, { go }),
     );
     if (isRollup) return h('div', { className: 'acc-view' },
       h(SectionHeading, { eyebrow: 'Model Observatory', title: 'Benchmarks' }),

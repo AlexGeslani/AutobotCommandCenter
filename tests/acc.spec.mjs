@@ -176,6 +176,20 @@ test('a condition with no verified suites renders a pending average instead of c
   expect(browserErrors).toEqual([]);
 });
 
+test('benchmark landing prioritizes the model comparison and leaves suite detail last without legacy shortcuts', async ({ page }) => {
+  await page.goto(pluginUrl + '?view=benchmarks');
+  const comparison = page.getByRole('region', { name: 'Three-score model comparison' });
+  const suiteDetail = page.getByRole('region', { name: 'Suite score and completion details' });
+  await expect(comparison).toBeVisible();
+  await expect(suiteDetail).toBeVisible();
+  expect(await comparison.evaluate((element, following) => Boolean(element.compareDocumentPosition(following) & Node.DOCUMENT_POSITION_FOLLOWING), await suiteDetail.elementHandle())).toBe(true);
+  await expect(page.getByRole('heading', { name: 'Measured suite comparison' })).toHaveCount(0);
+  await expect(page.getByRole('table', { name: 'Measured evidence coverage' })).toHaveCount(0);
+  for (const label of ['Capability rollup', 'Tool Use', 'GPQA Diamond', 'Coding']) {
+    await expect(page.getByRole('button', { name: label, exact: true })).toHaveCount(0);
+  }
+});
+
 test('Analytics exposes scalable domains and a truthful KFC real-data route', async ({ page }) => {
   await routeWebAnalytics(page);
   await page.goto(pluginUrl + '?view=analytics');
@@ -544,11 +558,12 @@ test('Voice Lab comparison is readable without mobile horizontal overflow', asyn
 test('measured benchmark view distinguishes verified capability, live completion, and coverage-labeled averages', async ({ page }) => {
   const browserErrors = captureBrowserErrors(page);
   await page.goto(pluginUrl + '?view=benchmarks');
-  const measuredVisuals = page.getByRole('region', { name: 'Measured benchmark evidence visuals' });
-  await expect(measuredVisuals.getByRole('heading', { name: 'Measured suite comparison' })).toBeVisible();
-  await expect(measuredVisuals.locator('[data-measured-suite]')).toHaveCount(3);
-  const measuredConditionCount = await measuredVisuals.locator('[data-measured-condition]').count();
+  const comparison = page.getByRole('region', { name: 'Three-score model comparison' });
+  await expect(comparison).toBeVisible();
+  const measuredConditionCount = await comparison.locator('[data-benchmark-profile]').count();
   expect(measuredConditionCount).toBeGreaterThan(0);
+  const measuredVisuals = page.getByRole('region', { name: 'Suite score and completion details' });
+  await expect(measuredVisuals.locator('[data-measured-suite]')).toHaveCount(3);
   await expect(measuredVisuals.locator('[data-measured-suite="instruction"] [data-score-bar]')).toHaveCount(measuredConditionCount);
   await expect(measuredVisuals.locator('[data-measured-suite="tools"] [data-score-bar]')).toHaveCount(measuredConditionCount);
   await expect(measuredVisuals.locator('[data-measured-suite="agent"] [data-score-bar]')).toHaveCount(measuredConditionCount);
@@ -559,7 +574,6 @@ test('measured benchmark view distinguishes verified capability, live completion
   await expect(measuredVisuals.getByText('Illustrative', { exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   await expect(page.getByRole('heading', { name: 'Three-score model comparison' })).toBeVisible();
-  const comparison = page.getByRole('region', { name: 'Three-score model comparison' });
   await expect(comparison.locator('[data-benchmark-profile]')).toHaveCount(measuredConditionCount);
   const luna = comparison.locator('[data-benchmark-profile="gpt56-luna-max"]');
   await expect(luna.getByText('82.5', { exact: true })).toBeVisible();
@@ -704,8 +718,7 @@ test('leaderboard opens exact tested condition then run evidence', async ({ page
 });
 
 test('capability rollup ranks complete coverage and separates partial evidence', async ({ page }) => {
-  await page.goto(pluginUrl + '?view=benchmarks');
-  await page.getByRole('button', { name: 'Capability rollup' }).click();
+  await page.goto(pluginUrl + '?view=benchmarks&domain=rollup');
   await expect(page).toHaveURL(/domain=rollup/);
   const complete = page.getByRole('region', { name: 'Comparable rollup' });
   await expect(complete.getByText('GPT-5.6 · Max · API', { exact: true })).toBeVisible();
@@ -806,7 +819,7 @@ test('benchmark domain is reload-stable and participates in browser history', as
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   await page.goto(pluginUrl + '?view=benchmarks');
-  await page.getByRole('button', { name: 'Capability rollup' }).click();
+  await page.goto(pluginUrl + '?view=benchmarks&domain=rollup');
   await expect(page).toHaveURL(/domain=rollup/);
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Comparable rollup' })).toBeVisible();
@@ -858,8 +871,6 @@ test('every Analytics and Benchmarks data column is stably sortable with accessi
   expect(descendingRequests.slice(descendingRequests.findIndex((value) => value === '—')).every((value) => value === '—')).toBe(true);
 
   await page.goto(pluginUrl + '?view=benchmarks');
-  const coverage = page.getByRole('table', { name: 'Measured evidence coverage' });
-  await exerciseEverySortHeader(coverage, ['Tested condition', 'Instruction following', 'Native tool use', 'Multi-turn agent']);
   for (const suite of ['IFEval', 'BFCL V4', 'tau2']) {
     await exerciseEverySortHeader(page.getByRole('table', { name: `${suite} measured suite comparison` }), ['Tested condition', 'Score or completion']);
   }
