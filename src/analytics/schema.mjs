@@ -1,6 +1,6 @@
 export const PUBLIC_WEB_ANALYTICS_SCHEMA_VERSION = 'web-analytics-projection-v2';
 export const WEB_ANALYTICS_MAX_BYTES = 256 * 1024;
-export const WEB_ANALYTICS_FIXTURE_NOTICE = 'ILLUSTRATIVE FIXTURE — NOT CURRENT KUNGFUCLAN.COM ANALYTICS';
+export const WEB_ANALYTICS_FIXTURE_NOTICE = 'ILLUSTRATIVE FIXTURE — NOT CURRENT ANALYTICS';
 
 const TOP_FIELDS = new Set(['schemaVersion', 'dataKind', 'generatedAt', 'subject', 'source', 'versions', 'coverage', 'ranges', 'notice']);
 const SUBJECT_FIELDS = new Set(['id', 'label', 'domain']);
@@ -20,7 +20,7 @@ const DAY_STATES = new Set(['present', 'missing', 'not_retained']);
 const FRESHNESS_STATES = new Set(['fresh', 'stale']);
 const QUERY_VERSIONS = new Set(['httpRequestsAdaptiveGroups-safe-v1']);
 const METRIC_REGISTRY_VERSIONS = new Set(['web-analytics-metrics-v2']);
-const REAL_SUBJECTS = new Set(['kungfuclan.com', 'alexgeslani.com']);
+
 
 function assertPlainObject(value, name) {
   if (!value || Array.isArray(value) || typeof value !== 'object') throw new TypeError(`${name} must be an object`);
@@ -188,10 +188,11 @@ export function projectWebAnalyticsProjection(value) {
   assertAllowedKeys(value.subject, SUBJECT_FIELDS, 'subject');
   if (value.subject.domain !== 'web') throw new TypeError('subject domain is unsupported');
   const subject = { id: assertString(value.subject.id, 'subject.id'), label: assertString(value.subject.label, 'subject.label'), domain: 'web' };
+  if (subject.id.length > 253 || !/^[A-Za-z0-9][A-Za-z0-9.-]*$/.test(subject.id)) throw new TypeError('subject.id must be a safe bounded edition identity');
   if (value.dataKind === 'illustrative_fixture') {
-    if (subject.id !== 'kungfuclan-demo' || value.notice !== WEB_ANALYTICS_FIXTURE_NOTICE) throw new TypeError('illustrative fixtures require the separate demo identity and permanent notice');
-  } else if (!REAL_SUBJECTS.has(subject.id) || value.notice !== undefined) {
-    throw new TypeError('real projection identity is not allowlisted');
+    if (!subject.id.endsWith('-demo') || value.notice !== WEB_ANALYTICS_FIXTURE_NOTICE) throw new TypeError('illustrative fixtures require a separate demo identity and permanent notice');
+  } else if (value.notice !== undefined) {
+    throw new TypeError('real projections cannot carry fixture notice state');
   }
 
   assertAllowedKeys(value.source, SOURCE_FIELDS, 'source');

@@ -1,0 +1,253 @@
+{
+  "schemaVersion": "acc-domain-projection-v1",
+  "generatedAt": "2026-01-01T00:00:00.000Z",
+  "data": {
+    "meta": {
+      "fixture": true,
+      "generatedAt": "2026-01-01T00:00:00.000Z",
+      "notice": "Sanitized illustrative demo — provide validated local projections for operational data"
+    },
+    "sources": [
+      {
+        "id": "wiki",
+        "label": "Product knowledge",
+        "authority": "Illustrative product claims",
+        "state": "fresh",
+        "freshness": "Demo fixture",
+        "invalidatesClaims": false
+      },
+      {
+        "id": "benchmarks",
+        "label": "Benchmark artifacts",
+        "authority": "Illustrative benchmark lineage",
+        "state": "fresh",
+        "freshness": "Demo fixture",
+        "invalidatesClaims": false
+      },
+      {
+        "id": "runtime",
+        "label": "Runtime telemetry",
+        "authority": "Current service availability",
+        "state": "missing",
+        "freshness": "No local projection connected",
+        "invalidatesClaims": true
+      },
+      {
+        "id": "skill-meta",
+        "label": "Skill metadata",
+        "authority": "Publication and stewardship state",
+        "state": "missing",
+        "freshness": "No local projection connected",
+        "invalidatesClaims": true
+      }
+    ],
+    "voicePerformance": {
+      "id": "demo-voice-performance",
+      "observedAt": "2026-01-01",
+      "source": "Illustrative fixture",
+      "method": "Sanitized example only.",
+      "reliabilityNote": "No operational claim.",
+      "routes": [
+        {
+          "id": "demo-voice-route",
+          "host": "Demo host",
+          "engine": "Demo engine",
+          "firstByteSeconds": 0.5,
+          "completeSeconds": 0.8,
+          "rtf": 0.2,
+          "successfulTrials": 3,
+          "totalTrials": 3,
+          "timeouts": 0,
+          "position": "Illustrative"
+        }
+      ]
+    },
+    "products": [
+      {
+        "id": "demo-command-center",
+        "name": "Demo Command Center",
+        "kind": "Product",
+        "state": "Demonstration",
+        "verified": "2026-01-01",
+        "source": "Sanitized fixture",
+        "value": "A portable read-only dashboard over validated projections.",
+        "outcome": "Shows the reusable application shell without private deployment data.",
+        "limitation": "All values are illustrative until local projections are connected.",
+        "worksNow": ["Portable shell", "Validated JSON contracts", "Fail-closed data loading"],
+        "evidence": ["Contract tests"],
+        "evaluations": ["demo-evaluation"]
+      }
+    ],
+    "modelFamilies": [
+      {
+        "id": "demo-model",
+        "name": "Demo Model",
+        "publisher": "Example",
+        "architecture": "Illustrative",
+        "license": "Example only",
+        "roles": ["Demonstration"]
+      }
+    ],
+    "conditions": [
+      {
+        "id": "demo-model-local",
+        "familyId": "demo-model",
+        "shortName": "Demo Model · Local",
+        "provider": "Demo host",
+        "runtime": "Example runtime",
+        "quantization": "Example",
+        "reasoning": "Example",
+        "host": "Demo host",
+        "context": "Example envelope",
+        "output": "Example envelope",
+        "availability": "unknown",
+        "availabilityNote": "No runtime authority connected",
+        "fingerprint": "demo-model|local|example",
+        "results": []
+      }
+    ],
+    "benchmarkReleases": {
+      "tool-use": "bfcl-v3",
+      "reasoning": "gpqa-diamond-demo-v1",
+      "coding": "code-demo-v1"
+    },
+    "benchmarkComparison": [
+      {
+        "conditionId": "demo-model-local",
+        "evidence": "illustrative",
+        "note": "Illustrative fixture values are not operational benchmark claims.",
+        "scores": {
+          "instruction": {
+            "label": "Instruction following",
+            "benchmark": "Demo Instructions",
+            "value": 75,
+            "evidence": "verified",
+            "denominator": "3 / 4 illustrative cases",
+            "detail": [["Boundary", "Illustrative fixture"]]
+          },
+          "tools": {
+            "label": "Native tool use",
+            "benchmark": "Demo Tools",
+            "value": 50,
+            "evidence": "verified",
+            "denominator": "2 / 4 illustrative cases",
+            "detail": [["Boundary", "Illustrative fixture"]]
+          },
+          "agent": {
+            "label": "Multi-turn agent",
+            "benchmark": "Demo Agent",
+            "value": 60,
+            "evidence": "verified",
+            "denominator": "3 / 5 illustrative cases",
+            "detail": [["Boundary", "Illustrative fixture"]]
+          }
+        }
+      }
+    ],
+    "results": [
+      {
+        "id": "demo-tool-result",
+        "conditionId": "demo-model-local",
+        "domain": "tool-use",
+        "release": "bfcl-v3",
+        "score": 50,
+        "denominator": 4,
+        "status": "canonical",
+        "runIds": ["demo-tool-run"]
+      },
+      {
+        "id": "demo-reasoning-result",
+        "conditionId": "demo-model-local",
+        "domain": "reasoning",
+        "release": "gpqa-diamond-demo-v1",
+        "score": 60,
+        "denominator": 5,
+        "status": "canonical",
+        "runIds": ["demo-reasoning-run"]
+      },
+      {
+        "id": "demo-coding-result",
+        "conditionId": "demo-model-local",
+        "domain": "coding",
+        "release": "code-demo-v1",
+        "score": 55,
+        "denominator": 5,
+        "status": "canonical",
+        "runIds": ["demo-coding-run"]
+      }
+    ],
+    "runs": [
+      {
+        "id": "demo-tool-run",
+        "label": "Illustrative tool-use run",
+        "manifest": "demo-tool.freeze.json",
+        "calls": 4,
+        "failures": 2,
+        "inputTokens": 100,
+        "outputTokens": 50,
+        "reasoningTokens": null,
+        "wall": "1m",
+        "cost": "Illustrative",
+        "source": "Sanitized fixture"
+      },
+      {
+        "id": "demo-reasoning-run",
+        "label": "Illustrative reasoning run",
+        "manifest": "demo-reasoning.freeze.json",
+        "calls": 5,
+        "failures": 2,
+        "inputTokens": 100,
+        "outputTokens": 50,
+        "reasoningTokens": null,
+        "wall": "1m",
+        "cost": "Illustrative",
+        "source": "Sanitized fixture"
+      },
+      {
+        "id": "demo-coding-run",
+        "label": "Illustrative coding run",
+        "manifest": "demo-coding.freeze.json",
+        "calls": 5,
+        "failures": 2,
+        "inputTokens": 100,
+        "outputTokens": 50,
+        "reasoningTokens": null,
+        "wall": "1m",
+        "cost": "Illustrative",
+        "source": "Sanitized fixture"
+      }
+    ],
+    "evaluations": [
+      {
+        "id": "demo-evaluation",
+        "title": "Portable projection contract",
+        "stage": "Demonstration",
+        "findingStatus": "provisional",
+        "decision": "Connect a local edition for operational use",
+        "progress": 100,
+        "question": "Can the dashboard run without private deployment data?",
+        "finding": "The bundled demo contains only sanitized illustrative values.",
+        "affectedObjects": [
+          { "type": "product", "id": "demo-command-center", "label": "Demo Command Center" }
+        ]
+      }
+    ]
+  },
+  "showcase": {
+    "schemaVersion": "showcase-projection-v1",
+    "refreshedAt": "2026-01-01T00:00:00.000Z",
+    "githubProjects": [],
+    "showcaseEditions": [],
+    "operationalSkills": [
+      {
+        "id": "demo-skill",
+        "name": "Demo Operational Skill",
+        "description": "Illustrative reusable procedure metadata.",
+        "version": "1.0.0",
+        "category": "Demonstration",
+        "metadataStatus": "frontmatter",
+        "validationStatus": "Unknown"
+      }
+    ]
+  }
+}

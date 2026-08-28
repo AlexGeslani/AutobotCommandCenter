@@ -1,9 +1,3 @@
-const PROJECT_ALLOWLIST = new Map([
-  ['jarvis', 'AlexGeslani/Jarvis'],
-  ['stacklogic', 'AlexGeslani/StackLogic'],
-  ['8-ball', 'AlexGeslani/8-Ball'],
-]);
-
 const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 
 function assertObject(value, label, allowedKeys, requiredKeys = allowedKeys) {
@@ -32,6 +26,12 @@ function assertHttpsUrl(value, label) {
   let url;
   try { url = new URL(value); } catch { throw new Error(`${label} must be a valid URL`); }
   if (url.protocol !== 'https:' || url.username || url.password) throw new Error(`${label} must be a credential-free HTTPS URL`);
+  return value;
+}
+
+function assertRepository(value, label) {
+  assertString(value, label);
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value)) throw new Error(`${label} must be an owner/repository identifier`);
   return value;
 }
 
@@ -77,13 +77,14 @@ export function validateShowcasePolicy(policy) {
   if (policy.schemaVersion !== 'showcase-projection-policy-v1') throw new Error('Unsupported showcase projection policy schema');
   assertObject(policy.github, 'policy.github', ['projects']);
   const projects = assertArray(policy.github.projects, 'policy.github.projects');
-  if (projects.length !== PROJECT_ALLOWLIST.size) throw new Error('Policy repository allowlist must contain exactly three approved projects');
+  if (projects.length > 50) throw new Error('Policy repository selection must be bounded');
   const seen = new Set();
   projects.forEach((project, index) => {
     const label = `policy.github.projects[${index}]`;
     assertObject(project, label, ['id', 'repository', 'pointers']);
-    const repository = PROJECT_ALLOWLIST.get(project.id);
-    if (!repository || repository !== project.repository || seen.has(project.id)) throw new Error(`${label} is outside the repository allowlist`);
+    assertString(project.id, `${label}.id`);
+    assertRepository(project.repository, `${label}.repository`);
+    if (seen.has(project.id)) throw new Error(`${label}.id must be unique`);
     seen.add(project.id);
     validatePointerPolicy(project.pointers, `${label}.pointers`);
   });
@@ -109,8 +110,8 @@ function validateGithubProject(project, index) {
     'id', 'name', 'repository', 'visibility', 'repositoryUrl', 'description', 'demoUrl',
     'productBriefUrl', 'architectureUrl', 'relatedArticleUrl',
   ], ['id', 'name', 'repository', 'visibility', 'repositoryUrl', 'description', 'productBriefUrl']);
-  const repository = PROJECT_ALLOWLIST.get(project.id);
-  if (!repository || repository !== project.repository) throw new Error(`${label} is outside the repository allowlist`);
+  assertString(project.id, `${label}.id`);
+  const repository = assertRepository(project.repository, `${label}.repository`);
   if (project.visibility !== 'PUBLIC') throw new Error(`${label}.visibility must be PUBLIC`);
   assertString(project.name, `${label}.name`);
   assertString(project.description, `${label}.description`);
@@ -149,9 +150,9 @@ export function validateShowcaseProjection(snapshot) {
   assertString(snapshot.refreshedAt, 'snapshot.refreshedAt');
   if (Number.isNaN(Date.parse(snapshot.refreshedAt))) throw new Error('snapshot.refreshedAt must be an ISO timestamp');
   const projects = assertArray(snapshot.githubProjects, 'snapshot.githubProjects');
-  if (projects.length !== PROJECT_ALLOWLIST.size) throw new Error('Snapshot must contain exactly the approved repository allowlist');
+  if (projects.length > 50) throw new Error('Snapshot project selection must be bounded');
   projects.forEach(validateGithubProject);
-  if (new Set(projects.map((project) => project.id)).size !== PROJECT_ALLOWLIST.size) throw new Error('Snapshot project identities must be unique');
+  if (new Set(projects.map((project) => project.id)).size !== projects.length) throw new Error('Snapshot project identities must be unique');
   assertArray(snapshot.showcaseEditions, 'snapshot.showcaseEditions').forEach(validateShowcaseEdition);
   assertArray(snapshot.operationalSkills, 'snapshot.operationalSkills').forEach(validateOperationalSkill);
   assertSafeClientStrings(snapshot, 'snapshot');

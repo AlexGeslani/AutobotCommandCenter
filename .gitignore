@@ -13,6 +13,8 @@ secrets/
 ops/*.plist
 
 # Mutable, sanitized runtime projections; publish atomically, never commit.
+standalone/public/runtime/
+.hermes/plugins/autobot-command-center/dashboard/dist/runtime/
 standalone/public/data/provider-usage.v1.json
 .hermes/plugins/autobot-command-center/dashboard/dist/data/provider-usage.v1.json
 standalone/public/data/analytics/web/*.json

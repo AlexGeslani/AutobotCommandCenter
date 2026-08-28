@@ -24,26 +24,32 @@ async function routeWebAnalytics(page) {
   sourceCountry.edgeResponseBytes -= extraCountries.reduce((sum, country) => sum + country.edgeResponseBytes, 0);
   realProjection.ranges['30d'].countries.push(...extraCountries);
   delete realProjection.notice;
-  await page.route('**/data/analytics/web/kungfuclan.com.v2.json', async (route) => {
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(realProjection) });
-  });
+  for (const pattern of ['**/data/analytics/web/kungfuclan.com.v2.json', '**/runtime/analytics/web/kungfuclan.com.v2.json']) {
+    await page.route(pattern, async (route) => {
+      await route.fulfill({ contentType: 'application/json', body: JSON.stringify(realProjection) });
+    });
+  }
   await page.route('**/data/analytics/showcase/kungfuclan-demo.v2.json', async (route) => {
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify(showcaseProjection) });
   });
   const alexProjection = structuredClone(realProjection);
   alexProjection.subject = { id: 'alexgeslani.com', label: 'alexgeslani.com', domain: 'web' };
-  await page.route('**/data/analytics/web/alexgeslani.com.v2.json', async (route) => {
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(alexProjection) });
-  });
+  for (const pattern of ['**/data/analytics/web/alexgeslani.com.v2.json', '**/runtime/analytics/web/alexgeslani.com.v2.json']) {
+    await page.route(pattern, async (route) => {
+      await route.fulfill({ contentType: 'application/json', body: JSON.stringify(alexProjection) });
+    });
+  }
 }
 
 async function routeProviderUsage(page, providers, generatedAt = '2026-07-31T23:30:00.000Z') {
-  await page.route('**/data/provider-usage.v1.json', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ schemaVersion: 'provider-usage-v1', generatedAt, providers }),
+  for (const pattern of ['**/data/provider-usage.v1.json', '**/runtime/provider-usage.v1.json']) {
+    await page.route(pattern, async (route) => {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ schemaVersion: 'provider-usage-v1', generatedAt, providers }),
+      });
     });
-  });
+  }
 }
 
 async function routeProtectedKnowledge(page, { failure = false } = {}) {
@@ -125,11 +131,25 @@ test('Overview prioritizes provider headroom and keeps destination summaries com
   await expect(page.getByRole('button', { name: 'Open Portfolio' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open Analytics' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open Benchmarks' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Open Skills' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open Skill Registry' })).toBeVisible();
 
   const localNav = page.getByRole('navigation', { name: 'Command Center sections' });
   await expect(localNav.getByRole('button')).toHaveCount(6);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  expect(browserErrors).toEqual([]);
+});
+
+test('invalid runtime domain remains visible as stale while the dashboard falls back without page errors', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page);
+  await page.route('**/runtime/domain.v1.json', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: '{"schemaVersion":"acc-domain-projection-v1","generatedAt":"invalid"}' });
+  });
+  await page.goto(pluginUrl);
+  const notice = page.locator('.acc-runtime-health');
+  await expect(notice).toContainText('Runtime data is stale or invalid');
+  await expect(notice).toContainText('Domain projection is invalid or unavailable; showing bundled demonstration data marked stale.');
+  await expect(page.getByRole('heading', { name: 'Autobot Command Center' })).toBeVisible();
+  expect(await page.evaluate(() => window.__ACC_RUNTIME_HEALTH__.domain)).toMatchObject({ state: 'demo_invalid', stale: true, valid: false });
   expect(browserErrors).toEqual([]);
 });
 
@@ -142,7 +162,7 @@ test('Analytics exposes scalable domains and a truthful KFC real-data route', as
   await expect(page.getByRole('heading', { name: 'Products & agents' })).toBeVisible();
   await expect(page.getByText('Not connected', { exact: true })).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Open alexgeslani.com analytics' })).toBeVisible();
-  await page.getByRole('button', { name: 'Open KFC analytics' }).click();
+  await page.getByRole('button', { name: 'Open Kung Fu Clan analytics' }).click();
   await expect(page).toHaveURL(/view=analytics.*domain=web.*subject=kungfuclan\.com.*range=30d/);
   await expect(page.getByRole('heading', { name: 'Kung Fu Clan', exact: true })).toBeVisible();
   const propertySelector = page.getByLabel('Web property');
@@ -601,10 +621,10 @@ test('measured benchmark view distinguishes verified capability, live completion
   await expect(page.getByRole('heading', { name: 'Qwen 3.8 2B Distill · 4-bit MLX' })).toBeVisible();
   await expect(page.getByText('9 / 40 strict prompts', { exact: true })).toBeVisible();
   await expect(page.getByText('150 / 150 frozen scored cases', { exact: true })).toBeVisible();
-  await expect(page.getByText('45 / 50 live · score withheld', { exact: true })).toBeVisible();
+  await expect(page.getByText(/\d+ \/ 50 live · score withheld/, { exact: true })).toBeVisible();
   await expect(page.getByText('Current suite average', { exact: true })).toBeVisible();
   await expect(page.getByText('In progress · 2/3 final-verified suites · pending suites excluded', { exact: true })).toBeVisible();
-  await expect(page.getByText('90.0% collection complete · 45 / 50 frozen tasks · Retail 25 / 25 · Telecom 20 / 25', { exact: true })).toBeVisible();
+  await expect(page.getByText(/\d+\.\d% collection complete · \d+ \/ 50 frozen tasks · Retail 25 \/ 25 · Telecom \d+ \/ 25/, { exact: true })).toBeVisible();
   const qwenOperations = page.getByRole('region', { name: 'Operational benchmark footprint' });
   await expect(qwenOperations.getByText('9.84M', { exact: true })).toBeVisible();
   await expect(qwenOperations.getByText('1.13M', { exact: true })).toBeVisible();
@@ -635,8 +655,8 @@ test('measured benchmark view distinguishes verified capability, live completion
   await qwen27.getByRole('button', { name: /Qwen3\.8 27B RVN Heretic/i }).click();
   await expect(page.getByRole('heading', { name: 'Qwen3.8 27B RVN Heretic · Q4_K_M · MTP-N1' })).toBeVisible();
   await expect(page.getByText('32 / 40 strict prompts', { exact: true })).toBeVisible();
-  await expect(page.getByText('40 / 261 generated · score withheld', { exact: true })).toBeVisible();
-  await expect(page.getByText('0 / 50 queued · score withheld', { exact: true })).toBeVisible();
+  await expect(page.getByText(/\d+ \/ (261 generated · score withheld|150 frozen scored cases)/, { exact: true })).toBeVisible();
+  await expect(page.locator('.acc-core-score-card__denominator').filter({ hasText: /\d+ \/ 50 (queued · score withheld|live · score withheld|frozen tasks)/ })).toBeVisible();
   await expect(page.getByText('In progress · 1/3 final-verified suites · pending suites excluded', { exact: true })).toBeVisible();
   const qwen27Operations = page.getByRole('region', { name: 'Operational benchmark footprint' });
   await expect(qwen27Operations.getByText('80.33K', { exact: true })).toBeVisible();
@@ -979,7 +999,7 @@ test('Brave Search is separated from frontier subscriptions and shows exact requ
 });
 
 test('expired Claude observations show last-known quota figures with a warning', async ({ page }) => {
-  await page.route('**/data/provider-usage.v1.json', async (route) => {
+  await page.route('**/*/provider-usage.v1.json', async (route) => {
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({

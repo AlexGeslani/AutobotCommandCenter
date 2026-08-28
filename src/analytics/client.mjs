@@ -1,21 +1,14 @@
 import { parseWebAnalyticsText } from './schema.mjs';
 
-const PROJECTION_PATHS = new Map([
-  ['real:kungfuclan.com', 'data/analytics/web/kungfuclan.com.v2.json'],
-  ['real:alexgeslani.com', 'data/analytics/web/alexgeslani.com.v2.json'],
-  ['fixture:kungfuclan-demo', 'data/analytics/showcase/kungfuclan-demo.v2.json'],
-]);
-
-export function webAnalyticsProjectionPath({ subject, mode }) {
-  const kind = mode === 'fixture' ? 'fixture' : 'real';
-  const path = PROJECTION_PATHS.get(`${kind}:${subject}`);
-  if (!path) throw new TypeError('analytics subject is not connected');
-  return path;
+export function webAnalyticsProjectionPath({ subject, subjects = [] }) {
+  const selected = subjects.find((item) => item.id === subject);
+  if (!selected) throw new TypeError('analytics subject is not connected');
+  return selected.projection;
 }
 
-export async function loadWebAnalyticsProjection(basePath = '/', { subject, mode } = {}) {
+export async function loadWebAnalyticsProjection(basePath = '/', { subject, subjects = [] } = {}) {
   const base = new URL(basePath, window.location.origin);
-  const path = webAnalyticsProjectionPath({ subject, mode });
+  const path = webAnalyticsProjectionPath({ subject, subjects });
   const url = new URL(path, `${base.href.replace(/\/?$/, '/')}`);
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) throw new Error('Web analytics projection unavailable');

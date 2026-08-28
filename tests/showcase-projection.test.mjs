@@ -108,7 +108,7 @@ describe('showcase projection policy', () => {
     ]);
     expect(checked.skills.showcaseEditions).toEqual([]);
     expect(JSON.stringify(checked)).not.toMatch(/\/Users\/|private repos?|readmeBody/i);
-    expect(() => validateShowcasePolicy({ ...policy, github: { projects: [...policy.github.projects, { id: 'other', repository: 'AlexGeslani/Other', pointers: { productBrief: 'README.md' } }] } })).toThrow(/allowlist/i);
+    expect(() => validateShowcasePolicy({ ...policy, github: { projects: [...policy.github.projects, { id: 'other', repository: 'invalid repository', pointers: { productBrief: 'README.md' } }] } })).toThrow(/repository/i);
     expect(() => validateShowcasePolicy({ ...policy, skills: { ...policy.skills, operational: [{ id: 'bad', category: 'Bad', source: absoluteUserPath }] } })).toThrow(/relative/i);
     expect(() => validateShowcasePolicy({
       ...policy,
@@ -235,10 +235,9 @@ describe('closed snapshot selectors', () => {
     ]);
     const packageJson = JSON.parse(packageText);
     expect(packageJson.scripts['projection:refresh']).toBe('node scripts/generate-showcase-projection.mjs');
-    expect(buildSource).toMatch(/validateShowcaseProjection/);
-    expect(buildSource).not.toMatch(/api\.github\.com|fetch\s*\(/);
-    expect(modelSource).toMatch(/generated\/showcase-projection\.v1\.json/);
-    expect(modelSource).not.toMatch(/lastValidated:|'jarvis', name: 'Jarvis Voice Agent'/);
+    expect(buildSource).not.toMatch(/generated\/showcase-projection\.v1\.json|api\.github\.com|fetch\s*\(/);
+    expect(modelSource).toMatch(/DEMO_DOMAIN_PROJECTION|applyDomainProjection/);
+    expect(modelSource).not.toMatch(/generated\/showcase-projection\.v1\.json|lastValidated:|'jarvis', name: 'Jarvis Voice Agent'/);
     expect(pluginSource).toMatch(/GitHub Showcase Projects/);
     expect(pluginSource).toMatch(/Internal Products & Capabilities/);
     expect(pluginSource).toMatch(/Showcase Editions/);

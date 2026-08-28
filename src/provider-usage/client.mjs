@@ -1,8 +1,8 @@
 import { isPublicProviderUsageSnapshot, refreshProviderUsageSnapshot } from './schema.mjs';
 
-export async function loadProviderUsageSnapshot(basePath = '/') {
+export async function loadProviderUsageSnapshot(basePath = '/', projectionPath = 'data/provider-usage.v1.json') {
   const base = new URL(basePath, window.location.origin);
-  const url = new URL('data/provider-usage.v1.json', `${base.href.replace(/\/?$/, '/')}`);
+  const url = new URL(projectionPath, `${base.href.replace(/\/?$/, '/')}`);
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) throw new Error('Provider usage snapshot unavailable');
   const value = await response.json();

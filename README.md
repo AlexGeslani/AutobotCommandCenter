@@ -31,6 +31,18 @@ The Cloudflare report image is generated from the repository's deterministic, ex
 
 ## Architecture evidence
 
+### Core + Edition + Projection
+
+ACC is one application with three deliberately narrow layers:
+
+- **Core** (`src/`) owns rendering, route behavior, calculations, validation, trust/authority semantics, and the closed module registry.
+- **Edition** (`config/demo.edition.v1.json`) is immutable JSON that selects and orders known modules and supplies labels, branding, stable IDs, and approved relative projection locations. It cannot define code, trust policy, external paths, or arbitrary UI behavior.
+- **Projection** (`fixtures/demo/domain.v1.json`) is mutable, versioned JSON carrying sanitized domain facts with `schemaVersion` and `generatedAt`.
+
+The bundled edition and projection are sanitized demonstration data. A deployment can serve validated replacements from `runtime/edition.v1.json` and the Edition-declared relative projection paths; those mutable runtime directories are ignored by Git. Invalid replacements are isolated, retain the last-good value, and report an explicit stale/invalid health state rather than appearing fresh or blanking the dashboard.
+
+Runtime-domain writers publish through `scripts/publish-runtime-projection.mjs`, which validates the complete candidate before file synchronization and atomic replacement. Failed validation leaves every last-good destination unchanged.
+
 ### Provider usage
 
 ![Bounded provider-usage collection and projection flow](docs/diagrams/provider-usage-flow.svg)
@@ -65,7 +77,9 @@ Then open `http://127.0.0.1:8080/`.
 ## Project structure
 
 ```text
-src/                  shared application, analytics views, and data contracts
+src/                  reusable Core, analytics views, and strict validators
+config/               immutable sanitized demo Edition JSON
+fixtures/demo/         sanitized demo runtime projection JSON
 collector/            bounded, fail-closed provider and analytics adapters
 bridge/               optional protected knowledge-search bridge
 standalone/            static entry point and generated artifact

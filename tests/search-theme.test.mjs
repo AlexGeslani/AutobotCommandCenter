@@ -34,10 +34,10 @@ describe('local-first Search contract', () => {
   });
 
   it.each([
-    ['portfolio', 'portfolio', 'Autobot Command Center'],
-    ['skills', 'skills', 'autobots'],
-    ['qwen heretic', 'benchmarks', 'Qwen3.6 35B Heretic'],
-    ['cloudflare visits', 'analytics', 'Kung Fu Clan'],
+    ['portable shell', 'portfolio', 'Demo Command Center'],
+    ['demo operational', 'skills', 'Demo Operational Skill'],
+    ['illustrative fixture', 'benchmarks', 'Demo Model'],
+    ['provider service', 'analytics', 'Provider Usage'],
   ])('filters deterministic local records for %s without a remote dependency', (query, kind, title) => {
     const matches = filterLocalAcc(query);
     expect(matches.some((record) => record.kind === kind && record.title.includes(title))).toBe(true);

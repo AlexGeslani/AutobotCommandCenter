@@ -4,7 +4,6 @@ import { buildWorldTrafficModel } from './world-map.mjs';
 import { createSortingSupport, defineSortColumns } from '../sorting.mjs';
 
 const RANGE_LABELS = { '1d': '1 day', '7d': '7 days', '30d': '30 days' };
-const ANALYTICS_SHOWCASE_ENABLED = globalThis.__ACC_ANALYTICS_SHOWCASE__ === true;
 
 function formatNumber(value) {
   return Number.isSafeInteger(value) ? value.toLocaleString() : 'Unknown';
@@ -56,7 +55,9 @@ export function projectTrafficScale(daily) {
   return { maximum, ticks: [0, 0.25, 0.5, 0.75, 1].map((fraction) => maximum * fraction) };
 }
 
-export function createAnalyticsView({ React, h, useEffect, useState, Badge, StatusBadge, SectionHeading, ProviderUsage }) {
+export function createAnalyticsView({ React, h, useEffect, useState, Badge, StatusBadge, SectionHeading, ProviderUsage, edition }) {
+  const webSubjects = edition.analytics.web;
+  const providerSubject = edition.analytics.providerUsage;
   const { useSortableRows, SortableHeader } = createSortingSupport({ React, useState });
 
   function SourceCard({ eyebrow, title, status, description, action, onClick }) {
@@ -78,23 +79,28 @@ export function createAnalyticsView({ React, h, useEffect, useState, Badge, Stat
       h(SectionHeading, { eyebrow: 'Measured systems', title: 'Analytics' }),
       h('p', { className: 'acc-lede' }, 'One reporting destination for web properties, AI services, and products or agents. Every source keeps its own authority, freshness, and metric definitions.'),
       h('section', { className: 'acc-analytics-domain', 'aria-labelledby': 'acc-domain-web' },
-        h('div', { className: 'acc-analytics-domain__head' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Domain 01'), h('h2', { id: 'acc-domain-web' }, 'Web properties')), h(Badge, { tone: 'good' }, '2 connected')),
-        h('div', { className: 'acc-analytics-source-grid' },
-          h(SourceCard, { eyebrow: 'Cloudflare edge aggregates', title: 'Kung Fu Clan', status: 'available', description: 'Daily requests, Cloudflare Visits, transfer, cache behavior, response classes, countries, coverage, and source provenance.', action: 'Open KFC analytics', onClick: () => go({ view: 'analytics', domain: 'web', subject: 'kungfuclan.com', range: '30d' }) }),
-          h(SourceCard, { eyebrow: 'Cloudflare edge aggregates', title: 'alexgeslani.com', status: 'available', description: 'Daily requests, Cloudflare Visits, transfer, cache behavior, response classes, countries, coverage, and source provenance.', action: 'Open alexgeslani.com analytics', onClick: () => go({ view: 'analytics', domain: 'web', subject: 'alexgeslani.com', range: '30d' }) }),
-        ),
+        h('div', { className: 'acc-analytics-domain__head' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Domain 01'), h('h2', { id: 'acc-domain-web' }, 'Web properties')), h(Badge, { tone: webSubjects.length ? 'good' : 'warn' }, `${webSubjects.length} connected`)),
+        webSubjects.length
+          ? h('div', { className: 'acc-analytics-source-grid' }, webSubjects.map((subject) => h(SourceCard, {
+            key: subject.id,
+            eyebrow: 'Validated aggregate projection',
+            title: subject.label,
+            status: 'available',
+            description: subject.description,
+            action: `Open ${subject.label} analytics`,
+            onClick: () => go({ view: 'analytics', domain: 'web', subject: subject.id, range: '30d' }),
+          })))
+          : h('p', { className: 'acc-provider-empty' }, 'No web analytics projection is connected in this edition.'),
       ),
       h('section', { className: 'acc-analytics-domain', 'aria-labelledby': 'acc-domain-ai' },
         h('div', { className: 'acc-analytics-domain__head' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Domain 02'), h('h2', { id: 'acc-domain-ai' }, 'AI services')), h(Badge, { tone: providerCount ? 'good' : 'warn' }, `${providerCount} reporting`)),
         h('div', { className: 'acc-analytics-source-grid' },
-          h(SourceCard, { eyebrow: 'Subscription and API headroom', title: 'Provider Usage', status: providerCount ? 'available' : 'unknown', description: 'Existing Codex, Claude, Antigravity, and Brave observations remain separated by authority and metric class.', action: 'Open provider usage', onClick: () => go({ view: 'analytics', domain: 'ai', subject: 'provider-usage' }) }),
+          h(SourceCard, { eyebrow: 'Subscription and API headroom', title: providerSubject.label, status: providerCount ? 'available' : 'unknown', description: providerSubject.description, action: `Open ${providerSubject.label.toLocaleLowerCase('en')}`, onClick: () => go({ view: 'analytics', domain: 'ai', subject: providerSubject.id }) }),
         ),
       ),
       h('section', { className: 'acc-analytics-domain', 'aria-labelledby': 'acc-domain-products' },
-        h('div', { className: 'acc-analytics-domain__head' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Domain 03'), h('h2', { id: 'acc-domain-products' }, 'Products & agents')), h(Badge, null, 'Planned')),
-        h('div', { className: 'acc-analytics-source-grid' },
-          h(SourceCard, { eyebrow: 'Future operational source', title: 'Jarvis', status: 'missing', description: 'No Jarvis measurement contract or sanitized projection has been connected.', action: 'Not connected' }),
-        ),
+        h('div', { className: 'acc-analytics-domain__head' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Domain 03'), h('h2', { id: 'acc-domain-products' }, 'Products & agents')), h(Badge, { tone: 'warn' }, 'Not connected')),
+        h('p', { className: 'acc-provider-empty' }, 'No product or agent analytics projection is connected in this edition.'),
       ),
     );
   }
@@ -268,24 +274,23 @@ export function createAnalyticsView({ React, h, useEffect, useState, Badge, Stat
   }
 
   function WebPropertyAnalytics({ route, go }) {
-    const mode = route.subject === 'kungfuclan-demo' && route.mode === 'fixture' ? 'fixture' : 'real';
-    const subject = mode === 'fixture' ? 'kungfuclan-demo' : route.subject;
+    const subject = route.subject;
     const selectedRange = Object.hasOwn(RANGE_LABELS, route.range) ? route.range : '30d';
     const [loadState, setLoadState] = useState({ status: 'loading', projection: null });
     useEffect(() => {
       let active = true;
       setLoadState({ status: 'loading', projection: null });
-      loadWebAnalyticsProjection(window.__ACC_BASE_PATH__ || '/dashboard-plugins/autobot-command-center/dist', { subject, mode }).then(
+      loadWebAnalyticsProjection(window.__ACC_BASE_PATH__ || '/dashboard-plugins/autobot-command-center/dist', { subject, subjects: webSubjects }).then(
         (projection) => { if (active) setLoadState({ status: 'ready', projection }); },
         () => { if (active) setLoadState({ status: 'unavailable', projection: null }); },
       );
       return () => { active = false; };
-    }, [subject, mode]);
+    }, [subject]);
 
     if (loadState.status === 'loading') return h('div', { className: 'acc-view' }, h('p', { className: 'acc-search-status', role: 'status' }, 'Loading validated analytics projection…'));
     if (loadState.status === 'unavailable') return h('div', { className: 'acc-view' },
       h('button', { type: 'button', className: 'acc-back', onClick: () => go({ view: 'analytics' }) }, '← Analytics'),
-      h('section', { className: 'acc-boundary', role: 'status' }, h('h2', null, mode === 'fixture' ? 'Illustrative showcase is not included in this build' : `${subject} analytics unavailable`), h('p', null, mode === 'fixture' ? 'The default build excludes synthetic analytics. Use an explicitly labeled development showcase build.' : 'No validated public projection was loaded. The dashboard does not substitute zeros or fixture data.')),
+      h('section', { className: 'acc-boundary', role: 'status' }, h('h2', null, `${subject} analytics unavailable`), h('p', null, 'No validated projection was loaded. The dashboard does not substitute zeros or fixture data.')),
     );
     const projection = { ...loadState.projection, coverage: projectCurrentWebAnalyticsCoverage(loadState.projection.coverage) };
     const range = projection.ranges[selectedRange];
@@ -298,14 +303,11 @@ export function createAnalyticsView({ React, h, useEffect, useState, Badge, Stat
       ),
       h('div', { className: 'acc-analytics-toolbar' },
         h('label', { className: 'acc-field' }, h('span', null, 'Web property'), h('select', { value: subject, onChange: (event) => {
-          if (event.target.value === 'kungfuclan-demo') go({ view: 'analytics', domain: 'web', subject: 'kungfuclan-demo', range: '30d', mode: 'fixture' });
-          else go({ view: 'analytics', domain: 'web', subject: event.target.value, range: selectedRange });
+          go({ view: 'analytics', domain: 'web', subject: event.target.value, range: selectedRange });
         } },
-        h('option', { value: 'kungfuclan.com' }, 'kungfuclan.com · real archive'),
-        h('option', { value: 'alexgeslani.com' }, 'alexgeslani.com · real archive'),
-        ANALYTICS_SHOWCASE_ENABLED ? h('option', { value: 'kungfuclan-demo' }, 'Kung Fu Clan · illustrative demo') : null,
+        webSubjects.map((item) => h('option', { key: item.id, value: item.id }, `${item.label} · validated projection`)),
         )),
-        h('div', { className: 'acc-metric-tabs', role: 'group', 'aria-label': 'Analytics date range' }, Object.entries(RANGE_LABELS).map(([id, label]) => h('button', { key: id, type: 'button', className: `acc-tab-button${selectedRange === id ? ' is-active' : ''}`, 'aria-pressed': selectedRange === id, onClick: () => go({ view: 'analytics', domain: 'web', subject, range: id, ...(mode === 'fixture' ? { mode: 'fixture' } : {}) }) }, label))),
+        h('div', { className: 'acc-metric-tabs', role: 'group', 'aria-label': 'Analytics date range' }, Object.entries(RANGE_LABELS).map(([id, label]) => h('button', { key: id, type: 'button', className: `acc-tab-button${selectedRange === id ? ' is-active' : ''}`, 'aria-pressed': selectedRange === id, onClick: () => go({ view: 'analytics', domain: 'web', subject, range: id }) }, label))),
       ),
       h(CoverageStrip, { projection, range }),
       h(SummaryCards, { range }),
@@ -325,11 +327,11 @@ export function createAnalyticsView({ React, h, useEffect, useState, Badge, Stat
 
   function Analytics({ route, go, providerUsage }) {
     if (!route.domain && !route.subject) return h(AnalyticsLanding, { go, providerUsage });
-    if (route.domain === 'ai' && route.subject === 'provider-usage') return h('div', { className: 'acc-view acc-analytics' },
+    if (route.domain === 'ai' && route.subject === providerSubject.id) return h('div', { className: 'acc-view acc-analytics' },
       h('button', { type: 'button', className: 'acc-back', onClick: () => go({ view: 'analytics' }) }, '← Analytics'),
       h(ProviderUsage, { snapshot: providerUsage, go }),
     );
-    if (route.domain === 'web' && (route.subject === 'kungfuclan.com' || route.subject === 'alexgeslani.com' || (ANALYTICS_SHOWCASE_ENABLED && route.subject === 'kungfuclan-demo'))) return h(WebPropertyAnalytics, { route, go });
+    if (route.domain === 'web' && webSubjects.some((subject) => subject.id === route.subject)) return h(WebPropertyAnalytics, { route, go });
     return h('div', { className: 'acc-view' },
       h('button', { type: 'button', className: 'acc-back', onClick: () => go({ view: 'analytics' }) }, '← Analytics'),
       h('section', { className: 'acc-boundary', role: 'status' }, h('h2', null, 'Analytics source not connected'), h('p', null, 'No validated projection is registered for this domain and subject. Unknown sources never become zero-valued dashboards.')),

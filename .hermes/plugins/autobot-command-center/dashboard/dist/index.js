@@ -187,9 +187,9 @@
   }
 
   // src/provider-usage/client.mjs
-  async function loadProviderUsageSnapshot(basePath = "/") {
+  async function loadProviderUsageSnapshot(basePath = "/", projectionPath = "data/provider-usage.v1.json") {
     const base = new URL(basePath, window.location.origin);
-    const url = new URL("data/provider-usage.v1.json", `${base.href.replace(/\/?$/, "/")}`);
+    const url = new URL(projectionPath, `${base.href.replace(/\/?$/, "/")}`);
     const response = await fetch(url, { cache: "no-store" });
     if (!response.ok) throw new Error("Provider usage snapshot unavailable");
     const value = await response.json();
@@ -209,10 +209,684 @@
     };
   }
 
+  // config/demo.edition.v1.json
+  var demo_edition_v1_default = {
+    schemaVersion: "acc-edition-v1",
+    id: "demo",
+    branding: {
+      title: "Command Center",
+      defaultTheme: "current-dark"
+    },
+    modules: [
+      { id: "overview", label: "Overview" },
+      { id: "portfolio", label: "Portfolio" },
+      { id: "analytics", label: "Analytics" },
+      { id: "benchmarks", label: "Benchmarks" },
+      { id: "skills", label: "Skill Registry" },
+      { id: "search", label: "Search" }
+    ],
+    projections: {
+      domain: "runtime/domain.v1.json",
+      providerUsage: "runtime/provider-usage.v1.json"
+    },
+    analytics: {
+      web: [],
+      providerUsage: {
+        id: "provider-usage",
+        label: "Provider Usage",
+        description: "Validated local service and subscription headroom projections."
+      }
+    }
+  };
+
+  // fixtures/demo/domain.v1.json
+  var domain_v1_default = {
+    schemaVersion: "acc-domain-projection-v1",
+    generatedAt: "2026-01-01T00:00:00.000Z",
+    data: {
+      meta: {
+        fixture: true,
+        generatedAt: "2026-01-01T00:00:00.000Z",
+        notice: "Sanitized illustrative demo \u2014 provide validated local projections for operational data"
+      },
+      sources: [
+        {
+          id: "wiki",
+          label: "Product knowledge",
+          authority: "Illustrative product claims",
+          state: "fresh",
+          freshness: "Demo fixture",
+          invalidatesClaims: false
+        },
+        {
+          id: "benchmarks",
+          label: "Benchmark artifacts",
+          authority: "Illustrative benchmark lineage",
+          state: "fresh",
+          freshness: "Demo fixture",
+          invalidatesClaims: false
+        },
+        {
+          id: "runtime",
+          label: "Runtime telemetry",
+          authority: "Current service availability",
+          state: "missing",
+          freshness: "No local projection connected",
+          invalidatesClaims: true
+        },
+        {
+          id: "skill-meta",
+          label: "Skill metadata",
+          authority: "Publication and stewardship state",
+          state: "missing",
+          freshness: "No local projection connected",
+          invalidatesClaims: true
+        }
+      ],
+      voicePerformance: {
+        id: "demo-voice-performance",
+        observedAt: "2026-01-01",
+        source: "Illustrative fixture",
+        method: "Sanitized example only.",
+        reliabilityNote: "No operational claim.",
+        routes: [
+          {
+            id: "demo-voice-route",
+            host: "Demo host",
+            engine: "Demo engine",
+            firstByteSeconds: 0.5,
+            completeSeconds: 0.8,
+            rtf: 0.2,
+            successfulTrials: 3,
+            totalTrials: 3,
+            timeouts: 0,
+            position: "Illustrative"
+          }
+        ]
+      },
+      products: [
+        {
+          id: "demo-command-center",
+          name: "Demo Command Center",
+          kind: "Product",
+          state: "Demonstration",
+          verified: "2026-01-01",
+          source: "Sanitized fixture",
+          value: "A portable read-only dashboard over validated projections.",
+          outcome: "Shows the reusable application shell without private deployment data.",
+          limitation: "All values are illustrative until local projections are connected.",
+          worksNow: ["Portable shell", "Validated JSON contracts", "Fail-closed data loading"],
+          evidence: ["Contract tests"],
+          evaluations: ["demo-evaluation"]
+        }
+      ],
+      modelFamilies: [
+        {
+          id: "demo-model",
+          name: "Demo Model",
+          publisher: "Example",
+          architecture: "Illustrative",
+          license: "Example only",
+          roles: ["Demonstration"]
+        }
+      ],
+      conditions: [
+        {
+          id: "demo-model-local",
+          familyId: "demo-model",
+          shortName: "Demo Model \xB7 Local",
+          provider: "Demo host",
+          runtime: "Example runtime",
+          quantization: "Example",
+          reasoning: "Example",
+          host: "Demo host",
+          context: "Example envelope",
+          output: "Example envelope",
+          availability: "unknown",
+          availabilityNote: "No runtime authority connected",
+          fingerprint: "demo-model|local|example",
+          results: []
+        }
+      ],
+      benchmarkReleases: {
+        "tool-use": "bfcl-v3",
+        reasoning: "gpqa-diamond-demo-v1",
+        coding: "code-demo-v1"
+      },
+      benchmarkComparison: [
+        {
+          conditionId: "demo-model-local",
+          evidence: "illustrative",
+          note: "Illustrative fixture values are not operational benchmark claims.",
+          scores: {
+            instruction: {
+              label: "Instruction following",
+              benchmark: "Demo Instructions",
+              value: 75,
+              evidence: "verified",
+              denominator: "3 / 4 illustrative cases",
+              detail: [["Boundary", "Illustrative fixture"]]
+            },
+            tools: {
+              label: "Native tool use",
+              benchmark: "Demo Tools",
+              value: 50,
+              evidence: "verified",
+              denominator: "2 / 4 illustrative cases",
+              detail: [["Boundary", "Illustrative fixture"]]
+            },
+            agent: {
+              label: "Multi-turn agent",
+              benchmark: "Demo Agent",
+              value: 60,
+              evidence: "verified",
+              denominator: "3 / 5 illustrative cases",
+              detail: [["Boundary", "Illustrative fixture"]]
+            }
+          }
+        }
+      ],
+      results: [
+        {
+          id: "demo-tool-result",
+          conditionId: "demo-model-local",
+          domain: "tool-use",
+          release: "bfcl-v3",
+          score: 50,
+          denominator: 4,
+          status: "canonical",
+          runIds: ["demo-tool-run"]
+        },
+        {
+          id: "demo-reasoning-result",
+          conditionId: "demo-model-local",
+          domain: "reasoning",
+          release: "gpqa-diamond-demo-v1",
+          score: 60,
+          denominator: 5,
+          status: "canonical",
+          runIds: ["demo-reasoning-run"]
+        },
+        {
+          id: "demo-coding-result",
+          conditionId: "demo-model-local",
+          domain: "coding",
+          release: "code-demo-v1",
+          score: 55,
+          denominator: 5,
+          status: "canonical",
+          runIds: ["demo-coding-run"]
+        }
+      ],
+      runs: [
+        {
+          id: "demo-tool-run",
+          label: "Illustrative tool-use run",
+          manifest: "demo-tool.freeze.json",
+          calls: 4,
+          failures: 2,
+          inputTokens: 100,
+          outputTokens: 50,
+          reasoningTokens: null,
+          wall: "1m",
+          cost: "Illustrative",
+          source: "Sanitized fixture"
+        },
+        {
+          id: "demo-reasoning-run",
+          label: "Illustrative reasoning run",
+          manifest: "demo-reasoning.freeze.json",
+          calls: 5,
+          failures: 2,
+          inputTokens: 100,
+          outputTokens: 50,
+          reasoningTokens: null,
+          wall: "1m",
+          cost: "Illustrative",
+          source: "Sanitized fixture"
+        },
+        {
+          id: "demo-coding-run",
+          label: "Illustrative coding run",
+          manifest: "demo-coding.freeze.json",
+          calls: 5,
+          failures: 2,
+          inputTokens: 100,
+          outputTokens: 50,
+          reasoningTokens: null,
+          wall: "1m",
+          cost: "Illustrative",
+          source: "Sanitized fixture"
+        }
+      ],
+      evaluations: [
+        {
+          id: "demo-evaluation",
+          title: "Portable projection contract",
+          stage: "Demonstration",
+          findingStatus: "provisional",
+          decision: "Connect a local edition for operational use",
+          progress: 100,
+          question: "Can the dashboard run without private deployment data?",
+          finding: "The bundled demo contains only sanitized illustrative values.",
+          affectedObjects: [
+            { type: "product", id: "demo-command-center", label: "Demo Command Center" }
+          ]
+        }
+      ]
+    },
+    showcase: {
+      schemaVersion: "showcase-projection-v1",
+      refreshedAt: "2026-01-01T00:00:00.000Z",
+      githubProjects: [],
+      showcaseEditions: [],
+      operationalSkills: [
+        {
+          id: "demo-skill",
+          name: "Demo Operational Skill",
+          description: "Illustrative reusable procedure metadata.",
+          version: "1.0.0",
+          category: "Demonstration",
+          metadataStatus: "frontmatter",
+          validationStatus: "Unknown"
+        }
+      ]
+    }
+  };
+
+  // src/showcase/projection.mjs
+  var hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+  function assertObject(value, label, allowedKeys, requiredKeys = allowedKeys) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be an object`);
+    for (const key of Object.keys(value)) {
+      if (!allowedKeys.includes(key)) throw new Error(`${label} contains unknown field ${key}`);
+    }
+    for (const key of requiredKeys) {
+      if (!hasOwn(value, key)) throw new Error(`${label} is missing field ${key}`);
+    }
+    return value;
+  }
+  function assertArray(value, label) {
+    if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
+    return value;
+  }
+  function assertString(value, label) {
+    if (typeof value !== "string" || !value.trim()) throw new Error(`${label} must be a non-empty string`);
+    return value;
+  }
+  function assertHttpsUrl(value, label) {
+    assertString(value, label);
+    let url;
+    try {
+      url = new URL(value);
+    } catch {
+      throw new Error(`${label} must be a valid URL`);
+    }
+    if (url.protocol !== "https:" || url.username || url.password) throw new Error(`${label} must be a credential-free HTTPS URL`);
+    return value;
+  }
+  function assertRepository(value, label) {
+    assertString(value, label);
+    if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value)) throw new Error(`${label} must be an owner/repository identifier`);
+    return value;
+  }
+  function assertSafeClientStrings(value, label = "projection") {
+    if (typeof value === "string") {
+      if (/\/Users\/|(?:^|\W)(?:authorization|github_token|access_token|readmeBody|privateRepositories)(?:$|\W)/i.test(value)) {
+        throw new Error(`${label} contains an unsafe client-visible path or field`);
+      }
+      return;
+    }
+    if (Array.isArray(value)) return value.forEach((item, index) => assertSafeClientStrings(item, `${label}[${index}]`));
+    if (value && typeof value === "object") {
+      for (const [key, item] of Object.entries(value)) assertSafeClientStrings(item, `${label}.${key}`);
+    }
+  }
+  function validateGithubProject(project, index) {
+    const label = `snapshot.githubProjects[${index}]`;
+    assertObject(project, label, [
+      "id",
+      "name",
+      "repository",
+      "visibility",
+      "repositoryUrl",
+      "description",
+      "demoUrl",
+      "productBriefUrl",
+      "architectureUrl",
+      "relatedArticleUrl"
+    ], ["id", "name", "repository", "visibility", "repositoryUrl", "description", "productBriefUrl"]);
+    assertString(project.id, `${label}.id`);
+    const repository = assertRepository(project.repository, `${label}.repository`);
+    if (project.visibility !== "PUBLIC") throw new Error(`${label}.visibility must be PUBLIC`);
+    assertString(project.name, `${label}.name`);
+    assertString(project.description, `${label}.description`);
+    for (const field of ["repositoryUrl", "productBriefUrl", "demoUrl", "architectureUrl", "relatedArticleUrl"]) {
+      if (project[field] !== void 0) assertHttpsUrl(project[field], `${label}.${field}`);
+    }
+    if (project.repositoryUrl !== `https://github.com/${repository}`) throw new Error(`${label}.repositoryUrl is not canonical`);
+  }
+  function validateOperationalSkill(skill, index) {
+    const label = `snapshot.operationalSkills[${index}]`;
+    assertObject(skill, label, [
+      "id",
+      "name",
+      "description",
+      "version",
+      "category",
+      "license",
+      "platforms",
+      "metadataStatus",
+      "validationStatus"
+    ], ["id", "name", "description", "version", "category", "metadataStatus", "validationStatus"]);
+    for (const field of ["id", "name", "description", "version", "category"]) assertString(skill[field], `${label}.${field}`);
+    if (skill.license !== void 0) assertString(skill.license, `${label}.license`);
+    if (skill.platforms !== void 0) assertArray(skill.platforms, `${label}.platforms`).forEach((item, itemIndex) => assertString(item, `${label}.platforms[${itemIndex}]`));
+    if (skill.metadataStatus !== "frontmatter") throw new Error(`${label}.metadataStatus must be frontmatter`);
+    if (skill.validationStatus !== "Unknown") throw new Error(`${label}.validationStatus requires retained validation authority and must currently be Unknown`);
+  }
+  function validateShowcaseEdition(edition2, index) {
+    const label = `snapshot.showcaseEditions[${index}]`;
+    assertObject(edition2, label, ["id", "name", "repository", "repositoryUrl", "visibility", "independenceStatus", "validationStatus"]);
+    for (const field of ["id", "name", "repository", "independenceStatus", "validationStatus"]) assertString(edition2[field], `${label}.${field}`);
+    assertHttpsUrl(edition2.repositoryUrl, `${label}.repositoryUrl`);
+    if (edition2.visibility !== "PUBLIC" || edition2.independenceStatus !== "approved-independent") {
+      throw new Error(`${label} must be PUBLIC and independently approved`);
+    }
+  }
+  function validateShowcaseProjection(snapshot) {
+    assertObject(snapshot, "snapshot", ["schemaVersion", "refreshedAt", "githubProjects", "showcaseEditions", "operationalSkills"]);
+    if (snapshot.schemaVersion !== "showcase-projection-v1") throw new Error("Unsupported showcase projection snapshot schema");
+    assertString(snapshot.refreshedAt, "snapshot.refreshedAt");
+    if (Number.isNaN(Date.parse(snapshot.refreshedAt))) throw new Error("snapshot.refreshedAt must be an ISO timestamp");
+    const projects = assertArray(snapshot.githubProjects, "snapshot.githubProjects");
+    if (projects.length > 50) throw new Error("Snapshot project selection must be bounded");
+    projects.forEach(validateGithubProject);
+    if (new Set(projects.map((project) => project.id)).size !== projects.length) throw new Error("Snapshot project identities must be unique");
+    assertArray(snapshot.showcaseEditions, "snapshot.showcaseEditions").forEach(validateShowcaseEdition);
+    assertArray(snapshot.operationalSkills, "snapshot.operationalSkills").forEach(validateOperationalSkill);
+    assertSafeClientStrings(snapshot, "snapshot");
+    return snapshot;
+  }
+  function getPortfolioProjection(snapshot, internalProducts) {
+    const checked = validateShowcaseProjection(snapshot);
+    const publicIds = new Set(checked.githubProjects.map((project) => project.id));
+    return {
+      refreshedAt: checked.refreshedAt,
+      githubShowcaseProjects: checked.githubProjects,
+      internalProducts: internalProducts.filter((product) => !publicIds.has(product.id))
+    };
+  }
+  function getSkillsProjection(snapshot) {
+    const checked = validateShowcaseProjection(snapshot);
+    return {
+      refreshedAt: checked.refreshedAt,
+      showcaseEditions: checked.showcaseEditions,
+      showcaseEmptyState: checked.showcaseEditions.length ? null : "No independently approved public showcase editions are allowlisted.",
+      operationalSkills: checked.operationalSkills,
+      boundary: "This is a one-way metadata projection, not synchronization. Editing and enablement remain in Hermes Skills."
+    };
+  }
+
+  // src/runtime/contracts.mjs
+  var ACC_EDITION_SCHEMA_VERSION = "acc-edition-v1";
+  var ACC_DOMAIN_SCHEMA_VERSION = "acc-domain-projection-v1";
+  var ACC_RUNTIME_MAX_BYTES = 2 * 1024 * 1024;
+  var KNOWN_MODULES = /* @__PURE__ */ new Set(["overview", "portfolio", "analytics", "benchmarks", "skills", "search"]);
+  var KNOWN_THEMES = /* @__PURE__ */ new Set(["g1-console", "current-dark", "matrix", "decepticons"]);
+  var EDITION_FIELDS = /* @__PURE__ */ new Set(["schemaVersion", "id", "branding", "modules", "projections", "analytics"]);
+  var DOMAIN_FIELDS = /* @__PURE__ */ new Set(["schemaVersion", "generatedAt", "data", "showcase"]);
+  var DOMAIN_DATA_FIELDS = /* @__PURE__ */ new Set(["meta", "sources", "voicePerformance", "products", "modelFamilies", "conditions", "benchmarkReleases", "benchmarkComparison", "results", "runs", "evaluations", "skills"]);
+  function plainObject(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+  function assertObject2(value, name, allowed = null) {
+    if (!plainObject(value)) throw new TypeError(`${name} must be an object`);
+    if (allowed) {
+      for (const key of Object.keys(value)) if (!allowed.has(key)) throw new TypeError(`${name} has unknown field ${key}`);
+    }
+    return value;
+  }
+  function assertString2(value, name, { max = 2048, pattern = null } = {}) {
+    if (typeof value !== "string" || !value.trim() || value.length > max) throw new TypeError(`${name} must be a bounded non-empty string`);
+    if (pattern && !pattern.test(value)) throw new TypeError(`${name} has an invalid format`);
+    return value;
+  }
+  function assertTimestamp2(value, name) {
+    assertString2(value, name, { max: 64 });
+    if (Number.isNaN(Date.parse(value)) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) throw new TypeError(`${name} must be a canonical UTC timestamp`);
+    return value;
+  }
+  function assertArray2(value, name, max = 5e3) {
+    if (!Array.isArray(value) || value.length > max) throw new TypeError(`${name} must be a bounded array`);
+    return value;
+  }
+  function assertId(value, name) {
+    return assertString2(value, name, { max: 128, pattern: /^[A-Za-z0-9][A-Za-z0-9._:-]*$/ });
+  }
+  function assertRelativeProjectionPath(value, name) {
+    assertString2(value, name, { max: 512 });
+    if (value.includes("\\") || value.includes("\0") || value.startsWith("/") || value.startsWith("~") || value.split("/").includes("..") || /^[A-Za-z][A-Za-z0-9+.-]*:/.test(value)) {
+      throw new TypeError(`${name} must be a safe relative projection path`);
+    }
+    if (!/^(?:runtime|data)\/[A-Za-z0-9._/-]+\.json$/.test(value)) throw new TypeError(`${name} must stay under runtime/ or data/ and end in .json`);
+    return value;
+  }
+  function assertUniqueIds(values, name) {
+    const seen = /* @__PURE__ */ new Set();
+    values.forEach((value, index) => {
+      assertObject2(value, `${name}[${index}]`);
+      const id = assertId(value.id, `${name}[${index}].id`);
+      if (seen.has(id)) throw new TypeError(`${name} ids must be unique`);
+      seen.add(id);
+    });
+    return seen;
+  }
+  function assertTextTree(value, name = "projection") {
+    if (typeof value === "string") {
+      if (value.length > 16384 || value.includes("\0")) throw new TypeError(`${name} contains an unsafe string`);
+      return;
+    }
+    if (Array.isArray(value)) {
+      if (value.length > 5e3) throw new TypeError(`${name} contains an oversized array`);
+      value.forEach((item, index) => assertTextTree(item, `${name}[${index}]`));
+      return;
+    }
+    if (plainObject(value)) {
+      if (Object.keys(value).length > 512) throw new TypeError(`${name} contains an oversized object`);
+      Object.entries(value).forEach(([key, item]) => {
+        if (!/^[A-Za-z0-9_.:-]+$/.test(key)) throw new TypeError(`${name} contains an unsafe field name`);
+        assertTextTree(item, `${name}.${key}`);
+      });
+    }
+  }
+  function validateEdition(value) {
+    assertObject2(value, "edition", EDITION_FIELDS);
+    if (value.schemaVersion !== ACC_EDITION_SCHEMA_VERSION) throw new TypeError(`edition must use ${ACC_EDITION_SCHEMA_VERSION}`);
+    assertId(value.id, "edition.id");
+    assertObject2(value.branding, "edition.branding", /* @__PURE__ */ new Set(["title", "defaultTheme"]));
+    assertString2(value.branding.title, "edition.branding.title", { max: 96 });
+    if (!KNOWN_THEMES.has(value.branding.defaultTheme)) throw new TypeError("edition.branding.defaultTheme is unsupported");
+    const modules = assertArray2(value.modules, "edition.modules", KNOWN_MODULES.size);
+    const moduleIds = /* @__PURE__ */ new Set();
+    modules.forEach((module, index) => {
+      assertObject2(module, `edition.modules[${index}]`, /* @__PURE__ */ new Set(["id", "label"]));
+      if (!KNOWN_MODULES.has(module.id) || moduleIds.has(module.id)) throw new TypeError("edition modules must be unique known modules");
+      moduleIds.add(module.id);
+      assertString2(module.label, `edition.modules[${index}].label`, { max: 48 });
+    });
+    if (!moduleIds.has("overview")) throw new TypeError("edition must enable overview");
+    assertObject2(value.projections, "edition.projections", /* @__PURE__ */ new Set(["domain", "providerUsage"]));
+    assertRelativeProjectionPath(value.projections.domain, "edition.projections.domain");
+    assertRelativeProjectionPath(value.projections.providerUsage, "edition.projections.providerUsage");
+    assertObject2(value.analytics, "edition.analytics", /* @__PURE__ */ new Set(["web", "providerUsage"]));
+    const webIds = /* @__PURE__ */ new Set();
+    assertArray2(value.analytics.web, "edition.analytics.web", 50).forEach((subject, index) => {
+      assertObject2(subject, `edition.analytics.web[${index}]`, /* @__PURE__ */ new Set(["id", "label", "description", "projection"]));
+      const id = assertId(subject.id, `edition.analytics.web[${index}].id`);
+      if (webIds.has(id)) throw new TypeError("analytics subject ids must be unique");
+      webIds.add(id);
+      assertString2(subject.label, `edition.analytics.web[${index}].label`, { max: 96 });
+      assertString2(subject.description, `edition.analytics.web[${index}].description`, { max: 1024 });
+      assertRelativeProjectionPath(subject.projection, `edition.analytics.web[${index}].projection`);
+    });
+    assertObject2(value.analytics.providerUsage, "edition.analytics.providerUsage", /* @__PURE__ */ new Set(["id", "label", "description"]));
+    if (value.analytics.providerUsage.id !== "provider-usage") throw new TypeError("provider usage adapter id is fixed");
+    assertString2(value.analytics.providerUsage.label, "edition.analytics.providerUsage.label", { max: 96 });
+    assertString2(value.analytics.providerUsage.description, "edition.analytics.providerUsage.description", { max: 1024 });
+    assertTextTree(value, "edition");
+    return structuredClone(value);
+  }
+  function validateScore(score, name) {
+    assertObject2(score, name);
+    assertString2(score.label, `${name}.label`, { max: 96 });
+    assertString2(score.benchmark, `${name}.benchmark`, { max: 96 });
+    if (!(score.value === null || Number.isFinite(score.value) && score.value >= 0 && score.value <= 100)) throw new TypeError(`${name}.value must be null or 0..100`);
+    if (!["verified", "pending", "provisional"].includes(score.evidence)) throw new TypeError(`${name}.evidence is unsupported`);
+    assertString2(score.denominator, `${name}.denominator`, { max: 512 });
+    assertArray2(score.detail, `${name}.detail`, 100);
+    if (score.progress !== void 0) {
+      assertObject2(score.progress, `${name}.progress`);
+      if (!Number.isSafeInteger(score.progress.current) || !Number.isSafeInteger(score.progress.total) || score.progress.current < 0 || score.progress.total < 0 || score.progress.current > score.progress.total) throw new TypeError(`${name}.progress counts are invalid`);
+      if (!["in-progress", "queued", "pending"].includes(score.progress.state)) throw new TypeError(`${name}.progress.state is unsupported`);
+      assertString2(score.progress.label, `${name}.progress.label`, { max: 512 });
+      if (score.progress.capturedAt !== void 0) assertTimestamp2(score.progress.capturedAt, `${name}.progress.capturedAt`);
+    }
+  }
+  function validateDomainProjection(value) {
+    assertObject2(value, "domain projection", DOMAIN_FIELDS);
+    if (value.schemaVersion !== ACC_DOMAIN_SCHEMA_VERSION) throw new TypeError(`domain projection must use ${ACC_DOMAIN_SCHEMA_VERSION}`);
+    assertTimestamp2(value.generatedAt, "domain projection.generatedAt");
+    const data = assertObject2(value.data, "domain projection.data", DOMAIN_DATA_FIELDS);
+    assertObject2(data.meta, "domain projection.data.meta");
+    assertArray2(data.sources, "domain projection.data.sources", 100);
+    assertArray2(data.products, "domain projection.data.products", 500);
+    assertArray2(data.modelFamilies, "domain projection.data.modelFamilies", 500);
+    assertArray2(data.conditions, "domain projection.data.conditions", 1e3);
+    assertArray2(data.benchmarkComparison, "domain projection.data.benchmarkComparison", 1e3);
+    assertArray2(data.results, "domain projection.data.results", 1e4);
+    assertArray2(data.runs, "domain projection.data.runs", 1e4);
+    assertArray2(data.evaluations, "domain projection.data.evaluations", 1e3);
+    assertObject2(data.voicePerformance, "domain projection.data.voicePerformance");
+    assertObject2(data.benchmarkReleases, "domain projection.data.benchmarkReleases", /* @__PURE__ */ new Set(["tool-use", "reasoning", "coding"]));
+    for (const domain of ["tool-use", "reasoning", "coding"]) assertId(data.benchmarkReleases[domain], `domain projection.data.benchmarkReleases.${domain}`);
+    const sourceIds = assertUniqueIds(data.sources, "sources");
+    const productIds = assertUniqueIds(data.products, "products");
+    const familyIds = assertUniqueIds(data.modelFamilies, "modelFamilies");
+    const conditionIds = assertUniqueIds(data.conditions, "conditions");
+    const resultIds = assertUniqueIds(data.results, "results");
+    const runIds = assertUniqueIds(data.runs, "runs");
+    assertUniqueIds(data.evaluations, "evaluations");
+    if (!sourceIds.has("runtime") || !sourceIds.has("skill-meta")) throw new TypeError("domain projection must preserve runtime and skill-meta authorities");
+    data.products.forEach((product, index) => {
+      if (product.availabilityAuthority !== void 0 && !sourceIds.has(product.availabilityAuthority)) throw new TypeError(`products[${index}] references an unknown authority`);
+    });
+    data.conditions.forEach((condition, index) => {
+      if (!familyIds.has(condition.familyId)) throw new TypeError(`conditions[${index}] references an unknown family`);
+    });
+    data.results.forEach((result, index) => {
+      if (!conditionIds.has(result.conditionId)) throw new TypeError(`results[${index}] references an unknown condition`);
+      assertArray2(result.runIds, `results[${index}].runIds`, 100).forEach((id) => {
+        if (!runIds.has(id)) throw new TypeError(`results[${index}] references an unknown run`);
+      });
+    });
+    const comparisonIds = /* @__PURE__ */ new Set();
+    data.benchmarkComparison.forEach((profile, index) => {
+      assertObject2(profile, `benchmarkComparison[${index}]`);
+      if (!conditionIds.has(profile.conditionId) || comparisonIds.has(profile.conditionId)) throw new TypeError("benchmark comparisons must reference unique known conditions");
+      comparisonIds.add(profile.conditionId);
+      assertObject2(profile.scores, `benchmarkComparison[${index}].scores`);
+      if (Object.keys(profile.scores).sort().join(",") !== "agent,instruction,tools") throw new TypeError("benchmark comparison must contain exactly the three core scores");
+      for (const [scoreId, score] of Object.entries(profile.scores)) validateScore(score, `benchmarkComparison[${index}].scores.${scoreId}`);
+    });
+    data.evaluations.forEach((evaluation, index) => {
+      assertArray2(evaluation.affectedObjects, `evaluations[${index}].affectedObjects`, 100).forEach((object) => {
+        if (object.type === "product" && !productIds.has(object.id)) throw new TypeError(`evaluations[${index}] references an unknown product`);
+        if (object.type === "condition" && !conditionIds.has(object.id)) throw new TypeError(`evaluations[${index}] references an unknown condition`);
+      });
+    });
+    const showcase = validateShowcaseProjection(value.showcase);
+    const projected = structuredClone(value);
+    projected.data.skills = structuredClone(showcase.operationalSkills);
+    for (const condition of projected.data.conditions) condition.results = projected.data.results.filter((result) => result.conditionId === condition.id);
+    assertTextTree(projected, "domain projection");
+    return projected;
+  }
+  function parseRuntimeJson(text, validator, name = "runtime projection") {
+    if (typeof text !== "string" || new TextEncoder().encode(text).byteLength > ACC_RUNTIME_MAX_BYTES) throw new TypeError(`${name} exceeds the runtime size limit`);
+    let value;
+    try {
+      value = JSON.parse(text);
+    } catch {
+      throw new TypeError(`${name} is not valid JSON`);
+    }
+    return validator(value);
+  }
+  var DEMO_EDITION = validateEdition(demo_edition_v1_default);
+  var DEMO_DOMAIN_PROJECTION = validateDomainProjection(domain_v1_default);
+
+  // src/runtime/client.mjs
+  function origin() {
+    return globalThis.location?.origin || "http://localhost";
+  }
+  function projectionUrl(basePath, relativePath) {
+    const base = new URL(basePath, origin());
+    return new URL(relativePath, `${base.href.replace(/\/?$/, "/")}`);
+  }
+  async function fetchValidated(fetcher, basePath, relativePath, validator, label) {
+    const response = await fetcher(projectionUrl(basePath, relativePath), { cache: "no-store" });
+    if (!response.ok) throw new Error(`${label} unavailable`);
+    return parseRuntimeJson(await response.text(), validator, label);
+  }
+  function degradedState(error, hasRuntimeValue) {
+    return {
+      state: hasRuntimeValue ? "stale_invalid" : "demo_invalid",
+      stale: true,
+      valid: false,
+      error: error.message
+    };
+  }
+  function createRuntimeLoader({ fetcher = globalThis.fetch } = {}) {
+    if (typeof fetcher !== "function") throw new TypeError("runtime loader requires fetch");
+    let edition2 = DEMO_EDITION;
+    let domain = DEMO_DOMAIN_PROJECTION;
+    let editionReady = false;
+    let domainReady = false;
+    return async function load(basePath = "/") {
+      let editionHealth;
+      try {
+        edition2 = await fetchValidated(fetcher, basePath, "runtime/edition.v1.json", validateEdition, "edition");
+        editionReady = true;
+        editionHealth = { state: "ready", stale: false, valid: true, error: null };
+      } catch (error) {
+        editionHealth = degradedState(error, editionReady);
+      }
+      let domainHealth;
+      try {
+        domain = await fetchValidated(fetcher, basePath, edition2.projections.domain, validateDomainProjection, "domain projection");
+        domainReady = true;
+        domainHealth = { state: "ready", stale: false, valid: true, error: null };
+      } catch (error) {
+        domainHealth = degradedState(error, domainReady);
+      }
+      return {
+        edition: structuredClone(edition2),
+        domain: structuredClone(domain),
+        health: {
+          edition: editionHealth,
+          domain: domainHealth,
+          state: editionHealth.valid && domainHealth.valid ? "ready" : "degraded"
+        }
+      };
+    };
+  }
+  var defaultLoader = createRuntimeLoader();
+  var loadRuntimeConfiguration = (basePath = "/") => defaultLoader(basePath);
+
   // src/analytics/schema.mjs
   var PUBLIC_WEB_ANALYTICS_SCHEMA_VERSION = "web-analytics-projection-v2";
   var WEB_ANALYTICS_MAX_BYTES = 256 * 1024;
-  var WEB_ANALYTICS_FIXTURE_NOTICE = "ILLUSTRATIVE FIXTURE \u2014 NOT CURRENT KUNGFUCLAN.COM ANALYTICS";
+  var WEB_ANALYTICS_FIXTURE_NOTICE = "ILLUSTRATIVE FIXTURE \u2014 NOT CURRENT ANALYTICS";
   var TOP_FIELDS = /* @__PURE__ */ new Set(["schemaVersion", "dataKind", "generatedAt", "subject", "source", "versions", "coverage", "ranges", "notice"]);
   var SUBJECT_FIELDS = /* @__PURE__ */ new Set(["id", "label", "domain"]);
   var SOURCE_FIELDS = /* @__PURE__ */ new Set(["authority", "fidelity"]);
@@ -230,7 +904,6 @@
   var FRESHNESS_STATES = /* @__PURE__ */ new Set(["fresh", "stale"]);
   var QUERY_VERSIONS = /* @__PURE__ */ new Set(["httpRequestsAdaptiveGroups-safe-v1"]);
   var METRIC_REGISTRY_VERSIONS = /* @__PURE__ */ new Set(["web-analytics-metrics-v2"]);
-  var REAL_SUBJECTS = /* @__PURE__ */ new Set(["kungfuclan.com", "alexgeslani.com"]);
   function assertPlainObject2(value, name) {
     if (!value || Array.isArray(value) || typeof value !== "object") throw new TypeError(`${name} must be an object`);
   }
@@ -238,11 +911,11 @@
     assertPlainObject2(value, name);
     for (const key of Object.keys(value)) if (!allowed.has(key)) throw new TypeError(`${name} has unknown field: ${key}`);
   }
-  function assertString(value, name) {
+  function assertString3(value, name) {
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${name} must be a non-empty string`);
     return value;
   }
-  function assertTimestamp2(value, name) {
+  function assertTimestamp3(value, name) {
     if (typeof value !== "string" || Number.isNaN(Date.parse(value)) || new Date(value).toISOString() !== value) {
       throw new TypeError(`${name} must be a canonical UTC ISO timestamp`);
     }
@@ -386,14 +1059,15 @@
     assertAllowedKeys2(value, TOP_FIELDS, "projection");
     if (value.schemaVersion !== PUBLIC_WEB_ANALYTICS_SCHEMA_VERSION) throw new TypeError("projection schema version is unsupported");
     if (!DATA_KINDS.has(value.dataKind)) throw new TypeError("projection data kind is unsupported");
-    const generatedAt = assertTimestamp2(value.generatedAt, "generatedAt");
+    const generatedAt = assertTimestamp3(value.generatedAt, "generatedAt");
     assertAllowedKeys2(value.subject, SUBJECT_FIELDS, "subject");
     if (value.subject.domain !== "web") throw new TypeError("subject domain is unsupported");
-    const subject = { id: assertString(value.subject.id, "subject.id"), label: assertString(value.subject.label, "subject.label"), domain: "web" };
+    const subject = { id: assertString3(value.subject.id, "subject.id"), label: assertString3(value.subject.label, "subject.label"), domain: "web" };
+    if (subject.id.length > 253 || !/^[A-Za-z0-9][A-Za-z0-9.-]*$/.test(subject.id)) throw new TypeError("subject.id must be a safe bounded edition identity");
     if (value.dataKind === "illustrative_fixture") {
-      if (subject.id !== "kungfuclan-demo" || value.notice !== WEB_ANALYTICS_FIXTURE_NOTICE) throw new TypeError("illustrative fixtures require the separate demo identity and permanent notice");
-    } else if (!REAL_SUBJECTS.has(subject.id) || value.notice !== void 0) {
-      throw new TypeError("real projection identity is not allowlisted");
+      if (!subject.id.endsWith("-demo") || value.notice !== WEB_ANALYTICS_FIXTURE_NOTICE) throw new TypeError("illustrative fixtures require a separate demo identity and permanent notice");
+    } else if (value.notice !== void 0) {
+      throw new TypeError("real projections cannot carry fixture notice state");
     }
     assertAllowedKeys2(value.source, SOURCE_FIELDS, "source");
     if (value.source.authority !== "Cloudflare edge aggregate analytics" || value.source.fidelity !== "aggregate_not_raw_request_logs") throw new TypeError("source metadata is not canonical");
@@ -438,20 +1112,14 @@
   }
 
   // src/analytics/client.mjs
-  var PROJECTION_PATHS = /* @__PURE__ */ new Map([
-    ["real:kungfuclan.com", "data/analytics/web/kungfuclan.com.v2.json"],
-    ["real:alexgeslani.com", "data/analytics/web/alexgeslani.com.v2.json"],
-    ["fixture:kungfuclan-demo", "data/analytics/showcase/kungfuclan-demo.v2.json"]
-  ]);
-  function webAnalyticsProjectionPath({ subject, mode }) {
-    const kind = mode === "fixture" ? "fixture" : "real";
-    const path = PROJECTION_PATHS.get(`${kind}:${subject}`);
-    if (!path) throw new TypeError("analytics subject is not connected");
-    return path;
+  function webAnalyticsProjectionPath({ subject, subjects = [] }) {
+    const selected = subjects.find((item) => item.id === subject);
+    if (!selected) throw new TypeError("analytics subject is not connected");
+    return selected.projection;
   }
-  async function loadWebAnalyticsProjection(basePath = "/", { subject, mode } = {}) {
+  async function loadWebAnalyticsProjection(basePath = "/", { subject, subjects = [] } = {}) {
     const base = new URL(basePath, window.location.origin);
-    const path = webAnalyticsProjectionPath({ subject, mode });
+    const path = webAnalyticsProjectionPath({ subject, subjects });
     const url = new URL(path, `${base.href.replace(/\/?$/, "/")}`);
     const response = await fetch(url, { cache: "no-store" });
     if (!response.ok) throw new Error("Web analytics projection unavailable");
@@ -581,8 +1249,8 @@
       };
     }
     function SortableHeader({ column: definition, sort, onSort, as = "th" }) {
-      const active = sort?.column === definition.id;
-      const direction = active ? sort.direction : null;
+      const active2 = sort?.column === definition.id;
+      const direction = active2 ? sort.direction : null;
       return h(as, {
         scope: as === "th" ? "col" : void 0,
         role: as === "th" ? void 0 : "columnheader",
@@ -610,7 +1278,6 @@
 
   // src/analytics/view.mjs
   var RANGE_LABELS = { "1d": "1 day", "7d": "7 days", "30d": "30 days" };
-  var ANALYTICS_SHOWCASE_ENABLED = false;
   function formatNumber(value) {
     return Number.isSafeInteger(value) ? value.toLocaleString() : "Unknown";
   }
@@ -652,7 +1319,9 @@
     const maximum = Math.max(...observed.map((day) => day.requests), 1);
     return { maximum, ticks: [0, 0.25, 0.5, 0.75, 1].map((fraction) => maximum * fraction) };
   }
-  function createAnalyticsView({ React, h, useEffect, useState, Badge, StatusBadge, SectionHeading, ProviderUsage }) {
+  function createAnalyticsView({ React, h, useEffect, useState, Badge, StatusBadge, SectionHeading, ProviderUsage, edition: edition2 }) {
+    const webSubjects = edition2.analytics.web;
+    const providerSubject = edition2.analytics.providerUsage;
     const { useSortableRows, SortableHeader } = createSortingSupport({ React, useState });
     function SourceCard({ eyebrow, title, status, description, action, onClick }) {
       return h(
@@ -678,13 +1347,16 @@
         h(
           "section",
           { className: "acc-analytics-domain", "aria-labelledby": "acc-domain-web" },
-          h("div", { className: "acc-analytics-domain__head" }, h("div", null, h("p", { className: "acc-eyebrow" }, "Domain 01"), h("h2", { id: "acc-domain-web" }, "Web properties")), h(Badge, { tone: "good" }, "2 connected")),
-          h(
-            "div",
-            { className: "acc-analytics-source-grid" },
-            h(SourceCard, { eyebrow: "Cloudflare edge aggregates", title: "Kung Fu Clan", status: "available", description: "Daily requests, Cloudflare Visits, transfer, cache behavior, response classes, countries, coverage, and source provenance.", action: "Open KFC analytics", onClick: () => go({ view: "analytics", domain: "web", subject: "kungfuclan.com", range: "30d" }) }),
-            h(SourceCard, { eyebrow: "Cloudflare edge aggregates", title: "alexgeslani.com", status: "available", description: "Daily requests, Cloudflare Visits, transfer, cache behavior, response classes, countries, coverage, and source provenance.", action: "Open alexgeslani.com analytics", onClick: () => go({ view: "analytics", domain: "web", subject: "alexgeslani.com", range: "30d" }) })
-          )
+          h("div", { className: "acc-analytics-domain__head" }, h("div", null, h("p", { className: "acc-eyebrow" }, "Domain 01"), h("h2", { id: "acc-domain-web" }, "Web properties")), h(Badge, { tone: webSubjects.length ? "good" : "warn" }, `${webSubjects.length} connected`)),
+          webSubjects.length ? h("div", { className: "acc-analytics-source-grid" }, webSubjects.map((subject) => h(SourceCard, {
+            key: subject.id,
+            eyebrow: "Validated aggregate projection",
+            title: subject.label,
+            status: "available",
+            description: subject.description,
+            action: `Open ${subject.label} analytics`,
+            onClick: () => go({ view: "analytics", domain: "web", subject: subject.id, range: "30d" })
+          }))) : h("p", { className: "acc-provider-empty" }, "No web analytics projection is connected in this edition.")
         ),
         h(
           "section",
@@ -693,18 +1365,14 @@
           h(
             "div",
             { className: "acc-analytics-source-grid" },
-            h(SourceCard, { eyebrow: "Subscription and API headroom", title: "Provider Usage", status: providerCount ? "available" : "unknown", description: "Existing Codex, Claude, Antigravity, and Brave observations remain separated by authority and metric class.", action: "Open provider usage", onClick: () => go({ view: "analytics", domain: "ai", subject: "provider-usage" }) })
+            h(SourceCard, { eyebrow: "Subscription and API headroom", title: providerSubject.label, status: providerCount ? "available" : "unknown", description: providerSubject.description, action: `Open ${providerSubject.label.toLocaleLowerCase("en")}`, onClick: () => go({ view: "analytics", domain: "ai", subject: providerSubject.id }) })
           )
         ),
         h(
           "section",
           { className: "acc-analytics-domain", "aria-labelledby": "acc-domain-products" },
-          h("div", { className: "acc-analytics-domain__head" }, h("div", null, h("p", { className: "acc-eyebrow" }, "Domain 03"), h("h2", { id: "acc-domain-products" }, "Products & agents")), h(Badge, null, "Planned")),
-          h(
-            "div",
-            { className: "acc-analytics-source-grid" },
-            h(SourceCard, { eyebrow: "Future operational source", title: "Jarvis", status: "missing", description: "No Jarvis measurement contract or sanitized projection has been connected.", action: "Not connected" })
-          )
+          h("div", { className: "acc-analytics-domain__head" }, h("div", null, h("p", { className: "acc-eyebrow" }, "Domain 03"), h("h2", { id: "acc-domain-products" }, "Products & agents")), h(Badge, { tone: "warn" }, "Not connected")),
+          h("p", { className: "acc-provider-empty" }, "No product or agent analytics projection is connected in this edition.")
         )
       );
     }
@@ -917,31 +1585,30 @@
       );
     }
     function WebPropertyAnalytics({ route, go }) {
-      const mode = route.subject === "kungfuclan-demo" && route.mode === "fixture" ? "fixture" : "real";
-      const subject = mode === "fixture" ? "kungfuclan-demo" : route.subject;
+      const subject = route.subject;
       const selectedRange = Object.hasOwn(RANGE_LABELS, route.range) ? route.range : "30d";
       const [loadState, setLoadState] = useState({ status: "loading", projection: null });
       useEffect(() => {
-        let active = true;
+        let active2 = true;
         setLoadState({ status: "loading", projection: null });
-        loadWebAnalyticsProjection(window.__ACC_BASE_PATH__ || "/dashboard-plugins/autobot-command-center/dist", { subject, mode }).then(
+        loadWebAnalyticsProjection(window.__ACC_BASE_PATH__ || "/dashboard-plugins/autobot-command-center/dist", { subject, subjects: webSubjects }).then(
           (projection2) => {
-            if (active) setLoadState({ status: "ready", projection: projection2 });
+            if (active2) setLoadState({ status: "ready", projection: projection2 });
           },
           () => {
-            if (active) setLoadState({ status: "unavailable", projection: null });
+            if (active2) setLoadState({ status: "unavailable", projection: null });
           }
         );
         return () => {
-          active = false;
+          active2 = false;
         };
-      }, [subject, mode]);
+      }, [subject]);
       if (loadState.status === "loading") return h("div", { className: "acc-view" }, h("p", { className: "acc-search-status", role: "status" }, "Loading validated analytics projection\u2026"));
       if (loadState.status === "unavailable") return h(
         "div",
         { className: "acc-view" },
         h("button", { type: "button", className: "acc-back", onClick: () => go({ view: "analytics" }) }, "\u2190 Analytics"),
-        h("section", { className: "acc-boundary", role: "status" }, h("h2", null, mode === "fixture" ? "Illustrative showcase is not included in this build" : `${subject} analytics unavailable`), h("p", null, mode === "fixture" ? "The default build excludes synthetic analytics. Use an explicitly labeled development showcase build." : "No validated public projection was loaded. The dashboard does not substitute zeros or fixture data."))
+        h("section", { className: "acc-boundary", role: "status" }, h("h2", null, `${subject} analytics unavailable`), h("p", null, "No validated projection was loaded. The dashboard does not substitute zeros or fixture data."))
       );
       const projection = { ...loadState.projection, coverage: projectCurrentWebAnalyticsCoverage(loadState.projection.coverage) };
       const range = projection.ranges[selectedRange];
@@ -962,14 +1629,11 @@
           h("label", { className: "acc-field" }, h("span", null, "Web property"), h(
             "select",
             { value: subject, onChange: (event) => {
-              if (event.target.value === "kungfuclan-demo") go({ view: "analytics", domain: "web", subject: "kungfuclan-demo", range: "30d", mode: "fixture" });
-              else go({ view: "analytics", domain: "web", subject: event.target.value, range: selectedRange });
+              go({ view: "analytics", domain: "web", subject: event.target.value, range: selectedRange });
             } },
-            h("option", { value: "kungfuclan.com" }, "kungfuclan.com \xB7 real archive"),
-            h("option", { value: "alexgeslani.com" }, "alexgeslani.com \xB7 real archive"),
-            ANALYTICS_SHOWCASE_ENABLED ? h("option", { value: "kungfuclan-demo" }, "Kung Fu Clan \xB7 illustrative demo") : null
+            webSubjects.map((item) => h("option", { key: item.id, value: item.id }, `${item.label} \xB7 validated projection`))
           )),
-          h("div", { className: "acc-metric-tabs", role: "group", "aria-label": "Analytics date range" }, Object.entries(RANGE_LABELS).map(([id, label]) => h("button", { key: id, type: "button", className: `acc-tab-button${selectedRange === id ? " is-active" : ""}`, "aria-pressed": selectedRange === id, onClick: () => go({ view: "analytics", domain: "web", subject, range: id, ...mode === "fixture" ? { mode: "fixture" } : {} }) }, label)))
+          h("div", { className: "acc-metric-tabs", role: "group", "aria-label": "Analytics date range" }, Object.entries(RANGE_LABELS).map(([id, label]) => h("button", { key: id, type: "button", className: `acc-tab-button${selectedRange === id ? " is-active" : ""}`, "aria-pressed": selectedRange === id, onClick: () => go({ view: "analytics", domain: "web", subject, range: id }) }, label)))
         ),
         h(CoverageStrip, { projection, range }),
         h(SummaryCards, { range }),
@@ -992,13 +1656,13 @@
     }
     function Analytics({ route, go, providerUsage }) {
       if (!route.domain && !route.subject) return h(AnalyticsLanding, { go, providerUsage });
-      if (route.domain === "ai" && route.subject === "provider-usage") return h(
+      if (route.domain === "ai" && route.subject === providerSubject.id) return h(
         "div",
         { className: "acc-view acc-analytics" },
         h("button", { type: "button", className: "acc-back", onClick: () => go({ view: "analytics" }) }, "\u2190 Analytics"),
         h(ProviderUsage, { snapshot: providerUsage, go })
       );
-      if (route.domain === "web" && (route.subject === "kungfuclan.com" || route.subject === "alexgeslani.com" || ANALYTICS_SHOWCASE_ENABLED && route.subject === "kungfuclan-demo")) return h(WebPropertyAnalytics, { route, go });
+      if (route.domain === "web" && webSubjects.some((subject) => subject.id === route.subject)) return h(WebPropertyAnalytics, { route, go });
       return h(
         "div",
         { className: "acc-view" },
@@ -1009,923 +1673,32 @@
     return Analytics;
   }
 
-  // src/generated/showcase-projection.v1.json
-  var showcase_projection_v1_default = {
-    githubProjects: [
-      {
-        architectureUrl: "https://github.com/AlexGeslani/Jarvis/blob/main/docs/architecture/jarvis-architecture.svg",
-        description: "Local-first voice assistant for the browser and Amazfit Active Max, with bounded speech, reasoning, and playback pipelines.",
-        id: "jarvis",
-        name: "Jarvis",
-        productBriefUrl: "https://github.com/AlexGeslani/Jarvis/blob/main/README.md",
-        repository: "AlexGeslani/Jarvis",
-        repositoryUrl: "https://github.com/AlexGeslani/Jarvis",
-        visibility: "PUBLIC"
-      },
-      {
-        demoUrl: "https://alexgeslani.github.io/StackLogic/",
-        description: "Browser falling-block puzzle with solo and real-time multiplayer, developed with locally run Qwen 3.5 and Qwen 3.6 models.",
-        id: "stacklogic",
-        name: "StackLogic",
-        productBriefUrl: "https://github.com/AlexGeslani/StackLogic/blob/main/README.md",
-        repository: "AlexGeslani/StackLogic",
-        repositoryUrl: "https://github.com/AlexGeslani/StackLogic",
-        visibility: "PUBLIC"
-      },
-      {
-        demoUrl: "https://alexgeslani.github.io/8-Ball/",
-        description: "End-to-end Zepp OS experiment that builds, tests, previews, packages, and delivers an offline 8 Ball app to a physical Amazfit Active Max.",
-        id: "8-ball",
-        name: "8-Ball",
-        productBriefUrl: "https://github.com/AlexGeslani/8-Ball/blob/main/README.md",
-        repository: "AlexGeslani/8-Ball",
-        repositoryUrl: "https://github.com/AlexGeslani/8-Ball",
-        visibility: "PUBLIC"
-      }
-    ],
-    operationalSkills: [
-      {
-        category: "Agent orchestration",
-        description: "Use when a consequential decision benefits from a configured multi-model panel.",
-        id: "autobots",
-        license: "Private",
-        metadataStatus: "frontmatter",
-        name: "autobots",
-        validationStatus: "Unknown",
-        version: "3.2.0"
-      },
-      {
-        category: "Product design",
-        description: "Design outcome-focused operational dashboards and visual control planes that project canonical evidence, integrate with existing host surfaces, support mobile use, and avoid becoming a duplicate Wiki, task manager, or source of truth.",
-        id: "dashboard-product-design",
-        license: "MIT",
-        metadataStatus: "frontmatter",
-        name: "operational-dashboard-product-design",
-        platforms: [
-          "macos",
-          "linux",
-          "windows"
-        ],
-        validationStatus: "Unknown",
-        version: "1.10.0"
-      },
-      {
-        category: "Model evaluation",
-        description: "Build and operate small, frozen, executable model-comparison harnesses across local and cloud OpenAI-compatible runtimes.",
-        id: "local-model-evaluation",
-        license: "MIT",
-        metadataStatus: "frontmatter",
-        name: "local-model-evaluation",
-        platforms: [
-          "macos",
-          "linux"
-        ],
-        validationStatus: "Unknown",
-        version: "1.9.5"
-      },
-      {
-        category: "Integration safety",
-        description: "Use for portable, secret-safe integration safety harnesses.",
-        id: "portable-safety-harnesses",
-        license: "MIT",
-        metadataStatus: "frontmatter",
-        name: "portable-integration-safety-harnesses",
-        platforms: [
-          "linux",
-          "macos",
-          "windows"
-        ],
-        validationStatus: "Unknown",
-        version: "1.7.4"
-      },
-      {
-        category: "Reliability",
-        description: "Version, back up, restore-test, and safely publish private intranet application baselines.",
-        id: "intranet-recovery",
-        license: "MIT",
-        metadataStatus: "frontmatter",
-        name: "intranet-app-versioning-recovery",
-        platforms: [
-          "macos",
-          "linux"
-        ],
-        validationStatus: "Unknown",
-        version: "1.0.0"
-      },
-      {
-        category: "Platform operations",
-        description: "Build, operate, verify, and troubleshoot Docker-compatible container hosting on macOS\u2014especially LAN-only shared web-app labs\u2014with live-state discovery, DNS/network approval gates, validated configuration changes, bind-mount safety, port-binding differential tests, rollback evidence, and independent-client acceptance.",
-        id: "container-hosting",
-        license: "MIT",
-        metadataStatus: "frontmatter",
-        name: "macos-container-hosting-operations",
-        platforms: [
-          "macos"
-        ],
-        validationStatus: "Unknown",
-        version: "1.2.1"
-      },
-      {
-        category: "Media production",
-        description: "Use when assembling mixed-media footage into an event film.",
-        id: "event-film",
-        license: "MIT",
-        metadataStatus: "frontmatter",
-        name: "mixed-media-event-film-production",
-        validationStatus: "Unknown",
-        version: "1.0.0"
-      },
-      {
-        category: "Documentation",
-        description: "Maintain a repository's default-branch README as an accurate product landing page, including canonical links, release-aware screenshots, controls, setup, and rendered verification.",
-        id: "repository-docs",
-        license: "MIT",
-        metadataStatus: "frontmatter",
-        name: "repository-documentation-operations",
-        platforms: [
-          "linux",
-          "macos",
-          "windows"
-        ],
-        validationStatus: "Unknown",
-        version: "1.7.0"
-      }
-    ],
-    refreshedAt: "2026-08-27T12:25:47.515Z",
-    schemaVersion: "showcase-projection-v1",
-    showcaseEditions: []
-  };
-
-  // src/showcase/projection.mjs
-  var PROJECT_ALLOWLIST = /* @__PURE__ */ new Map([
-    ["jarvis", "AlexGeslani/Jarvis"],
-    ["stacklogic", "AlexGeslani/StackLogic"],
-    ["8-ball", "AlexGeslani/8-Ball"]
-  ]);
-  var hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
-  function assertObject(value, label, allowedKeys, requiredKeys = allowedKeys) {
-    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be an object`);
-    for (const key of Object.keys(value)) {
-      if (!allowedKeys.includes(key)) throw new Error(`${label} contains unknown field ${key}`);
-    }
-    for (const key of requiredKeys) {
-      if (!hasOwn(value, key)) throw new Error(`${label} is missing field ${key}`);
-    }
-    return value;
-  }
-  function assertArray(value, label) {
-    if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
-    return value;
-  }
-  function assertString2(value, label) {
-    if (typeof value !== "string" || !value.trim()) throw new Error(`${label} must be a non-empty string`);
-    return value;
-  }
-  function assertHttpsUrl(value, label) {
-    assertString2(value, label);
-    let url;
-    try {
-      url = new URL(value);
-    } catch {
-      throw new Error(`${label} must be a valid URL`);
-    }
-    if (url.protocol !== "https:" || url.username || url.password) throw new Error(`${label} must be a credential-free HTTPS URL`);
-    return value;
-  }
-  function assertSafeClientStrings(value, label = "projection") {
-    if (typeof value === "string") {
-      if (/\/Users\/|(?:^|\W)(?:authorization|github_token|access_token|readmeBody|privateRepositories)(?:$|\W)/i.test(value)) {
-        throw new Error(`${label} contains an unsafe client-visible path or field`);
-      }
-      return;
-    }
-    if (Array.isArray(value)) return value.forEach((item, index) => assertSafeClientStrings(item, `${label}[${index}]`));
-    if (value && typeof value === "object") {
-      for (const [key, item] of Object.entries(value)) assertSafeClientStrings(item, `${label}.${key}`);
-    }
-  }
-  function validateGithubProject(project, index) {
-    const label = `snapshot.githubProjects[${index}]`;
-    assertObject(project, label, [
-      "id",
-      "name",
-      "repository",
-      "visibility",
-      "repositoryUrl",
-      "description",
-      "demoUrl",
-      "productBriefUrl",
-      "architectureUrl",
-      "relatedArticleUrl"
-    ], ["id", "name", "repository", "visibility", "repositoryUrl", "description", "productBriefUrl"]);
-    const repository = PROJECT_ALLOWLIST.get(project.id);
-    if (!repository || repository !== project.repository) throw new Error(`${label} is outside the repository allowlist`);
-    if (project.visibility !== "PUBLIC") throw new Error(`${label}.visibility must be PUBLIC`);
-    assertString2(project.name, `${label}.name`);
-    assertString2(project.description, `${label}.description`);
-    for (const field of ["repositoryUrl", "productBriefUrl", "demoUrl", "architectureUrl", "relatedArticleUrl"]) {
-      if (project[field] !== void 0) assertHttpsUrl(project[field], `${label}.${field}`);
-    }
-    if (project.repositoryUrl !== `https://github.com/${repository}`) throw new Error(`${label}.repositoryUrl is not canonical`);
-  }
-  function validateOperationalSkill(skill, index) {
-    const label = `snapshot.operationalSkills[${index}]`;
-    assertObject(skill, label, [
-      "id",
-      "name",
-      "description",
-      "version",
-      "category",
-      "license",
-      "platforms",
-      "metadataStatus",
-      "validationStatus"
-    ], ["id", "name", "description", "version", "category", "metadataStatus", "validationStatus"]);
-    for (const field of ["id", "name", "description", "version", "category"]) assertString2(skill[field], `${label}.${field}`);
-    if (skill.license !== void 0) assertString2(skill.license, `${label}.license`);
-    if (skill.platforms !== void 0) assertArray(skill.platforms, `${label}.platforms`).forEach((item, itemIndex) => assertString2(item, `${label}.platforms[${itemIndex}]`));
-    if (skill.metadataStatus !== "frontmatter") throw new Error(`${label}.metadataStatus must be frontmatter`);
-    if (skill.validationStatus !== "Unknown") throw new Error(`${label}.validationStatus requires retained validation authority and must currently be Unknown`);
-  }
-  function validateShowcaseEdition(edition, index) {
-    const label = `snapshot.showcaseEditions[${index}]`;
-    assertObject(edition, label, ["id", "name", "repository", "repositoryUrl", "visibility", "independenceStatus", "validationStatus"]);
-    for (const field of ["id", "name", "repository", "independenceStatus", "validationStatus"]) assertString2(edition[field], `${label}.${field}`);
-    assertHttpsUrl(edition.repositoryUrl, `${label}.repositoryUrl`);
-    if (edition.visibility !== "PUBLIC" || edition.independenceStatus !== "approved-independent") {
-      throw new Error(`${label} must be PUBLIC and independently approved`);
-    }
-  }
-  function validateShowcaseProjection(snapshot) {
-    assertObject(snapshot, "snapshot", ["schemaVersion", "refreshedAt", "githubProjects", "showcaseEditions", "operationalSkills"]);
-    if (snapshot.schemaVersion !== "showcase-projection-v1") throw new Error("Unsupported showcase projection snapshot schema");
-    assertString2(snapshot.refreshedAt, "snapshot.refreshedAt");
-    if (Number.isNaN(Date.parse(snapshot.refreshedAt))) throw new Error("snapshot.refreshedAt must be an ISO timestamp");
-    const projects = assertArray(snapshot.githubProjects, "snapshot.githubProjects");
-    if (projects.length !== PROJECT_ALLOWLIST.size) throw new Error("Snapshot must contain exactly the approved repository allowlist");
-    projects.forEach(validateGithubProject);
-    if (new Set(projects.map((project) => project.id)).size !== PROJECT_ALLOWLIST.size) throw new Error("Snapshot project identities must be unique");
-    assertArray(snapshot.showcaseEditions, "snapshot.showcaseEditions").forEach(validateShowcaseEdition);
-    assertArray(snapshot.operationalSkills, "snapshot.operationalSkills").forEach(validateOperationalSkill);
-    assertSafeClientStrings(snapshot, "snapshot");
-    return snapshot;
-  }
-  function getPortfolioProjection(snapshot, internalProducts) {
-    const checked = validateShowcaseProjection(snapshot);
-    const publicIds = new Set(checked.githubProjects.map((project) => project.id));
-    return {
-      refreshedAt: checked.refreshedAt,
-      githubShowcaseProjects: checked.githubProjects,
-      internalProducts: internalProducts.filter((product) => !publicIds.has(product.id))
-    };
-  }
-  function getSkillsProjection(snapshot) {
-    const checked = validateShowcaseProjection(snapshot);
-    return {
-      refreshedAt: checked.refreshedAt,
-      showcaseEditions: checked.showcaseEditions,
-      showcaseEmptyState: checked.showcaseEditions.length ? null : "No independently approved public showcase editions are allowlisted.",
-      operationalSkills: checked.operationalSkills,
-      boundary: "This is a one-way metadata projection, not synchronization. Editing and enablement remain in Hermes Skills."
-    };
-  }
-
   // src/model.mjs
-  var showcaseProjection = validateShowcaseProjection(showcase_projection_v1_default);
-  var NAV_ITEMS = [
-    { id: "overview", label: "Overview" },
-    { id: "portfolio", label: "Portfolio" },
-    { id: "analytics", label: "Analytics" },
-    { id: "benchmarks", label: "Benchmarks" },
-    { id: "skills", label: "Skill Registry" },
-    { id: "search", label: "Search" }
-  ];
-  var fixtures = {
-    meta: {
-      fixture: true,
-      generatedAt: "2026-07-26T00:00:00Z",
-      notice: "Prototype fixtures \u2014 not canonical operational data"
-    },
-    sources: [
-      { id: "wiki", label: "LLM Wiki", authority: "Product claims and conclusions", state: "fresh", freshness: "Verified 18m ago", invalidatesClaims: false },
-      { id: "benchmarks", label: "Frozen benchmark artifacts", authority: "Final scores and run lineage", state: "fresh", freshness: "Verified 42m ago", invalidatesClaims: false },
-      { id: "runtime", label: "Runtime telemetry", authority: "Current service availability", state: "stale", freshness: "Last successful read 9h ago", invalidatesClaims: true },
-      { id: "skill-meta", label: "Skill publication metadata", authority: "Publication and stewardship state", state: "missing", freshness: "Adapter not connected", invalidatesClaims: true },
-      { id: "voice-performance", label: "Prime voice benchmark", authority: "Voice route latency, RTF, and reliability", state: "fresh", freshness: "Measured 2026-07-26", invalidatesClaims: false }
-    ],
-    voicePerformance: {
-      id: "voice-performance-2026-07-26",
-      observedAt: "2026-07-26",
-      source: "Prime dev matched-route benchmark",
-      method: "Same sentence; median of three warm end-to-end requests per route through Prime dev. First byte for GPU Node B Qwen is streamed audio; WAV routes deliver on completion.",
-      reliabilityNote: "GPU Node B Qwen completed 2/3 matched trials; one request streamed runaway audio until the 90-second client timeout. A later bounded confirmation retry completed in 7.14 seconds.",
-      routes: [
-        { id: "edge-a-kokoro-mlx", host: "Edge Node A", engine: "Kokoro MLX", firstByteSeconds: 0.337, completeSeconds: 0.344, rtf: 0.095, successfulTrials: 3, totalTrials: 3, timeouts: 0, position: "Fastest" },
-        { id: "gpu-b-kokoro-fp32", host: "GPU Node B", engine: "Kokoro FP32", firstByteSeconds: 0.44, completeSeconds: 0.444, rtf: 0.153, successfulTrials: 3, totalTrials: 3, timeouts: 0, position: "Near-instant" },
-        { id: "edge-a-gpt-sovits-mlx", host: "Edge Node A", engine: "GPT-SoVITS MLX", firstByteSeconds: 2.21, completeSeconds: 2.216, rtf: 0.436, successfulTrials: 3, totalTrials: 3, timeouts: 0, position: "Fastest clone" },
-        { id: "gpu-b-qwen3-rocm", host: "GPU Node B", engine: "Qwen3-TTS ROCm", firstByteSeconds: 1.662, completeSeconds: 5.987, rtf: 1.565, successfulTrials: 2, totalTrials: 3, timeouts: 1, position: "Early audio / watch" },
-        { id: "edge-a-qwen-cpu", host: "Edge Node A", engine: "Qwen CPU", firstByteSeconds: 13.628, completeSeconds: 13.631, rtf: 2.543, successfulTrials: 3, totalTrials: 3, timeouts: 0, position: "Baseline" },
-        { id: "edge-a-qwen-mlx", host: "Edge Node A", engine: "Qwen MLX", firstByteSeconds: 14.303, completeSeconds: 14.305, rtf: 3.031, successfulTrials: 3, totalTrials: 3, timeouts: 0, position: "Slowest current" }
-      ]
-    },
-    products: [
-      {
-        id: "autobot-command-center",
-        name: "Autobot Command Center",
-        kind: "Product",
-        state: "Development",
-        verified: "2026-08-16",
-        source: "ACC dev acceptance checks",
-        value: "A read-only answer plane for durable products, analytics, provider usage, benchmark evidence, and reusable skills.",
-        outcome: "Development now projects six durable destinations through one responsive dashboard without becoming a second operational control plane.",
-        limitation: "Portfolio and registry records remain curated projections until their canonical metadata adapters are connected.",
-        worksNow: ["Responsive product projection", "Provider-usage snapshots", "Web analytics destination", "Evidence-linked benchmark views"],
-        evidence: ["Browser acceptance matrix", "Application test suite", "Public-safety scanner"],
-        evaluations: []
-      },
-      {
-        id: "voice-lab",
-        name: "Prime Voice Lab",
-        kind: "Product",
-        state: "Human gate",
-        verified: "2026-07-26",
-        source: "Prime voice benchmark",
-        value: "Reusable intranet-first voice interaction core for tutors, agents, avatars, calls, and meetings.",
-        outcome: "Six configured voice routes are compared end-to-end; the fastest instant and cloned-voice paths are identified separately.",
-        limitation: "One experimental route produced a runaway timeout in the matched set; voice identity and quality remain subjective human gates.",
-        worksNow: ["Six-route performance comparison", "Non-speech rejection", "Profile-driven output"],
-        evidence: ["Voice performance snapshot \xB7 2026-07-26", "Prime acceptance suite", "Audio sample set"],
-        evaluations: ["eval-voice-runtime-comparison", "eval-voice-latency"]
-      },
-      {
-        id: "web-analytics",
-        name: "Web Analytics Projection",
-        kind: "Capability",
-        state: "Development",
-        verified: "2026-08-16",
-        source: "Cloudflare edge aggregate projection",
-        value: "One evidence-aware reporting destination for web properties without inventing missing geography or visitor semantics.",
-        outcome: "Two web properties now share daily, monthly, and yearly edge-aggregate views with explicit source coverage and provenance.",
-        limitation: "Aggregate analytics are not raw request logs; unavailable state-level dimensions remain unknown rather than inferred.",
-        worksNow: ["Multi-property routing", "Daily/monthly/yearly ranges", "Coverage-aware world views", "Explicit null gaps"],
-        evidence: ["Projection schema tests", "Compiler tests", "Browser analytics routes"],
-        evaluations: []
-      },
-      {
-        id: "model-serving",
-        name: "Local AI Runtime",
-        kind: "Capability",
-        state: "Usable",
-        availabilityAuthority: "runtime",
-        verified: "2026-08-16",
-        source: "Frozen benchmark artifacts",
-        value: "Private local inference for bounded agent, tool-use, and evaluation workloads.",
-        outcome: "A quantized serving condition has a defined runtime, context, output envelope, and immutable evidence identity.",
-        limitation: "Current availability is unknown while runtime telemetry is stale.",
-        worksNow: ["OpenAI-compatible endpoint", "Condition manifests", "Bounded outputs"],
-        evidence: ["Frozen run manifests", "Service acceptance record"],
-        evaluations: ["eval-model-condition"]
-      },
-      {
-        id: "benchmark-program",
-        name: "Model Evaluation Program",
-        kind: "Capability",
-        state: "Usable",
-        verified: "2026-08-16",
-        source: "Frozen benchmark artifacts",
-        value: "Comparable condition-level evidence across tool use, reasoning, and offline-safe coding.",
-        outcome: "Release-scoped canonical results, exact condition fingerprints, and supporting run lineage are represented separately from runtime availability.",
-        limitation: "Cross-release rankings are intentionally prohibited.",
-        worksNow: ["BFCL", "GPQA Diamond", "BigCodeBench-Hard"],
-        evidence: ["Frozen manifests", "Canonical result index"],
-        evaluations: ["eval-model-condition"]
-      }
-    ],
-    modelFamilies: [
-      { id: "qwen36", name: "Qwen3.6 35B-A3B", publisher: "Qwen", architecture: "MoE", license: "Known in source manifest", roles: ["Local agent", "Evaluation candidate"] },
-      { id: "gpt56", name: "GPT-5.6", publisher: "OpenAI", architecture: "Hosted", license: "Provider terms", roles: ["Review lane"] },
-      { id: "devstral", name: "Devstral Small 2 24B", publisher: "Mistral AI", architecture: "Dense", license: "Known in source manifest", roles: ["Offline-safe coding candidate"] },
-      { id: "gpt56-luna", name: "GPT-5.6 Luna", publisher: "OpenAI", architecture: "Hosted", license: "Provider terms", roles: ["Cloud reference", "Agent benchmark"] },
-      { id: "gpt56-sol", name: "GPT-5.6 Sol", publisher: "OpenAI", architecture: "Hosted", license: "Provider terms", roles: ["Cloud reference", "Agent benchmark"] },
-      { id: "qwen38-2b", name: "Qwen 3.8 2B Distill", publisher: "Community", architecture: "Dense", license: "See source model card", roles: ["Local baseline", "Instruction-following candidate"] },
-      { id: "qwen38-27b", name: "Qwen 3.8 27B RVN Heretic", publisher: "Community", architecture: "Dense", license: "Apache-2.0", roles: ["Local agent candidate", "Current measured condition"] },
-      { id: "qwen36-35b", name: "Qwen3.6 35B-A3B", publisher: "Qwen", architecture: "MoE", license: "Known in source manifest", roles: ["Local flagship", "Agent candidate"] },
-      { id: "qwen36-27b", name: "Qwen3.6 27B", publisher: "Qwen", architecture: "Dense", license: "Known in source manifest", roles: ["Local reasoning", "Agent candidate"] },
-      { id: "bonsai", name: "Bonsai 8B", publisher: "Community", architecture: "Dense", license: "Evaluation manifest pending", roles: ["Efficient local agent", "Shadow candidate"] },
-      { id: "qwen35-4b", name: "Qwen3.5 4B", publisher: "Qwen", architecture: "Dense", license: "Known in source manifest", roles: ["Small local baseline", "Edge candidate"] }
-    ],
-    conditions: [
-      {
-        id: "qwen36-awq-vllm",
-        familyId: "qwen36",
-        shortName: "Qwen3.6 35B \xB7 AWQ \xB7 vLLM",
-        provider: "GPU Node B",
-        runtime: "vLLM",
-        quantization: "AWQ",
-        reasoning: "Direct",
-        host: "GPU Node B",
-        context: "128K tested",
-        output: "16K cap",
-        availability: "unknown",
-        availabilityNote: "Runtime telemetry stale",
-        fingerprint: "qwen36-35b-a3b|awq|vllm|direct|ctx128k|out16k|gpu-node-b",
-        results: []
-      },
-      {
-        id: "gpt56-max-api",
-        familyId: "gpt56",
-        shortName: "GPT-5.6 \xB7 Max \xB7 API",
-        provider: "OpenAI",
-        runtime: "Responses API",
-        quantization: "Provider managed",
-        reasoning: "Max",
-        host: "Cloud",
-        context: "Provider envelope",
-        output: "Provider envelope",
-        availability: "available",
-        availabilityNote: "Prototype fixture only",
-        fingerprint: "gpt56|max|responses-api|provider-managed|cloud",
-        results: []
-      },
-      {
-        id: "devstral-fp8-vllm",
-        familyId: "devstral",
-        shortName: "Devstral Small 2 \xB7 FP8 \xB7 vLLM",
-        provider: "GPU Node B",
-        runtime: "vLLM",
-        quantization: "FP8",
-        reasoning: "Direct",
-        host: "GPU Node B",
-        context: "64K tested",
-        output: "8K cap",
-        availability: "unavailable",
-        availabilityNote: "Not currently loaded",
-        fingerprint: "devstral-small2-24b|fp8|vllm|direct|ctx64k|out8k|gpu-node-b",
-        results: []
-      },
-      {
-        id: "gpt56-luna-max",
-        familyId: "gpt56-luna",
-        shortName: "GPT-5.6 Luna \xB7 Max",
-        provider: "ChatGPT",
-        runtime: "Codex Luna bridge",
-        quantization: "Provider managed",
-        reasoning: "Max",
-        host: "Cloud",
-        context: "Provider envelope",
-        output: "Suite-defined",
-        availability: "unknown",
-        availabilityNote: "Availability is separate from benchmark evidence",
-        fingerprint: "gpt-5.6-luna|max|codex-luna-bridge|ootb-intake-v1",
-        results: []
-      },
-      {
-        id: "gpt56-sol-max",
-        familyId: "gpt56-sol",
-        shortName: "GPT-5.6 Sol \xB7 Max",
-        provider: "ChatGPT",
-        runtime: "Codex Sol bridge",
-        quantization: "Provider managed",
-        reasoning: "Max",
-        host: "Cloud",
-        context: "Provider envelope",
-        output: "Suite-defined",
-        availability: "unknown",
-        availabilityNote: "Benchmark collection is complete; runtime availability is not inferred",
-        fingerprint: "gpt-5.6-sol|max|codex-sol-bridge|ootb-intake-v1",
-        results: []
-      },
-      {
-        id: "qwen38-2b-mlx",
-        familyId: "qwen38-2b",
-        shortName: "Qwen 3.8 2B Distill \xB7 4-bit MLX",
-        provider: "Edge Node A",
-        runtime: "MLX/Metal",
-        quantization: "Affine 4-bit \xB7 group 64",
-        reasoning: "Thinking off",
-        host: "Edge Node A",
-        context: "256K tested",
-        output: "8K cap",
-        availability: "unknown",
-        availabilityNote: "Benchmark evidence does not establish current runtime availability",
-        fingerprint: "edge-node-a|qwen38-2b-distill|mlx-metal|affine-4bit-g64|thinking-off|ctx256k|out8k|ootb-intake-v1",
-        results: []
-      },
-      {
-        id: "qwen36-35b-heretic-gpu-b",
-        familyId: "qwen36-35b",
-        shortName: "Qwen3.6 35B Heretic \xB7 Q4_K_M \xB7 MTP-N2",
-        provider: "GPU Node B",
-        runtime: "llama.cpp b9172",
-        quantization: "Q4_K_M Heretic",
-        reasoning: "Thinking on",
-        host: "GPU Node B",
-        context: "256K total \xB7 128K per slot",
-        output: "32K cap",
-        availability: "unknown",
-        availabilityNote: "Benchmark evidence is immutable; current runtime availability is tracked separately",
-        fingerprint: "qwen3.6-35b-a3b-heretic|q4-k-m|mtp-n2|llamacpp-b9172|thinking-on|ctx262144|2slots|out32768|gpu-node-b|ootb-intake-v1",
-        results: []
-      },
-      {
-        id: "qwen38-27b-rvn-heretic-gpu-b",
-        familyId: "qwen38-27b",
-        shortName: "Qwen3.8 27B RVN Heretic \xB7 Q4_K_M \xB7 MTP-N1",
-        provider: "GPU Node B",
-        runtime: "llama.cpp b10448",
-        quantization: "Q4_K_M Heretic",
-        reasoning: "Thinking on \xB7 medium",
-        host: "GPU Node B",
-        context: "128K \xB7 1 slot",
-        output: "32K cap",
-        availability: "unknown",
-        availabilityNote: "Active benchmark evidence does not establish general runtime availability",
-        fingerprint: "qwen3.8-27b-rvn-heretic|q4-k-m|mtp-n1|llamacpp-b10448|thinking-on-medium|ctx131072|1slot|out32768|gpu-node-b|ootb-intake-v1",
-        results: []
-      },
-      {
-        id: "qwen36-27b",
-        familyId: "qwen36-27b",
-        shortName: "Qwen3.6 27B \xB7 Q6",
-        provider: "GPU Node B",
-        runtime: "llama.cpp",
-        quantization: "Q6",
-        reasoning: "Direct",
-        host: "GPU Node B",
-        context: "Example envelope",
-        output: "Example envelope",
-        availability: "unknown",
-        availabilityNote: "Illustrative Dev fixture",
-        fingerprint: "example|qwen3.6-27b|q6|llamacpp|direct",
-        results: []
-      },
-      {
-        id: "bonsai-8b",
-        familyId: "bonsai",
-        shortName: "Bonsai 8B \xB7 Q8",
-        provider: "Edge Node A",
-        runtime: "llama.cpp",
-        quantization: "Q8",
-        reasoning: "Direct",
-        host: "Edge Node A",
-        context: "Example envelope",
-        output: "Example envelope",
-        availability: "unknown",
-        availabilityNote: "Illustrative Dev fixture",
-        fingerprint: "example|bonsai-8b|q8|llamacpp|direct",
-        results: []
-      },
-      {
-        id: "qwen35-4b",
-        familyId: "qwen35-4b",
-        shortName: "Qwen3.5 4B \xB7 Q8",
-        provider: "Edge Node A",
-        runtime: "llama.cpp",
-        quantization: "Q8",
-        reasoning: "Direct",
-        host: "Edge Node A",
-        context: "Example envelope",
-        output: "Example envelope",
-        availability: "unknown",
-        availabilityNote: "Illustrative Dev fixture",
-        fingerprint: "example|qwen3.5-4b|q8|llamacpp|direct",
-        results: []
-      }
-    ],
-    benchmarkComparison: [
-      {
-        conditionId: "gpt56-luna-max",
-        evidence: "measured",
-        note: "All three frozen suites passed final verification. tau2 uses the versioned acc-tau2-fixed-judge-v1.1 profile (effective GPT-5.5 Low); future comparisons must use that same judge profile.",
-        operational: {
-          evidence: "verified-aggregate",
-          candidateUsage: { inputTokens: 18549208, outputTokens: 1603165, totalTokens: 20152373, cachedInputTokens: null, reasoningTokens: null, retainedBridgeEvents: 4304 },
-          performance: {
-            class: "frontier-route",
-            successfulResponses: 4290,
-            bridgeErrorEvents: 14,
-            latencySeconds: { minimum: 1.1463, median: 6.3779, mean: 8.8543, p95: 21.8786, maximum: 296.4456, total: 37984.9964 },
-            endToEndOutputTokensPerSecond: 42.2052,
-            measurementBoundary: "Client bridge end-to-end wall time on the ChatGPT/Codex subscription route",
-            variability: "Route-window evidence, not intrinsic model speed; network path, provider queueing, service demand, and bridge overhead remain variables."
-          },
-          judgeUsage: { role: "Fixed tau2 judge", totalTokens: 19655 },
-          billing: {
-            route: "ChatGPT/Codex subscription",
-            marginalApiChargeUsd: 0,
-            monthlySubscriptionUsd: 200,
-            candidateApiEquivalentUsd: 5.63,
-            judgeApiEquivalentUsd: 0.12,
-            subscriptionAttribution: "Flat existing plan \xB7 not allocated per benchmark request"
-          },
-          pricing: {
-            source: "OpenAI standard model pricing reviewed 2026-08-26",
-            candidateRates: "$0.20/M input \xB7 $1.20/M output",
-            judgeRates: "$5/M input \xB7 $30/M output",
-            assumption: "All retained input priced as uncached",
-            longContextRequests: 0
-          },
-          outcomes: [
-            ["IFEval strict misses", "7 / 40 prompts \xB7 8 / 95 instructions"],
-            ["BFCL custody", "150 scored cases \xB7 category-level grader evidence retained"],
-            ["BFCL bridge non-OK events", "9 \xB7 retained under the frozen scoring rules"],
-            ["tau2 unsuccessful", "26 / 50 tasks \xB7 includes 5 provider transport failures"]
-          ]
-        },
-        scores: {
-          instruction: { label: "Instruction following", benchmark: "IFEval", value: 82.5, evidence: "verified", denominator: "33 / 40 strict prompts", detail: [["Instruction checks", "87 / 95 \xB7 91.6%"], ["Mean request", "35.1s"], ["Completion tokens", "74,587"]] },
-          tools: { label: "Native tool use", benchmark: "BFCL V4", value: 45.89, evidence: "verified", denominator: "150 frozen scored cases", detail: [["Non-live AST", "86.7%"], ["Live", "37.5%"], ["Multi-turn tools", "56.3%"], ["Memory", "63.0%"], ["Latency mean / p95", "6.37s / 14.48s"]] },
-          agent: { label: "Multi-turn agent", benchmark: "tau2", value: 48, evidence: "verified", denominator: "24 / 50 frozen tasks", detail: [["Retail", "12 / 25 \xB7 48.0%"], ["Telecom", "12 / 25 \xB7 48.0%"], ["Provider transport failures", "5 \xB7 retained as scored zeros"], ["Harness errors", "0"], ["Fixed judge profile", "acc-tau2-fixed-judge-v1.1 \xB7 GPT-5.5 Low"]] }
-        }
-      },
-      {
-        conditionId: "gpt56-sol-max",
-        evidence: "measured",
-        note: "All three frozen suites passed final verification: IFEval 90.00%, BFCL 48.55%, and tau2 70.00%. The secondary 69.52% equal-weight macro is the unweighted mean of those three primary suite scores. tau2 used acc-tau2-fixed-judge-v1.1 and retained two post-dispatch provider transport failures plus six completed empty model responses as denominator-preserving zeros; harness errors are zero.",
-        operational: {
-          evidence: "verified-aggregate",
-          candidateUsage: { inputTokens: 22636604, outputTokens: 1851898, totalTokens: 24488502, cachedInputTokens: null, reasoningTokens: null, retainedBridgeEvents: 4657 },
-          performance: {
-            class: "frontier-route",
-            successfulResponses: 4586,
-            bridgeErrorEvents: 71,
-            latencySeconds: { minimum: 1.4928, median: 8.7603, mean: 13.3428, p95: 35.5755, maximum: 435.3947, total: 61189.9788 },
-            endToEndOutputTokensPerSecond: 30.2647,
-            measurementBoundary: "Client bridge end-to-end wall time on the ChatGPT/Codex subscription route",
-            variability: "Route-window evidence, not intrinsic model speed; network path, provider queueing, service demand, and bridge overhead remain variables."
-          },
-          judgeUsage: { role: "Fixed tau2 judge", totalTokens: 40330 },
-          billing: {
-            route: "ChatGPT/Codex subscription",
-            marginalApiChargeUsd: 0,
-            monthlySubscriptionUsd: 200,
-            candidateApiEquivalentUsd: 127.58,
-            judgeApiEquivalentUsd: 0.23,
-            subscriptionAttribution: "Flat existing plan \xB7 not allocated per benchmark request"
-          },
-          pricing: {
-            source: "OpenAI standard model pricing reviewed 2026-08-26",
-            candidateRates: "$4/M input \xB7 $20/M output",
-            judgeRates: "$5/M input \xB7 $30/M output",
-            assumption: "All retained input priced as uncached",
-            longContextRequests: 0
-          },
-          outcomes: [
-            ["IFEval strict misses", "4 / 40 prompts \xB7 4 / 95 instructions"],
-            ["Pre-dispatch control stops", "65 \xB7 61 recovered/accounted denials plus 4 later safe halts \xB7 not provider failures"],
-            ["BFCL operational failures", "4 provider transport-error rows retained as scored zeros"],
-            ["tau2 unsuccessful", "15 / 50 tasks \xB7 includes 2 transport failures and 6 empty responses"]
-          ]
-        },
-        scores: {
-          instruction: { label: "Instruction following", benchmark: "IFEval", value: 90, evidence: "verified", denominator: "36 / 40 strict prompts", detail: [["Instruction checks", "91 / 95 \xB7 95.8%"], ["Mean request", "37.6s"], ["Completion tokens", "55,171"], ["Final verification", "Passed \xB7 exact response model"]] },
-          tools: { label: "Native tool use", benchmark: "BFCL V4", value: 48.55, evidence: "verified", denominator: "150 / 150 scored rows", detail: [["Generated traces", "261 / 261"], ["Provider transport-error rows", "4 \xB7 retained"], ["Recovered denial rows", "61 \xB7 exact replay"], ["Final verification", "Passed"]] },
-          agent: { label: "Multi-turn agent", benchmark: "tau2", value: 70, evidence: "verified", denominator: "35 / 50 frozen tasks", detail: [["Retail", "22 / 25 \xB7 88.0%"], ["Telecom", "13 / 25 \xB7 52.0%"], ["Provider transport failures", "2 \xB7 retained as scored zeros"], ["Empty model responses", "6 \xB7 retained as scored zeros"], ["Harness errors", "0"], ["Fixed judge profile", "acc-tau2-fixed-judge-v1.1 \xB7 GPT-5.5 Low"], ["Final verification", "Passed"]] }
-        }
-      },
-      {
-        conditionId: "qwen38-2b-mlx",
-        evidence: "measured",
-        note: "IFEval and BFCL are final-verified for the exact 4-bit MLX/Metal condition. IFEval repeated exactly at 9 / 40 strict prompts and 47 / 95 instructions; BFCL scored 8.72% across the frozen 150-case selection after all 261 required rows were generated. tau2 Retail is complete at 25 / 25 and Telecom is active at 20 / 25 in the captured progress snapshot, so the tau2 primary score stays Pending rather than zero.",
-        operational: {
-          evidence: "verified-partial",
-          candidateUsage: { inputTokens: 9839500, outputTokens: 1130727, totalTokens: 10970227, cachedInputTokens: 2135136, reasoningTokens: null, retainedBridgeEvents: 1648, basis: "Final-verified IFEval matched repeat plus final-verified BFCL \xB7 incomplete tau2 usage excluded" },
-          performance: {
-            class: "local-runtime",
-            successfulResponses: 1608,
-            bridgeErrorEvents: 0,
-            latencySeconds: { minimum: 1.2452, median: 11.6742, mean: 21.2696, p95: 78.2772, maximum: 367.2935, total: 34201.4525 },
-            endToEndOutputTokensPerSecond: 29.4517,
-            measurementBoundary: "BFCL bridge end-to-end non-streaming request wall time across all retained prerequisite and scored requests",
-            variability: "The displayed runtime distribution is BFCL-specific and includes transport, prompt evaluation, and generation. IFEval repeat performance remains in the instruction-score detail. TTFT, pure decoder throughput, peak RSS, Metal memory, and thermal/power state were not captured."
-          },
-          localRuntime: {
-            hardwareProfile: "edge-node-a-mac-mini-m2-24gb-20260826",
-            capturedAt: "2026-08-26",
-            machine: "Mac mini",
-            processor: "Apple M2 \xB7 8-core CPU",
-            memory: "24 GB unified memory",
-            accelerator: "Apple M2 \xB7 10-core GPU \xB7 Metal",
-            os: "macOS 26.5.2",
-            host: "Edge Node A",
-            backend: "MLX/Metal",
-            modelRevision: "SiddhJagani/Qwen3.8-2B-mlx-4Bit \xB7 pinned revision",
-            quantization: "Affine 4-bit \xB7 group size 64",
-            context: "262,144 tokens",
-            outputCap: "8,192 tokens",
-            slots: 1,
-            concurrency: 1,
-            retries: 0,
-            thinking: "Off",
-            streaming: "No",
-            competingWorkload: "One benchmark slot; broader host workload telemetry unavailable"
-          },
-          outcomes: [
-            ["IFEval repeated result", "9 / 40 prompts \xB7 47 / 95 instructions \xB7 identical across two runs"],
-            ["Repeat consistency", "40 / 40 exact response-text matches \xB7 40 / 40 exact usage matches"],
-            ["BFCL final result", "8.72% \xB7 261 / 261 generated \xB7 150 / 150 scored \xB7 final verification passed"],
-            ["BFCL custody", "1,608 / 1,608 bridge requests succeeded \xB7 0 transport errors \xB7 0 retries"],
-            ["tau2 progress snapshot", "45 / 50 frozen tasks completed \xB7 Retail 25 / 25 \xB7 Telecom 20 / 25 active \xB7 score withheld as Pending"]
-          ],
-          methodNote: "Local performance is specific to this host, runtime, quantization, context/output envelope, serial slot, and warm-state collection. Candidate usage includes only final-verified IFEval and BFCL evidence; incomplete tau2 usage is excluded. Pure generation speed and resource peaks were unavailable in the retained evidence."
-        },
-        scores: {
-          instruction: { label: "Instruction following", benchmark: "IFEval", value: 22.5, evidence: "verified", denominator: "9 / 40 strict prompts", detail: [["Instruction checks", "47 / 95 \xB7 49.5%"], ["Matched repeats", "2 \xB7 identical scores"], ["Exact response matches", "40 / 40"], ["Repeat mean / p95", "51.29s / 136.39s"], ["Completion tokens", "123,437"], ["Final verification", "Passed \xB7 both runs"]] },
-          tools: { label: "Native tool use", benchmark: "BFCL V4", value: 8.72, evidence: "verified", denominator: "150 / 150 frozen scored cases", detail: [["Generated traces", "261 / 261"], ["Non-live AST", "39.17%"], ["Live", "0.00%"], ["Multi-turn tools", "1.25%"], ["Memory", "7.14%"], ["Bridge requests", "1,608 / 1,608 succeeded \xB7 0 transport errors \xB7 0 retries"], ["Latency median / mean / p95", "11.67s / 21.27s / 78.28s"], ["Final verification", "Passed"]] },
-          agent: { label: "Multi-turn agent", benchmark: "tau2", value: null, evidence: "pending", denominator: "45 / 50 live \xB7 score withheld", progress: { current: 45, total: 50, label: "45 / 50 frozen tasks \xB7 Retail 25 / 25 \xB7 Telecom 20 / 25", state: "in-progress", capturedAt: "2026-08-28T11:43:16Z" }, detail: [["Frozen inventory", "25 Retail + 25 Telecom"], ["Completed simulations", "Retail 25 / 25 \xB7 Telecom 20 / 25 \xB7 45 / 50 total"], ["Harness errors", "0 observed in current progress artifact"], ["Current workload", "Telecom active"], ["Scoring state", "Pending full frozen inventory and final verification"]] }
-        }
-      },
-      {
-        conditionId: "qwen36-35b-heretic-gpu-b",
-        evidence: "measured",
-        note: "All three suites are final-verified for the exact GPU Node B Qwen3.6 35B Heretic Q4_K_M MTP-N2 condition. IFEval scored 77.50%, BFCL scored 51.76% across the exact frozen 150-case selection after all 261 required rows were generated, and tau2 scored 66.00% across all 50 frozen tasks. The BFCL evaluator used subset mode to score the exact frozen selection; final verification confirmed complete ID equality, exact denominators, and zero duplicates. Hardware identity beyond the retained public-safe host label and runtime/deployment geometry was not captured and is shown as unavailable rather than inferred.",
-        operational: {
-          evidence: "verified-aggregate",
-          candidateUsage: { inputTokens: 36561557, outputTokens: 5484306, totalTokens: 42045863, cachedInputTokens: null, reasoningTokens: null, retainedBridgeEvents: 3800, basis: "All three final-verified suites \xB7 IFEval + BFCL + tau2" },
-          judgeUsage: { inputTokens: 27087, outputTokens: 680, totalTokens: 27767, requests: 6, successes: 6, basis: "tau2 fixed-judge events only" },
-          performance: {
-            class: "local-runtime",
-            successfulResponses: 2633,
-            bridgeErrorEvents: 25,
-            latencySeconds: { minimum: 0.0966, median: 3.8922, mean: 25.147, p95: 36.1704, maximum: 528.2671, total: 66840.7149 },
-            endToEndOutputTokensPerSecond: 69.7602,
-            measurementBoundary: "BFCL single-flight bridge end-to-end non-streaming request wall time",
-            variability: "The displayed runtime distribution is BFCL-specific and includes transport, prompt evaluation, and generation. IFEval and tau2 retain their own latency/throughput evidence in the suite details. A cross-suite median or p95 is not synthesized. TTFT, pure decoder throughput, peak RSS, accelerator memory, thermal state, and competing-host workload were not retained."
-          },
-          localRuntime: {
-            hardwareProfile: "gpu-node-b-hardware-unresolved-20260826",
-            capturedAt: "2026-08-26",
-            machine: "Not captured in retained run evidence",
-            processor: "Not captured",
-            memory: "Not captured",
-            accelerator: "Not captured",
-            os: "Not captured",
-            host: "GPU Node B",
-            backend: "llama.cpp b9172 lineage",
-            modelRevision: "Qwen3.6-35B-A3B-Heretic-Q4_K_M-MTP-N2",
-            quantization: "Q4_K_M Heretic \xB7 MTP-N2",
-            context: "262,144 total \xB7 131,072 per slot",
-            outputCap: "32,768 tokens",
-            slots: 2,
-            concurrency: 1,
-            retries: 0,
-            thinking: "On",
-            streaming: "No",
-            competingWorkload: "Requests serialized; broader host workload telemetry unavailable"
-          },
-          outcomes: [
-            ["IFEval final result", "77.50% \xB7 31 / 40 prompts \xB7 86 / 95 instructions \xB7 final verification passed"],
-            ["IFEval performance", "40 / 40 requests succeeded \xB7 median 38.25s \xB7 mean 45.71s \xB7 p95 109.71s \xB7 86.15 output tok/s"],
-            ["BFCL final result", "51.76% \xB7 261 / 261 generated \xB7 150 / 150 scored \xB7 final verification passed"],
-            ["BFCL custody", "2,633 / 2,658 bridge requests succeeded \xB7 25 prerequisite provider failures \xB7 0 scored-case provider failures"],
-            ["BFCL performance", "Median 3.89s \xB7 mean 25.15s \xB7 p95 36.17s \xB7 69.76 output tok/s"],
-            ["tau2 final result", "66.00% \xB7 33 / 50 tasks \xB7 Retail 10 / 25 \xB7 Telecom 23 / 25 \xB7 final verification passed"],
-            ["tau2 custody", "1,102 / 1,102 candidate requests succeeded \xB7 10 empty responses retained as scored zeros \xB7 0 harness errors"],
-            ["tau2 performance", "Median 2.77s \xB7 mean 7.65s \xB7 p95 18.97s \xB7 78.77 output tok/s"],
-            ["Fixed judge custody", "6 / 6 requests succeeded \xB7 27,767 tokens \xB7 fixed profile retained"],
-            ["Hardware boundary", "Processor, RAM, accelerator, and OS were not captured in retained run evidence"]
-          ],
-          methodNote: "Candidate usage aggregates all three final-verified suites. The displayed runtime distribution remains BFCL-specific; IFEval and tau2 performance is reported in their suite details and outcomes. No cross-suite latency quantiles are synthesized. Pure generation speed and resource peaks were unavailable in retained evidence."
-        },
-        scores: {
-          instruction: { label: "Instruction following", benchmark: "IFEval", value: 77.5, evidence: "verified", denominator: "31 / 40 strict prompts", detail: [["Instruction checks", "86 / 95 \xB7 90.5%"], ["Median / mean request", "38.25s / 45.71s"], ["Request p95", "109.71s"], ["Completion tokens", "157,506"], ["End-to-end output throughput", "86.15 tok/s"], ["Final verification", "Passed \xB7 exact model and runtime lineage"]] },
-          tools: { label: "Native tool use", benchmark: "BFCL V4", value: 51.76, evidence: "verified", denominator: "150 / 150 frozen scored cases", detail: [["Generated traces", "261 / 261"], ["Frozen scored IDs", "150 / 150 exact \xB7 zero duplicates"], ["Non-live AST", "89.44%"], ["Live", "87.50%"], ["Multi-turn tools", "69.58%"], ["Memory", "45.97%"], ["Bridge requests", "2,633 / 2,658 succeeded \xB7 25 prerequisite provider failures \xB7 0 scored-case provider failures"], ["Latency median / mean / p95", "3.89s / 25.15s / 36.17s"], ["End-to-end output throughput", "69.76 tok/s"], ["Final verification", "Passed"]] },
-          agent: { label: "Multi-turn agent", benchmark: "tau2", value: 66, evidence: "verified", denominator: "33 / 50 frozen tasks", detail: [["Retail", "10 / 25 \xB7 40.0%"], ["Telecom", "23 / 25 \xB7 92.0%"], ["Empty model responses", "10 \xB7 retained as scored zeros"], ["Provider transport failures", "0"], ["Harness errors", "0"], ["Candidate requests", "1,102 / 1,102 succeeded"], ["Latency median / mean / p95", "2.77s / 7.65s / 18.97s"], ["End-to-end output throughput", "78.77 tok/s"], ["Fixed judge", "6 / 6 requests \xB7 27,767 tokens \xB7 fixed profile"], ["Final verification", "Passed \xB7 exact 50-task frozen inventory"]] }
-        }
-      },
-      {
-        conditionId: "qwen38-27b-rvn-heretic-gpu-b",
-        evidence: "measured",
-        note: "IFEval is final-verified at 32 / 40 strict prompts and 86 / 95 instructions for the exact Qwen3.8 27B RVN Heretic Q4_K_M MTP-N1 medium-thinking condition. BFCL is actively collecting its frozen 261 required generated rows, with 40 rows persisted at this snapshot. tau2 is queued behind BFCL. Pending lanes remain score-withheld rather than zero.",
-        operational: {
-          evidence: "verified-partial",
-          candidateUsage: { inputTokens: 2596, outputTokens: 77738, totalTokens: 80334, cachedInputTokens: 0, reasoningTokens: null, retainedBridgeEvents: 40, basis: "Final-verified IFEval only \xB7 active BFCL and queued tau2 excluded" },
-          performance: {
-            class: "local-runtime",
-            successfulResponses: 40,
-            bridgeErrorEvents: 0,
-            latencySeconds: { minimum: 9.7965, median: 68.1601, mean: 102.1141, p95: 209.9175, maximum: 933.1993, total: 4084.5648 },
-            endToEndOutputTokensPerSecond: 19.0321,
-            measurementBoundary: "IFEval single-flight bridge end-to-end non-streaming wall time",
-            variability: "IFEval-specific route evidence including transport, prompt evaluation, and generation. BFCL and tau2 performance are not projected before their own final verification. TTFT, pure decoder throughput, resource peaks, and thermal/power state were not captured."
-          },
-          localRuntime: {
-            hardwareProfile: "gpu-node-b-hardware-unresolved-20260827",
-            capturedAt: "2026-08-27",
-            machine: "Not captured in retained run evidence",
-            processor: "Not captured",
-            memory: "Not captured",
-            accelerator: "Not captured",
-            os: "Not captured",
-            host: "GPU Node B",
-            backend: "llama.cpp b10448 lineage",
-            modelRevision: "Qwen3.8-27B-RVN-Q4_K_M-MTP-N1-128K",
-            quantization: "Q4_K_M Heretic \xB7 MTP-N1",
-            context: "131,072 tokens \xB7 one slot",
-            outputCap: "32,768 tokens",
-            slots: 1,
-            concurrency: 1,
-            retries: 0,
-            thinking: "On \xB7 medium",
-            streaming: "No",
-            competingWorkload: "Requests serialized; broader host workload telemetry unavailable"
-          },
-          outcomes: [
-            ["IFEval final result", "80.00% \xB7 32 / 40 prompts \xB7 86 / 95 instructions \xB7 final verification passed"],
-            ["IFEval custody", "40 / 40 requests succeeded \xB7 0 provider or measurement-path failures"],
-            ["IFEval performance", "Median 68.16s \xB7 mean 102.11s \xB7 p95 209.92s \xB7 19.03 end-to-end output tok/s"],
-            ["BFCL progress snapshot", "40 / 261 required generated rows persisted \xB7 collection active \xB7 score withheld"],
-            ["tau2 state", "Queued behind BFCL \xB7 0 / 50 \xB7 score withheld"],
-            ["Hardware boundary", "Processor, RAM, accelerator, and OS were not captured in retained run evidence"]
-          ],
-          methodNote: "Candidate usage and performance include only final-verified IFEval evidence. BFCL collection completion is operational progress, not a capability estimate. Pending suites are excluded from the current average until their own final verification passes."
-        },
-        scores: {
-          instruction: { label: "Instruction following", benchmark: "IFEval", value: 80, evidence: "verified", denominator: "32 / 40 strict prompts", detail: [["Instruction checks", "86 / 95 \xB7 90.5%"], ["Median / mean request", "68.16s / 102.11s"], ["Request p95", "209.92s"], ["Completion tokens", "77,738"], ["End-to-end output throughput", "19.03 tok/s"], ["Final verification", "Passed \xB7 exact model and runtime lineage"]] },
-          tools: { label: "Native tool use", benchmark: "BFCL V4", value: null, evidence: "pending", denominator: "40 / 261 generated \xB7 score withheld", progress: { current: 40, total: 261, label: "40 / 261 required generated rows \xB7 collection active", state: "in-progress", capturedAt: "2026-08-28T11:43:16Z" }, detail: [["Frozen inventory", "261 required generated rows \xB7 150 scored cases"], ["Completed generated rows", "40 / 261 persisted"], ["Current workload", "BFCL collection active"], ["Scoring state", "Pending collection and final verification"]] },
-          agent: { label: "Multi-turn agent", benchmark: "tau2", value: null, evidence: "pending", denominator: "0 / 50 queued \xB7 score withheld", progress: { current: 0, total: 50, label: "0 / 50 frozen tasks \xB7 queued behind BFCL", state: "queued", capturedAt: "2026-08-28T02:46:25Z" }, detail: [["Frozen inventory", "25 Retail + 25 Telecom"], ["Completed simulations", "0 / 50"], ["Current workload", "Queued behind BFCL"], ["Scoring state", "Pending collection and final verification"]] }
-        }
-      }
-    ],
-    results: [
-      { id: "r-bfcl-gpt", conditionId: "gpt56-max-api", domain: "tool-use", release: "bfcl-v3", score: 89.4, denominator: 1e3, status: "canonical", runIds: ["run-bfcl-gpt"] },
-      { id: "r-bfcl-qwen", conditionId: "qwen36-awq-vllm", domain: "tool-use", release: "bfcl-v3", score: 84.1, denominator: 1e3, status: "canonical", runIds: ["run-bfcl-qwen"] },
-      { id: "r-bfcl-dev", conditionId: "devstral-fp8-vllm", domain: "tool-use", release: "bfcl-v3", score: 76.2, denominator: 1e3, status: "canonical", runIds: ["run-bfcl-dev"] },
-      { id: "r-bfcl-qwen-provisional", conditionId: "qwen36-awq-vllm", domain: "tool-use", release: "bfcl-v4-preview", score: 88.8, denominator: 400, status: "provisional", runIds: ["run-bfcl-qwen-preview"] },
-      { id: "r-gpqa-gpt", conditionId: "gpt56-max-api", domain: "reasoning", release: "gpqa-diamond-2026-06", score: 88, denominator: 198, status: "canonical", runIds: ["run-gpqa-gpt"] },
-      { id: "r-gpqa-qwen", conditionId: "qwen36-awq-vllm", domain: "reasoning", release: "gpqa-diamond-2026-06", score: 74.7, denominator: 198, status: "canonical", runIds: ["run-gpqa-qwen"] },
-      { id: "r-code-dev", conditionId: "devstral-fp8-vllm", domain: "coding", release: "bigcodebench-hard-2026-06", score: 61.8, denominator: 148, status: "canonical", runIds: ["run-code-dev"] },
-      { id: "r-code-gpt", conditionId: "gpt56-max-api", domain: "coding", release: "bigcodebench-hard-2026-06", score: 65.5, denominator: 148, status: "canonical", runIds: ["run-code-gpt"] },
-      { id: "r-code-qwen", conditionId: "qwen36-awq-vllm", domain: "coding", release: "bigcodebench-hard-2026-06", score: 57.4, denominator: 148, status: "canonical", runIds: ["run-code-qwen"] }
-    ],
-    runs: [
-      { id: "run-bfcl-gpt", label: "BFCL canonical run \xB7 GPT-5.6", manifest: "bfcl-v3.freeze.json", calls: 1e3, failures: 4, inputTokens: 182e4, outputTokens: 248e3, reasoningTokens: 611e3, wall: "2h 18m", cost: "$74.20 direct", source: "Frozen artifact" },
-      { id: "run-bfcl-qwen", label: "BFCL canonical run \xB7 Qwen3.6 AWQ", manifest: "bfcl-v3.freeze.json", calls: 1e3, failures: 17, inputTokens: 1815e3, outputTokens: 291e3, reasoningTokens: null, wall: "5h 41m", cost: "Unknown", source: "Frozen artifact" },
-      { id: "run-bfcl-dev", label: "BFCL canonical run \xB7 Devstral FP8", manifest: "bfcl-v3.freeze.json", calls: 1e3, failures: 21, inputTokens: 1818e3, outputTokens: 306e3, reasoningTokens: null, wall: "4h 52m", cost: "Unknown", source: "Frozen artifact" },
-      { id: "run-bfcl-qwen-preview", label: "BFCL preview \xB7 Qwen3.6 AWQ", manifest: "bfcl-v4.preview.json", calls: 400, failures: 8, inputTokens: 721e3, outputTokens: 116e3, reasoningTokens: null, wall: "2h 02m", cost: "Unknown", source: "Provisional artifact" },
-      { id: "run-gpqa-gpt", label: "GPQA canonical run \xB7 GPT-5.6", manifest: "gpqa-diamond-2026-06.json", calls: 198, failures: 0, inputTokens: 238e3, outputTokens: 144e3, reasoningTokens: 48e4, wall: "1h 06m", cost: "$31.40 direct", source: "Frozen artifact" },
-      { id: "run-gpqa-qwen", label: "GPQA canonical run \xB7 Qwen3.6 AWQ", manifest: "gpqa-diamond-2026-06.json", calls: 198, failures: 3, inputTokens: 236e3, outputTokens: 169e3, reasoningTokens: null, wall: "2h 44m", cost: "Unknown", source: "Frozen artifact" },
-      { id: "run-code-dev", label: "BigCodeBench-Hard \xB7 Devstral FP8", manifest: "bcb-hard-2026-06.json", calls: 148, failures: 7, inputTokens: 562e3, outputTokens: 287e3, reasoningTokens: null, wall: "3h 21m", cost: "Unknown", source: "Frozen artifact" },
-      { id: "run-code-gpt", label: "BigCodeBench-Hard \xB7 GPT-5.6", manifest: "bcb-hard-2026-06.json", calls: 148, failures: 2, inputTokens: 557e3, outputTokens: 248e3, reasoningTokens: 192e3, wall: "1h 48m", cost: "$48.10 direct", source: "Frozen artifact" },
-      { id: "run-code-qwen", label: "BigCodeBench-Hard \xB7 Qwen3.6 AWQ", manifest: "bcb-hard-2026-06.json", calls: 148, failures: 9, inputTokens: 559e3, outputTokens: 302e3, reasoningTokens: null, wall: "4h 03m", cost: "Unknown", source: "Frozen artifact" }
-    ],
-    evaluations: [
-      {
-        id: "eval-voice-runtime-comparison",
-        title: "Prime voice runtime comparison",
-        stage: "Human gate",
-        findingStatus: "final",
-        decision: "Keep both Kokoro routes; prefer GPT-SoVITS for the fastest cloned voice; retain GPU Node B Qwen as a reliability investigation.",
-        progress: 100,
-        question: "Which configured route best serves instant speech, cloned voice identity, and streaming character quality?",
-        finding: "Edge Node A Kokoro is fastest at 0.344 seconds; GPU Node B Kokoro is near-instant at 0.444 seconds; GPT-SoVITS is the fastest cloned route at 2.216 seconds. GPU Node B Qwen streams earlier but had one runaway timeout.",
-        comparisonId: "voice-performance-2026-07-26",
-        affectedObjects: [{ type: "product", id: "voice-lab", label: "Prime Voice Lab" }]
-      },
-      {
-        id: "eval-voice-latency",
-        title: "Voice interaction latency envelope",
-        stage: "Running",
-        findingStatus: "provisional",
-        decision: "No decision",
-        progress: 68,
-        question: "Can the local voice core sustain conversational turn latency without accepting non-speech?",
-        finding: "Non-speech rejection is stable; interruption and tail latency remain under evaluation.",
-        affectedObjects: [{ type: "product", id: "voice-lab", label: "Prime Voice Lab" }]
-      },
-      {
-        id: "eval-model-condition",
-        title: "Qwen3.6 production condition",
-        stage: "Verifying",
-        findingStatus: "provisional",
-        decision: "Re-run",
-        progress: 84,
-        question: "Which bounded Qwen3.6 condition should become the default local agent profile?",
-        finding: "AWQ vLLM is deployable, but runtime telemetry must be restored before availability can be claimed.",
-        affectedObjects: [{ type: "product", id: "model-serving", label: "Local Model Service" }, { type: "condition", id: "qwen36-awq-vllm", label: "Qwen3.6 AWQ vLLM" }]
-      },
-      {
-        id: "eval-skill-publishing",
-        title: "Skill publication contract",
-        stage: "Inconclusive",
-        findingStatus: "inconclusive",
-        decision: "No decision",
-        progress: 100,
-        question: "What repository metadata can establish authorship, stewardship, validation, and publication?",
-        finding: "Lifecycle axes are defined; the canonical metadata adapter does not yet exist.",
-        affectedObjects: [{ type: "skill", id: "autobots", label: "/autobots" }]
-      }
-    ],
-    skills: showcaseProjection.operationalSkills
-  };
-  for (const condition of fixtures.conditions) {
-    condition.results = fixtures.results.filter((result) => result.conditionId === condition.id);
+  function bindProjection(projection) {
+    const data = structuredClone(projection.data);
+    for (const condition of data.conditions) {
+      condition.results = data.results.filter((result) => result.conditionId === condition.id);
+    }
+    return { data, showcase: structuredClone(projection.showcase) };
   }
-  var RELEASES = {
-    "tool-use": "bfcl-v3",
-    reasoning: "gpqa-diamond-2026-06",
-    coding: "bigcodebench-hard-2026-06"
-  };
+  var active = bindProjection(DEMO_DOMAIN_PROJECTION);
+  var showcaseProjection = active.showcase;
+  var edition = structuredClone(DEMO_EDITION);
+  var NAV_ITEMS = structuredClone(DEMO_EDITION.modules);
+  var fixtures = active.data;
+  var RELEASES = structuredClone(fixtures.benchmarkReleases);
+  function applyEdition(value) {
+    edition = structuredClone(validateEdition(value));
+    NAV_ITEMS = structuredClone(edition.modules);
+    return edition;
+  }
+  function applyDomainProjection(value) {
+    active = bindProjection(validateDomainProjection(value));
+    fixtures = active.data;
+    RELEASES = structuredClone(fixtures.benchmarkReleases);
+    showcaseProjection = active.showcase;
+    return fixtures;
+  }
   function getCondition(id) {
     return fixtures.conditions.find((condition) => condition.id === id) || null;
   }
@@ -1948,7 +1721,8 @@
   }
   function getMeasuredBenchmarkVisuals() {
     const suiteOrder = ["instruction", "tools", "agent"];
-    const measured = getBenchmarkComparison().filter((profile) => profile.evidence === "measured");
+    const measured = getBenchmarkComparison().filter((profile) => profile.evidence === "measured" || fixtures.meta.fixture === true);
+    if (!measured.length) return { profiles: [], suites: [] };
     return {
       profiles: measured.map((profile) => ({
         conditionId: profile.conditionId,
@@ -2110,29 +1884,21 @@
       route: { view: "benchmarks", condition: profile.conditionId }
     }));
     const analyticsRecords = [
-      {
-        id: "analytics:kungfuclan.com",
+      ...edition.analytics.web.map((subject) => ({
+        id: `analytics:${subject.id}`,
         kind: "analytics",
-        title: "Kung Fu Clan analytics",
-        summary: "Cloudflare edge aggregates with requests, visits, transfer, cache behavior, countries, and coverage.",
-        keywords: ["kungfuclan.com KFC web property cloudflare visits traffic world map"],
-        route: { view: "analytics", domain: "web", subject: "kungfuclan.com", range: "30d" }
-      },
+        title: `${subject.label} analytics`,
+        summary: subject.description,
+        keywords: ["web property analytics validated projection traffic coverage"],
+        route: { view: "analytics", domain: "web", subject: subject.id, range: "30d" }
+      })),
       {
-        id: "analytics:alexgeslani.com",
+        id: `analytics:${edition.analytics.providerUsage.id}`,
         kind: "analytics",
-        title: "alexgeslani.com analytics",
-        summary: "Cloudflare edge aggregate reporting for alexgeslani.com.",
-        keywords: ["web property cloudflare visits traffic coverage"],
-        route: { view: "analytics", domain: "web", subject: "alexgeslani.com", range: "30d" }
-      },
-      {
-        id: "analytics:provider-usage",
-        kind: "analytics",
-        title: "Provider usage",
-        summary: "Sanitized subscription and search quota windows with explicit authority boundaries.",
-        keywords: ["codex chatgpt claude antigravity brave search limits quota analytics"],
-        route: { view: "analytics", domain: "ai", subject: "provider-usage" }
+        title: edition.analytics.providerUsage.label,
+        summary: edition.analytics.providerUsage.description,
+        keywords: ["provider service usage limits quota analytics"],
+        route: { view: "analytics", domain: "ai", subject: edition.analytics.providerUsage.id }
       }
     ];
     return [...portfolioRecords, ...skillRecords, ...benchmarkRecords, ...analyticsRecords];
@@ -2146,15 +1912,16 @@
     });
   }
   function getOverviewProjection() {
+    const summaries = {
+      portfolio: "Products and durable capabilities",
+      analytics: "Traffic, service usage, and coverage",
+      benchmarks: "Measured model evidence",
+      skills: "Reusable delivery knowledge"
+    };
     return {
       sectionOrder: ["provider-usage", "source-exceptions", "destinations", "recently-landed"],
       sourceExceptions: getSourceTrust().filter((source) => source.invalidatesClaims),
-      destinations: [
-        { id: "portfolio", label: "Portfolio", summary: "Products and durable capabilities" },
-        { id: "analytics", label: "Analytics", summary: "Traffic, service usage, and coverage" },
-        { id: "benchmarks", label: "Benchmarks", summary: "Measured model evidence" },
-        { id: "skills", label: "Skills", summary: "Reusable delivery knowledge" }
-      ]
+      destinations: NAV_ITEMS.filter((item) => Object.hasOwn(summaries, item.id)).map((item) => ({ ...item, summary: summaries[item.id] }))
     };
   }
   var ROUTE_KEYS = ["view", "q", "domain", "subject", "range", "mode", "product", "condition", "result", "release", "run", "skill", "evaluation"];
@@ -2240,8 +2007,13 @@
   var MATRIX_GLYPHS = Object.freeze(Array.from("\u65E5\uFF8A\uFF8B\uFF7C\uFF82\uFF73\uFF70\uFF85\uFF90\uFF93\uFF86\uFF7B\uFF9C\uFF75\uFF98\uFF8E\uFF8F\uFF74\uFF77\uFF91\uFF83\uFF79\uFF92\uFF76\uFF95\uFF97\uFF7E\uFF88\uFF7D\uFF80\uFF870123456789Z*+:=.< >\uFF5C\xA6_").filter((glyph) => glyph !== " "));
   var MATRIX_SIZE_BANDS = Object.freeze([10, 14, 20]);
   var MATRIX_SPEED_BANDS = Object.freeze([18, 34, 58]);
-  function registerAutobotCommandCenter() {
+  async function registerAutobotCommandCenter() {
     "use strict";
+    const basePath = window.__ACC_BASE_PATH__ || "/dashboard-plugins/autobot-command-center/dist";
+    const runtime = await loadRuntimeConfiguration(basePath);
+    applyEdition(runtime.edition);
+    applyDomainProjection(runtime.domain);
+    window.__ACC_RUNTIME_HEALTH__ = runtime.health;
     const SDK = window.__HERMES_PLUGIN_SDK__;
     if (!SDK || !window.__HERMES_PLUGINS__) {
       console.error("[ACC] Hermes Plugin SDK is unavailable");
@@ -2432,6 +2204,20 @@
     }
     function EmptyUnknown({ children = "Unknown \u2014 no authoritative source" }) {
       return h("span", { className: "acc-unknown" }, children);
+    }
+    function RuntimeHealthNotice() {
+      const issues = ["edition", "domain"].map((key) => [key, runtime.health[key]]).filter(([, state]) => state.state !== "ready");
+      if (!issues.length) return null;
+      return h(
+        "aside",
+        { className: "acc-runtime-health", role: "status", "aria-live": "polite" },
+        h("strong", null, "Runtime data is stale or invalid"),
+        h("ul", null, issues.map(([key, state]) => h(
+          "li",
+          { key },
+          `${key === "edition" ? "Edition" : "Domain projection"} ${state.state === "stale_invalid" ? "is invalid; showing last-good data marked stale." : "is invalid or unavailable; showing bundled demonstration data marked stale."}`
+        )))
+      );
     }
     function Meter({ value, label }) {
       return h(
@@ -2779,7 +2565,7 @@
         )
       );
     }
-    function MetricTabs({ active, onSelect }) {
+    function MetricTabs({ active: active2, onSelect }) {
       const labels = { rollup: "Capability rollup", "tool-use": "Tool Use", reasoning: "GPQA Diamond", coding: "Coding" };
       return h(
         "div",
@@ -2787,8 +2573,8 @@
         Object.entries(labels).map(([id, label]) => h("button", {
           key: id,
           type: "button",
-          className: cx("acc-tab-button", active === id && "is-active"),
-          "aria-pressed": active === id,
+          className: cx("acc-tab-button", active2 === id && "is-active"),
+          "aria-pressed": active2 === id,
           onClick: () => onSelect(id)
         }, label))
       );
@@ -3322,14 +3108,14 @@
             )
           ),
           h("div", { className: "acc-mobile-sort-controls", "aria-label": `${title} leaderboard sort controls` }, leaderboardColumns.map((definition) => {
-            const active = leaderboardSort.sort?.column === definition.id;
-            const direction = active ? leaderboardSort.sort.direction : null;
+            const active2 = leaderboardSort.sort?.column === definition.id;
+            const direction = active2 ? leaderboardSort.sort.direction : null;
             return h("button", {
               key: definition.id,
               type: "button",
               className: "acc-sort-button",
               "aria-label": `Sort by ${definition.label}`,
-              "aria-pressed": active,
+              "aria-pressed": active2,
               onClick: () => leaderboardSort.onSort(definition.id)
             }, h("span", null, definition.label), h("span", { className: "acc-sort-indicator", "aria-hidden": "true" }, direction === "ascending" ? "\u2191" : direction === "descending" ? "\u2193" : "\u2195"));
           })),
@@ -3623,7 +3409,7 @@
         }
       });
     }
-    const Analytics = createAnalyticsView({ React, h, useEffect, useState, Badge, StatusBadge, SectionHeading, ProviderUsage });
+    const Analytics = createAnalyticsView({ React, h, useEffect, useState, Badge, StatusBadge, SectionHeading, ProviderUsage, edition });
     function App() {
       const [route, setRoute] = useState(() => canonicalizeAccRoute(parseAccUrl(window.location.href)));
       const [providerUsage, setProviderUsage] = useState(() => providerUsageFallback());
@@ -3631,17 +3417,17 @@
       const [heroQuery, setHeroQuery] = useState("");
       const mainRef = useRef(null);
       useEffect(() => {
-        let active = true;
-        loadProviderUsageSnapshot(window.__ACC_BASE_PATH__ || "/dashboard-plugins/autobot-command-center/dist").then(
+        let active2 = true;
+        loadProviderUsageSnapshot(window.__ACC_BASE_PATH__ || "/dashboard-plugins/autobot-command-center/dist", edition.projections.providerUsage).then(
           (snapshot) => {
-            if (active) setProviderUsage(snapshot);
+            if (active2) setProviderUsage(snapshot);
           },
           () => {
-            if (active) setProviderUsage(providerUsageFallback());
+            if (active2) setProviderUsage(providerUsageFallback());
           }
         );
         return () => {
-          active = false;
+          active2 = false;
         };
       }, []);
       useEffect(() => {
@@ -3702,7 +3488,7 @@
             h(
               "div",
               null,
-              h("h1", null, "Autobot Command Center")
+              h("h1", null, edition.branding.title)
             )
           ),
           h(
@@ -3737,6 +3523,7 @@
             h("button", { type: "button", className: "acc-secondary-button", onClick: () => go({ view: "evidence" }) }, "Evidence index")
           )
         ),
+        h(RuntimeHealthNotice),
         isAnalytics ? null : h(TrustStrip, { openEvidence: () => go({ view: "evidence" }) }),
         h("nav", { className: "acc-local-nav", "aria-label": "Command Center sections" }, NAV_ITEMS.map(
           (item) => h("button", {

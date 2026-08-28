@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   PUBLIC_WEB_ANALYTICS_SCHEMA_VERSION,
+  WEB_ANALYTICS_FIXTURE_NOTICE,
   isPublicWebAnalyticsProjection,
   parseWebAnalyticsText,
   projectCurrentWebAnalyticsCoverage,
@@ -86,7 +87,10 @@ describe('public web analytics projection', () => {
     const value = validProjection();
     value.subject = { id: 'alexgeslani.com', label: 'alexgeslani.com', domain: 'web' };
     expect(isPublicWebAnalyticsProjection(value)).toBe(true);
-    expect(webAnalyticsProjectionPath({ subject: 'alexgeslani.com' })).toBe('data/analytics/web/alexgeslani.com.v2.json');
+    expect(webAnalyticsProjectionPath({
+      subject: 'alexgeslani.com',
+      subjects: [{ id: 'alexgeslani.com', projection: 'runtime/analytics/web/alexgeslani.com.v2.json' }],
+    })).toBe('runtime/analytics/web/alexgeslani.com.v2.json');
   });
 
   it('accepts and reprojects the closed, allowlisted public contract', () => {
@@ -130,7 +134,7 @@ describe('public web analytics projection', () => {
     const fixture = validProjection();
     fixture.dataKind = 'illustrative_fixture';
     fixture.subject = { id: 'kungfuclan-demo', label: 'Kung Fu Clan illustrative demo', domain: 'web' };
-    fixture.notice = 'ILLUSTRATIVE FIXTURE — NOT CURRENT KUNGFUCLAN.COM ANALYTICS';
+    fixture.notice = WEB_ANALYTICS_FIXTURE_NOTICE;
     expect(isPublicWebAnalyticsProjection(fixture)).toBe(true);
     fixture.subject.id = 'kungfuclan.com';
     expect(isPublicWebAnalyticsProjection(fixture)).toBe(false);

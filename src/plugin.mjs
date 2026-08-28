@@ -2,10 +2,14 @@ import commandCenterMarkMaskUrl from '../standalone/autobot-mark-mask.png';
 import decepticonMarkMaskUrl from '../standalone/decepticon-mark-mask.png';
 import voicePerformanceUrl from '../standalone/voice-performance-comparison.png';
 import { loadProviderUsageSnapshot, providerUsageFallback } from './provider-usage/client.mjs';
+import { loadRuntimeConfiguration } from './runtime/client.mjs';
 import { createAnalyticsView } from './analytics/view.mjs';
 import { createSortingSupport, defineSortColumns } from './sorting.mjs';
 import {
   NAV_ITEMS,
+  edition,
+  applyEdition,
+  applyDomainProjection,
   RELEASES,
   fixtures,
   getCondition,
@@ -34,8 +38,14 @@ const MATRIX_GLYPHS = Object.freeze(Array.from('日ﾊﾋｼﾂｳｰﾅﾐﾓ�
 const MATRIX_SIZE_BANDS = Object.freeze([10, 14, 20]);
 const MATRIX_SPEED_BANDS = Object.freeze([18, 34, 58]);
 
-export function registerAutobotCommandCenter() {
+export async function registerAutobotCommandCenter() {
   'use strict';
+
+  const basePath = window.__ACC_BASE_PATH__ || '/dashboard-plugins/autobot-command-center/dist';
+  const runtime = await loadRuntimeConfiguration(basePath);
+  applyEdition(runtime.edition);
+  applyDomainProjection(runtime.domain);
+  window.__ACC_RUNTIME_HEALTH__ = runtime.health;
 
   const SDK = window.__HERMES_PLUGIN_SDK__;
   if (!SDK || !window.__HERMES_PLUGINS__) {
@@ -250,6 +260,19 @@ export function registerAutobotCommandCenter() {
 
   function EmptyUnknown({ children = 'Unknown — no authoritative source' }) {
     return h('span', { className: 'acc-unknown' }, children);
+  }
+
+  function RuntimeHealthNotice() {
+    const issues = ['edition', 'domain']
+      .map((key) => [key, runtime.health[key]])
+      .filter(([, state]) => state.state !== 'ready');
+    if (!issues.length) return null;
+    return h('aside', { className: 'acc-runtime-health', role: 'status', 'aria-live': 'polite' },
+      h('strong', null, 'Runtime data is stale or invalid'),
+      h('ul', null, issues.map(([key, state]) => h('li', { key },
+        `${key === 'edition' ? 'Edition' : 'Domain projection'} ${state.state === 'stale_invalid' ? 'is invalid; showing last-good data marked stale.' : 'is invalid or unavailable; showing bundled demonstration data marked stale.'}`,
+      ))),
+    );
   }
 
   function Meter({ value, label }) {
@@ -1166,7 +1189,7 @@ export function registerAutobotCommandCenter() {
     });
   }
 
-  const Analytics = createAnalyticsView({ React, h, useEffect, useState, Badge, StatusBadge, SectionHeading, ProviderUsage });
+  const Analytics = createAnalyticsView({ React, h, useEffect, useState, Badge, StatusBadge, SectionHeading, ProviderUsage, edition });
 
   function App() {
     const [route, setRoute] = useState(() => canonicalizeAccRoute(parseAccUrl(window.location.href)));
@@ -1176,7 +1199,7 @@ export function registerAutobotCommandCenter() {
     const mainRef = useRef(null);
     useEffect(() => {
       let active = true;
-      loadProviderUsageSnapshot(window.__ACC_BASE_PATH__ || '/dashboard-plugins/autobot-command-center/dist').then(
+      loadProviderUsageSnapshot(window.__ACC_BASE_PATH__ || '/dashboard-plugins/autobot-command-center/dist', edition.projections.providerUsage).then(
         (snapshot) => { if (active) setProviderUsage(snapshot); },
         () => { if (active) setProviderUsage(providerUsageFallback()); },
       );
@@ -1238,7 +1261,7 @@ export function registerAutobotCommandCenter() {
         h('div', { className: 'acc-brand-lockup' },
           h(CommandCenterMark, { theme }),
           h('div', null,
-            h('h1', null, 'Autobot Command Center'),
+            h('h1', null, edition.branding.title),
           ),
         ),
         h('div', { className: 'acc-hero__actions' },
@@ -1261,6 +1284,7 @@ export function registerAutobotCommandCenter() {
           h('button', { type: 'button', className: 'acc-secondary-button', onClick: () => go({ view: 'evidence' }) }, 'Evidence index'),
         ),
       ),
+      h(RuntimeHealthNotice),
       isAnalytics ? null : h(TrustStrip, { openEvidence: () => go({ view: 'evidence' }) }),
       h('nav', { className: 'acc-local-nav', 'aria-label': 'Command Center sections' }, NAV_ITEMS.map((item) =>
         h('button', {
