@@ -692,6 +692,8 @@ export async function registerAutobotCommandCenter() {
         h('div', { className: 'acc-three-score__legend', role: 'row' }, columns.map((definition) => h(SortableHeader, { key: definition.id, as: 'span', column: definition, sort: sorted.sort, onSort: sorted.onSort }))),
         h('div', { className: 'acc-three-score__rows', role: 'rowgroup' }, sorted.rows.map((profile) => {
           const condition = profile.condition;
+          const averageValue = profile.currentAverage.value;
+          const averageState = averageValue == null ? 'Pending' : profile.currentAverage.complete ? 'Complete' : 'In progress';
           return h('article', { className: cx('acc-three-score__row', profile.evidence === 'measured' && 'is-measured'), role: 'row', key: profile.conditionId, 'data-benchmark-profile': profile.conditionId },
             h('div', { className: 'acc-three-score__identity', role: 'rowheader' },
               h('button', { type: 'button', className: 'acc-table-link', onClick: () => go({ view: 'benchmarks', condition: profile.conditionId }) }, condition.shortName),
@@ -701,9 +703,9 @@ export async function registerAutobotCommandCenter() {
             h(ThreeScoreValue, { score: profile.scores.tools, role: 'cell' }),
             h(ThreeScoreValue, { score: profile.scores.agent, role: 'cell' }),
             h('div', { className: cx('acc-three-score__average', !profile.currentAverage.complete && 'is-in-progress'), role: 'cell' },
-              h('strong', null, profile.currentAverage.value.toFixed(1)),
-              h('small', null, `${profile.currentAverage.complete ? 'Complete' : 'In progress'} · ${profile.currentAverage.verifiedSuites}/${profile.currentAverage.totalSuites} verified`),
-              h('span', { className: 'acc-three-score__average-track', 'aria-hidden': 'true' }, h('span', { style: { width: `${profile.currentAverage.value}%` } })),
+              h('strong', null, averageValue == null ? 'Pending' : averageValue.toFixed(1)),
+              h('small', null, `${averageState} · ${profile.currentAverage.verifiedSuites}/${profile.currentAverage.totalSuites} verified`),
+              h('span', { className: 'acc-three-score__average-track', 'aria-hidden': 'true' }, h('span', { style: { width: `${averageValue ?? 0}%` } })),
             ),
             h('div', { className: 'acc-three-score__evidence', role: 'cell' },
               h(Badge, { tone: 'good' }, 'Measured'),
