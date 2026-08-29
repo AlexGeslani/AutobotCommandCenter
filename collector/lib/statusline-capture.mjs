@@ -1,8 +1,8 @@
-export async function captureAndPublishStatusLine({ input, writeCache, publish }) {
+export async function captureAndPublishStatusLine({ input, writeCache, publish = null }) {
   try {
     const event = JSON.parse(input);
     await writeCache(event);
-    await publish();
+    if (publish) await publish();
     return true;
   } catch {
     return false;

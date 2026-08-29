@@ -20,7 +20,6 @@ describe('typed portable ACC path configuration', () => {
       'hiveMindTlsPinFile',
       'hiveMindTokenFile',
       'providerUsagePrivateCacheDir',
-      'showcaseSkillsRoot',
     ]);
     expect(JSON.stringify(contract)).not.toMatch(/(?:src|dist|standalone\/public|dashboard\/dist)/);
   });
@@ -37,7 +36,6 @@ describe('typed portable ACC path configuration', () => {
       paths: {
         hiveMindClient: 'local/client.py',
         hiveMindTokenFile: 'local/token',
-        showcaseSkillsRoot: 'local/skills',
       },
     };
     const resolved = resolveAccPathConfig({
@@ -53,7 +51,7 @@ describe('typed portable ACC path configuration', () => {
     });
     expect(resolved.hiveMindClient).toBe('/portable/home/local/client.py');
     expect(resolved.hiveMindTokenFile).toBe('/portable/home/local/token');
-    expect(resolved.showcaseSkillsRoot).toBe('/portable/home/local/skills');
+
     expect(resolved.hiveMindTlsPinFile).toBe('/cli/tls-pin');
     expect(resolved.providerUsagePrivateCacheDir).toBe('/env/provider-cache');
   });

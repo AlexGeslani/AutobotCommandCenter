@@ -19,6 +19,7 @@ const jsonResponse = (value) => ({ ok: true, text: async () => JSON.stringify(va
 describe('Core + Edition + Projection runtime contract', () => {
   it('accepts the sanitized demo and rejects executable or escaping edition configuration', () => {
     expect(validateEdition(DEMO_EDITION).id).toBe('demo');
+    expect(DEMO_EDITION.projections.providerUsage).toBe('data/provider-usage.v1.json');
     expect(validateDomainProjection(DEMO_DOMAIN_PROJECTION).data.meta.fixture).toBe(true);
     expect(() => validateEdition({ ...DEMO_EDITION, modules: DEMO_EDITION.modules.map((module, index) => index ? module : { id: 'dynamic-import', label: 'Code' }) })).toThrow(/known modules/i);
     expect(() => validateEdition({ ...DEMO_EDITION, projections: { ...DEMO_EDITION.projections, domain: '../private.json' } })).toThrow(/safe relative/i);
@@ -29,6 +30,12 @@ describe('Core + Edition + Projection runtime contract', () => {
     const broken = structuredClone(DEMO_DOMAIN_PROJECTION);
     broken.data.results[0].conditionId = 'unknown-condition';
     expect(() => validateDomainProjection(broken)).toThrow(/unknown condition/i);
+  });
+
+  it('rejects malformed benchmark detail rows before tuple destructuring can corrupt the UI', () => {
+    const broken = structuredClone(DEMO_DOMAIN_PROJECTION);
+    broken.data.benchmarkComparison[0].scores.tools.detail = ['not a label-value pair'];
+    expect(() => validateDomainProjection(broken)).toThrow(/must be a \[label, value\] pair/i);
   });
 
   it('retains the explicit last-good domain as stale_invalid after malformed replacement', async () => {

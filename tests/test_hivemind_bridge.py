@@ -55,7 +55,6 @@ class HiveMindBridgeRequestTests(unittest.TestCase):
                     "paths": {
                         "hiveMindClient": "local/client.py",
                         "hiveMindTokenFile": "local/token",
-                        "showcaseSkillsRoot": "local/skills",
                     },
                 },
                 overrides={
@@ -65,7 +64,7 @@ class HiveMindBridgeRequestTests(unittest.TestCase):
             )
             self.assertEqual(resolved["hiveMindClient"], home / "local/client.py")
             self.assertEqual(resolved["hiveMindTokenFile"], home / "local/token")
-            self.assertEqual(resolved["showcaseSkillsRoot"], home / "local/skills")
+
             self.assertEqual(resolved["hiveMindTlsPinFile"], Path("/cli/tls-pin"))
             self.assertEqual(resolved["providerUsagePrivateCacheDir"], Path("/env/provider-cache"))
 

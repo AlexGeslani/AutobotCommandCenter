@@ -1,18 +1,44 @@
-export function buildAntigravityUsageExpectProgram() {
-  return String.raw`log_user 0
-set timeout 15
-spawn -noecho sh -lc "cd -- \"$env(ACC_AGY_PROBE_CWD)\" && exec agy"
-expect {
-  -re {(?i)(trust this folder|yes, i trust|sign in|log in|permission|select.*theme|first.?launch)} { puts "blocked_by_user_owned_dialog"; exit 0 }
-  timeout { send -- "/usage\r" }
+import { buildProviderUsageSnapshot } from '../../src/provider-usage/schema.mjs';
+
+function inactiveAntigravityRecord(prior, now) {
+  let lastGood = null;
+  try {
+    const candidate = buildProviderUsageSnapshot({ generatedAt: now, providers: [prior] }, now).providers[0];
+    if (candidate.provider === 'antigravity') lastGood = candidate;
+  } catch {
+    // Private cache bytes must satisfy the public allowlist before retention.
+  }
+  const fallback = {
+    provider: 'antigravity',
+    product: 'Antigravity CLI',
+    metricClass: 'subscription_quota',
+    authority: 'documented Antigravity CLI status-line quota event',
+    collectionMode: 'status_line_cache',
+    adapterVersion: '1.0.0',
+    sourceVersion: 'not_configured',
+    observedAt: now,
+    windows: [],
+  };
+  const record = { ...(lastGood || fallback), state: 'inactive' };
+  return buildProviderUsageSnapshot({ generatedAt: now, providers: [record] }, now).providers[0];
 }
-after 8000
-send -- "\033"
-after 2000
-send -- "\003"
-set timeout 15
-expect {
-  eof { puts "completed" }
-  timeout { puts "exit_not_confirmed" }
-}`;
+
+export async function reconcileAntigravityActivity({
+  hasActiveTrustedSession,
+  probeTrustedSession = async () => false,
+  readRecord,
+  writeRecord,
+  now = new Date().toISOString(),
+}) {
+  if (await hasActiveTrustedSession()) return { outcome: 'active_session' };
+  if (await probeTrustedSession()) return { outcome: 'refreshed' };
+  let prior = null;
+  try {
+    prior = await readRecord();
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  const record = inactiveAntigravityRecord(prior, now);
+  await writeRecord(record);
+  return { outcome: 'inactive', record };
 }

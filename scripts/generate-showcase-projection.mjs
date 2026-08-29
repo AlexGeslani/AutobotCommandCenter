@@ -1,34 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateShowcasePolicy, validateShowcaseProjection } from '../src/showcase/projection.mjs';
-import { loadAccPathConfig } from '../src/path-config.mjs';
-
-function parseScalar(value) {
-  const trimmed = value.trim();
-  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
-    return trimmed.startsWith('"') ? JSON.parse(trimmed) : trimmed.slice(1, -1).replaceAll("''", "'");
-  }
-  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-    const inner = trimmed.slice(1, -1).trim();
-    return inner ? inner.split(',').map((item) => parseScalar(item)) : [];
-  }
-  return trimmed;
-}
-
-export function parseSkillFrontmatter(text) {
-  if (typeof text !== 'string' || !text.startsWith('---\n')) throw new Error('Selected SKILL.md is missing frontmatter');
-  const end = text.indexOf('\n---', 4);
-  if (end === -1) throw new Error('Selected SKILL.md frontmatter is not closed');
-  const parsed = {};
-  for (const line of text.slice(4, end).split('\n')) {
-    if (!line || /^\s/.test(line) || line.trimStart().startsWith('#')) continue;
-    const match = line.match(/^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/);
-    if (!match || !match[2].trim()) continue;
-    parsed[match[1]] = parseScalar(match[2]);
-  }
-  return parsed;
-}
 
 function sortDeep(value) {
   if (Array.isArray(value)) return value.map(sortDeep);
@@ -58,8 +31,8 @@ function blobUrl(repository, branch, path) {
 
 export async function buildShowcaseProjection(policy, adapters) {
   const checked = validateShowcasePolicy(policy);
-  if (!adapters || typeof adapters.fetchRepo !== 'function' || typeof adapters.probeUrl !== 'function' || typeof adapters.readSkill !== 'function') {
-    throw new Error('Projection refresh requires explicit repository, pointer, and local-skill adapters');
+  if (!adapters || typeof adapters.fetchRepo !== 'function' || typeof adapters.probeUrl !== 'function') {
+    throw new Error('Projection refresh requires explicit repository and pointer adapters');
   }
   const refreshedAt = adapters.refreshedAt || new Date().toISOString();
   const githubProjects = [];
@@ -88,44 +61,14 @@ export async function buildShowcaseProjection(policy, adapters) {
     }
     githubProjects.push(projected);
   }
-
-  const showcaseEditions = [];
-  for (const edition of checked.skills.showcaseEditions) {
-    const repo = normalizedPublicRepo(await adapters.fetchRepo(edition.repository), edition.repository);
-    showcaseEditions.push({
-      ...edition,
-      visibility: 'PUBLIC',
-      repositoryUrl: repo.html_url,
-    });
-  }
-
-  const operationalSkills = [];
-  for (const selected of checked.skills.operational) {
-    const metadata = parseSkillFrontmatter(await adapters.readSkill(selected.source));
-    if (typeof metadata.name !== 'string' || !metadata.name.trim() || typeof metadata.description !== 'string' || !metadata.description.trim()) {
-      throw new Error(`Selected skill ${selected.id} is missing name or description frontmatter`);
-    }
-    const projected = {
-      id: selected.id,
-      name: metadata.name.trim(),
-      description: metadata.description.trim(),
-      version: typeof metadata.version === 'string' && metadata.version.trim() ? metadata.version.trim() : 'Unknown',
-      category: selected.category,
-      metadataStatus: 'frontmatter',
-      validationStatus: 'Unknown',
-    };
-    if (typeof metadata.license === 'string' && metadata.license.trim()) projected.license = metadata.license.trim();
-    if (Array.isArray(metadata.platforms) && metadata.platforms.length) projected.platforms = metadata.platforms.map(String);
-    operationalSkills.push(projected);
-  }
-  return validateShowcaseProjection({ schemaVersion: 'showcase-projection-v1', refreshedAt, githubProjects, showcaseEditions, operationalSkills });
+  return validateShowcaseProjection({ schemaVersion: 'showcase-projection-v1', refreshedAt, githubProjects });
 }
 
 function parseArgs(argv) {
   const options = {};
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
-    if (!['--config', '--output', '--skills-root', '--path-config'].includes(key) || !argv[index + 1]) throw new Error(`Unknown or incomplete argument ${key}`);
+    if (!['--config', '--output'].includes(key) || !argv[index + 1]) throw new Error(`Unknown or incomplete argument ${key}`);
     options[key.slice(2)] = argv[index + 1];
     index += 1;
   }
@@ -154,25 +97,14 @@ async function run() {
   const args = parseArgs(process.argv.slice(2));
   const configPath = resolve(root, args.config || 'config/showcase-projection.v1.json');
   const outputPath = resolve(root, args.output || 'src/generated/showcase-projection.v1.json');
-  const paths = await loadAccPathConfig({
-    configPath: args['path-config'],
-    overrides: args['skills-root'] ? { showcaseSkillsRoot: args['skills-root'] } : {},
-  });
-  const skillsRoot = paths.showcaseSkillsRoot;
   const policy = JSON.parse(await readFile(configPath, 'utf8'));
   const snapshot = await buildShowcaseProjection(policy, {
     fetchRepo: (repository) => fetchJson(`https://api.github.com/repos/${repository}`),
     probeUrl: probeHttps,
-    readSkill: async (pointer) => {
-      if (isAbsolute(pointer)) throw new Error('Skill pointer must be relative');
-      const path = resolve(skillsRoot, pointer);
-      if (relative(skillsRoot, path).startsWith(`..${sep}`)) throw new Error('Skill pointer escapes the selected skills root');
-      return readFile(path, 'utf8');
-    },
   });
   await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(outputPath, stableJson(snapshot));
-  console.log(`Refreshed ${relative(root, outputPath)} with ${snapshot.githubProjects.length} PUBLIC projects and ${snapshot.operationalSkills.length} operational skills at ${snapshot.refreshedAt}.`);
+  console.log(`Refreshed ${relative(root, outputPath)} with ${snapshot.githubProjects.length} PUBLIC projects at ${snapshot.refreshedAt}.`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

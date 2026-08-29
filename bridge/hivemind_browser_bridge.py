@@ -26,7 +26,6 @@ PATH_ENV_KEYS = {
     "hiveMindTlsPinFile": "HIVEMIND_TLS_PIN_FILE",
     "providerUsagePrivateCacheDir": "ACC_PROVIDER_USAGE_PRIVATE_DIR",
     "braveHermesEnvFile": "ACC_BRAVE_HERMES_ENV_FILE",
-    "showcaseSkillsRoot": "HERMES_SKILLS_ROOT",
 }
 
 

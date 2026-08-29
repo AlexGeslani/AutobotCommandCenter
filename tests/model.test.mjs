@@ -11,15 +11,16 @@ import {
   fixtures,
   getBenchmarkComparison,
   getCapabilityRollup,
-  getEffectiveAvailability,
-  getEffectiveProductClaims,
-  getEvaluationIndex,
+
+  getEvaluationOwnerRoute,
+  getIntegrationStatus,
   getLeaderboard,
   getMeasuredBenchmarkVisuals,
+  getObjectTestingRecords,
   getOverviewProjection,
   getRunLineage,
   getShowcasePortfolio,
-  getShowcaseSkills,
+
   getSourceTrust,
   parseAccUrl,
 } from '../src/model.mjs';
@@ -34,7 +35,7 @@ describe('portable ACC product model', () => {
   it('boots from a sanitized demo edition with the closed module registry', () => {
     expect(edition.id).toBe('demo');
     expect(fixtures.meta).toMatchObject({ fixture: true });
-    expect(NAV_ITEMS.map((item) => item.id)).toEqual(['overview', 'portfolio', 'analytics', 'benchmarks', 'skills', 'search']);
+    expect(NAV_ITEMS.map((item) => item.id)).toEqual(['overview', 'portfolio', 'analytics', 'benchmarks', 'search']);
     expect(fixtures.products.map((product) => product.id)).toEqual(['demo-command-center']);
   });
 
@@ -69,23 +70,89 @@ describe('portable ACC product model', () => {
     expect(getRunLineage({ ...valid, runId: 'demo-coding-run' })).toBeNull();
   });
 
-  it('withholds mutable availability when its authority is invalidating', () => {
-    const condition = fixtures.conditions[0];
-    expect(getEffectiveAvailability(condition)).toBe('unknown');
-    const product = { ...fixtures.products[0], availabilityAuthority: 'runtime' };
-    expect(getEffectiveProductClaims(product)).toEqual({ state: 'unknown', worksNow: null });
-    expect(getSourceTrust().filter((source) => source.invalidatesClaims).map((source) => source.id)).toEqual(['runtime', 'skill-meta']);
+
+  it('projects named integrations while keeping collector health separate from quota pressure', () => {
+    const providerUsage = {
+      generatedAt: '2026-01-01T00:05:00.000Z',
+      providers: [
+        { provider: 'codex', product: 'Codex / ChatGPT', state: 'fresh', observedAt: '2026-01-01T00:04:00.000Z', authority: 'Codex authority', collectionMode: 'local_app_server', windows: [{ usedPercent: 99 }] },
+        { provider: 'claude', product: 'Claude Code', state: 'stale', observedAt: '2026-01-01T00:03:00.000Z', authority: 'Claude authority', collectionMode: 'status_line_cache', windows: [] },
+        { provider: 'antigravity', product: 'Antigravity CLI', state: 'auth_error', observedAt: '2026-01-01T00:02:00.000Z', authority: 'Antigravity authority', collectionMode: 'status_line_cache', windows: [] },
+        { provider: 'brave-search', product: 'Brave Search API', state: 'error', observedAt: '2026-01-01T00:01:00.000Z', authority: 'Brave authority', collectionMode: 'direct_api_headers', windows: [] },
+      ],
+    };
+    const status = getIntegrationStatus({
+      providerUsage,
+      providerUsageHealth: { state: 'ready', valid: true },
+      runtimeHealth: {
+        edition: { state: 'ready', valid: true, stale: false, error: null },
+        domain: { state: 'ready', valid: true, stale: false, error: null },
+      },
+    });
+
+    expect(status.integrations.map((integration) => integration.label)).toEqual(expect.arrayContaining([
+      'Codex / ChatGPT collector',
+      'Claude Code collector',
+      'Antigravity CLI collector',
+      'Brave Search API collector',
+    ]));
+    expect(status.integrations.map((integration) => integration.id)).not.toContain('source:runtime');
+    expect(status.integrations.map((integration) => integration.label)).not.toContain('Runtime telemetry');
+
+    expect(status.integrations.find((integration) => integration.id === 'provider:codex')).toMatchObject({
+      status: 'healthy',
+      claimImpact: 'None — collector health does not represent quota pressure',
+      observedAt: '2026-01-01T00:04:00.000Z',
+    });
+    expect(status.integrations.find((integration) => integration.id === 'provider:claude').status).toBe('stale');
+    expect(status.integrations.find((integration) => integration.id === 'provider:antigravity')).toMatchObject({ status: 'error', configuration: 'Authentication error' });
+    expect(status.integrations.find((integration) => integration.id === 'provider:brave-search').status).toBe('collection-failed');
+    expect(status.integrations.find((integration) => integration.id === 'source:benchmarks')).toMatchObject({
+      category: 'Frozen artifact',
+      reachability: 'Not applicable',
+      validation: 'Validated frozen artifact version',
+    });
+    expect(status.issues.map((integration) => integration.id)).toEqual(expect.arrayContaining(['provider:claude', 'provider:antigravity', 'provider:brave-search']));
+    expect(status.allHealthy).toBe(false);
   });
 
-  it('keeps showcase and skill data inside the validated projection', () => {
+  it('reports passive Antigravity waiting as the only issue when every evaluated authority is healthy', () => {
+    const providerUsage = {
+      generatedAt: '2026-08-29T14:00:00.000Z',
+      providers: [
+        { provider: 'codex', product: 'Codex / ChatGPT', state: 'fresh', observedAt: '2026-08-29T13:59:00.000Z', authority: 'Codex authority', collectionMode: 'local_app_server', windows: [] },
+        { provider: 'claude', product: 'Claude Code', state: 'fresh', observedAt: '2026-08-29T13:58:00.000Z', authority: 'Claude authority', collectionMode: 'interactive_cli_usage', windows: [] },
+        { provider: 'antigravity', product: 'Antigravity CLI', state: 'inactive', observedAt: '2026-08-29T12:00:00.000Z', authority: 'Antigravity authority', collectionMode: 'status_line_cache', windows: [{ usedPercent: 25 }] },
+        { provider: 'brave-search', product: 'Brave Search API', state: 'fresh', observedAt: '2026-08-29T13:57:00.000Z', authority: 'Brave authority', collectionMode: 'direct_api_headers', windows: [] },
+      ],
+    };
+    const status = getIntegrationStatus({
+      providerUsage,
+      providerUsageHealth: { state: 'ready', valid: true },
+      runtimeHealth: {
+        edition: { state: 'ready', valid: true, stale: false, error: null },
+        domain: { state: 'ready', valid: true, stale: false, error: null },
+      },
+    });
+    expect(status.issues.map((integration) => integration.label)).toEqual(['Antigravity — Waiting for active trusted session']);
+    expect(status.issues[0]).toMatchObject({
+      id: 'provider:antigravity',
+      status: 'not-evaluated',
+      configuration: 'Waiting for active trusted session',
+      freshness: 'Waiting for active trusted session',
+      claimImpact: 'Current usage headroom withheld; retained windows are last-good only',
+    });
+  });
+
+  it('keeps portfolio showcase data inside the validated projection', () => {
     expect(getShowcasePortfolio().githubShowcaseProjects).toEqual([]);
     expect(getShowcasePortfolio().internalProducts.map((product) => product.id)).toEqual(['demo-command-center']);
-    expect(getShowcaseSkills().operationalSkills.map((skill) => skill.id)).toEqual(['demo-skill']);
   });
 
-  it('keeps evaluations attached to durable projected objects', () => {
-    expect(getEvaluationIndex()).toEqual([expect.objectContaining({ id: 'demo-evaluation' })]);
-    expect(getEvaluationIndex()[0].affectedObjects).toEqual([{ type: 'product', id: 'demo-command-center', label: 'Demo Command Center' }]);
+  it('keeps testing records attached to durable projected objects without a global index', () => {
+    expect(getObjectTestingRecords('product', 'demo-command-center')).toEqual([expect.objectContaining({ id: 'demo-evaluation' })]);
+
+    expect(getEvaluationOwnerRoute('demo-evaluation')).toEqual({ view: 'portfolio', product: 'demo-command-center' });
   });
 
   it('round-trips stable deep links and preserves one-way legacy aliases', () => {
@@ -93,12 +160,14 @@ describe('portable ACC product model', () => {
     expect(parseAccUrl(buildAccUrl(state))).toEqual(state);
     expect(canonicalizeAccRoute({ view: 'usage' })).toEqual({ view: 'analytics', domain: 'ai', subject: 'provider-usage' });
     expect(canonicalizeAccRoute({ view: 'hivemind', q: 'demo' })).toEqual({ view: 'search', q: 'demo' });
+    expect(canonicalizeAccRoute({ view: 'evidence', evaluation: 'demo-evaluation' })).toEqual({ view: 'portfolio', product: 'demo-command-center' });
+    expect(canonicalizeAccRoute({ view: 'evidence' })).toEqual({ view: 'overview' });
   });
 
   it('builds search and overview records from edition and projection IDs', () => {
     expect(filterLocalAcc('portable shell').map((record) => record.id)).toContain('portfolio:demo-command-center');
     expect(filterLocalAcc('provider service').map((record) => record.id)).toContain('analytics:provider-usage');
-    expect(getOverviewProjection().destinations.map((destination) => destination.id)).toEqual(['portfolio', 'analytics', 'benchmarks', 'skills']);
+    expect(getOverviewProjection().destinations.map((destination) => destination.id)).toEqual(['portfolio', 'analytics', 'benchmarks']);
   });
 
   it('applies a different valid edition and projection without changing Core code', () => {

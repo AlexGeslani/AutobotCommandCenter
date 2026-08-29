@@ -12,6 +12,7 @@
   // src/provider-usage/schema.mjs
   var PUBLIC_PROVIDER_USAGE_SCHEMA_VERSION = "provider-usage-v1";
   var PROVIDER_USAGE_MAX_AGE_MS = 15 * 60 * 1e3;
+  var CLAUDE_USAGE_VALIDITY_MS = 12 * 60 * 60 * 1e3;
   var STATES = /* @__PURE__ */ new Set(["fresh", "stale", "expired", "inactive", "not_yet_observed", "unsupported", "unknown", "error", "auth_error", "not_configured"]);
   var PROVIDER_FIELDS = /* @__PURE__ */ new Set(["provider", "product", "metricClass", "authority", "collectionMode", "adapterVersion", "sourceVersion", "observedAt", "state", "windows", "resetCredits", "rateLimitPerSecond"]);
   var WINDOW_FIELDS = /* @__PURE__ */ new Set(["id", "label", "usedPercent", "resetsAt", "resetKind", "limit", "remaining"]);
@@ -30,6 +31,7 @@
       product: "Claude Code",
       authority: "documented Claude Code status-line rate_limits event",
       collectionMode: "status_line_cache",
+      maxAgeMs: CLAUDE_USAGE_VALIDITY_MS,
       sourceVersions: /* @__PURE__ */ new Set(["claude-status-line", "claude-usage-cli", "not_configured", "unavailable"]),
       sources: {
         "claude-usage-cli": {
@@ -214,20 +216,19 @@
     schemaVersion: "acc-edition-v1",
     id: "demo",
     branding: {
-      title: "Command Center",
-      defaultTheme: "current-dark"
+      title: "Autobot Command Center",
+      defaultTheme: "matrix"
     },
     modules: [
       { id: "overview", label: "Overview" },
       { id: "portfolio", label: "Portfolio" },
       { id: "analytics", label: "Analytics" },
       { id: "benchmarks", label: "Benchmarks" },
-      { id: "skills", label: "Skill Registry" },
       { id: "search", label: "Search" }
     ],
     projections: {
       domain: "runtime/domain.v1.json",
-      providerUsage: "runtime/provider-usage.v1.json"
+      providerUsage: "data/provider-usage.v1.json"
     },
     analytics: {
       web: [],
@@ -265,22 +266,6 @@
           state: "fresh",
           freshness: "Demo fixture",
           invalidatesClaims: false
-        },
-        {
-          id: "runtime",
-          label: "Runtime telemetry",
-          authority: "Current service availability",
-          state: "missing",
-          freshness: "No local projection connected",
-          invalidatesClaims: true
-        },
-        {
-          id: "skill-meta",
-          label: "Skill metadata",
-          authority: "Publication and stewardship state",
-          state: "missing",
-          freshness: "No local projection connected",
-          invalidatesClaims: true
         }
       ],
       voicePerformance: {
@@ -342,8 +327,6 @@
           host: "Demo host",
           context: "Example envelope",
           output: "Example envelope",
-          availability: "unknown",
-          availabilityNote: "No runtime authority connected",
           fingerprint: "demo-model|local|example",
           results: []
         }
@@ -478,19 +461,7 @@
     showcase: {
       schemaVersion: "showcase-projection-v1",
       refreshedAt: "2026-01-01T00:00:00.000Z",
-      githubProjects: [],
-      showcaseEditions: [],
-      operationalSkills: [
-        {
-          id: "demo-skill",
-          name: "Demo Operational Skill",
-          description: "Illustrative reusable procedure metadata.",
-          version: "1.0.0",
-          category: "Demonstration",
-          metadataStatus: "frontmatter",
-          validationStatus: "Unknown"
-        }
-      ]
+      githubProjects: []
     }
   };
 
@@ -566,36 +537,8 @@
     }
     if (project.repositoryUrl !== `https://github.com/${repository}`) throw new Error(`${label}.repositoryUrl is not canonical`);
   }
-  function validateOperationalSkill(skill, index) {
-    const label = `snapshot.operationalSkills[${index}]`;
-    assertObject(skill, label, [
-      "id",
-      "name",
-      "description",
-      "version",
-      "category",
-      "license",
-      "platforms",
-      "metadataStatus",
-      "validationStatus"
-    ], ["id", "name", "description", "version", "category", "metadataStatus", "validationStatus"]);
-    for (const field of ["id", "name", "description", "version", "category"]) assertString(skill[field], `${label}.${field}`);
-    if (skill.license !== void 0) assertString(skill.license, `${label}.license`);
-    if (skill.platforms !== void 0) assertArray(skill.platforms, `${label}.platforms`).forEach((item, itemIndex) => assertString(item, `${label}.platforms[${itemIndex}]`));
-    if (skill.metadataStatus !== "frontmatter") throw new Error(`${label}.metadataStatus must be frontmatter`);
-    if (skill.validationStatus !== "Unknown") throw new Error(`${label}.validationStatus requires retained validation authority and must currently be Unknown`);
-  }
-  function validateShowcaseEdition(edition2, index) {
-    const label = `snapshot.showcaseEditions[${index}]`;
-    assertObject(edition2, label, ["id", "name", "repository", "repositoryUrl", "visibility", "independenceStatus", "validationStatus"]);
-    for (const field of ["id", "name", "repository", "independenceStatus", "validationStatus"]) assertString(edition2[field], `${label}.${field}`);
-    assertHttpsUrl(edition2.repositoryUrl, `${label}.repositoryUrl`);
-    if (edition2.visibility !== "PUBLIC" || edition2.independenceStatus !== "approved-independent") {
-      throw new Error(`${label} must be PUBLIC and independently approved`);
-    }
-  }
   function validateShowcaseProjection(snapshot) {
-    assertObject(snapshot, "snapshot", ["schemaVersion", "refreshedAt", "githubProjects", "showcaseEditions", "operationalSkills"]);
+    assertObject(snapshot, "snapshot", ["schemaVersion", "refreshedAt", "githubProjects"]);
     if (snapshot.schemaVersion !== "showcase-projection-v1") throw new Error("Unsupported showcase projection snapshot schema");
     assertString(snapshot.refreshedAt, "snapshot.refreshedAt");
     if (Number.isNaN(Date.parse(snapshot.refreshedAt))) throw new Error("snapshot.refreshedAt must be an ISO timestamp");
@@ -603,8 +546,6 @@
     if (projects.length > 50) throw new Error("Snapshot project selection must be bounded");
     projects.forEach(validateGithubProject);
     if (new Set(projects.map((project) => project.id)).size !== projects.length) throw new Error("Snapshot project identities must be unique");
-    assertArray(snapshot.showcaseEditions, "snapshot.showcaseEditions").forEach(validateShowcaseEdition);
-    assertArray(snapshot.operationalSkills, "snapshot.operationalSkills").forEach(validateOperationalSkill);
     assertSafeClientStrings(snapshot, "snapshot");
     return snapshot;
   }
@@ -617,26 +558,16 @@
       internalProducts: internalProducts.filter((product) => !publicIds.has(product.id))
     };
   }
-  function getSkillsProjection(snapshot) {
-    const checked = validateShowcaseProjection(snapshot);
-    return {
-      refreshedAt: checked.refreshedAt,
-      showcaseEditions: checked.showcaseEditions,
-      showcaseEmptyState: checked.showcaseEditions.length ? null : "No independently approved public showcase editions are allowlisted.",
-      operationalSkills: checked.operationalSkills,
-      boundary: "This is a one-way metadata projection, not synchronization. Editing and enablement remain in Hermes Skills."
-    };
-  }
 
   // src/runtime/contracts.mjs
   var ACC_EDITION_SCHEMA_VERSION = "acc-edition-v1";
   var ACC_DOMAIN_SCHEMA_VERSION = "acc-domain-projection-v1";
   var ACC_RUNTIME_MAX_BYTES = 2 * 1024 * 1024;
-  var KNOWN_MODULES = /* @__PURE__ */ new Set(["overview", "portfolio", "analytics", "benchmarks", "skills", "search"]);
-  var KNOWN_THEMES = /* @__PURE__ */ new Set(["g1-console", "current-dark", "matrix", "decepticons"]);
+  var KNOWN_MODULES = /* @__PURE__ */ new Set(["overview", "portfolio", "analytics", "benchmarks", "search"]);
+  var KNOWN_THEMES = /* @__PURE__ */ new Set(["g1-console", "current-dark", "matrix", "decepticons", "autobots"]);
   var EDITION_FIELDS = /* @__PURE__ */ new Set(["schemaVersion", "id", "branding", "modules", "projections", "analytics"]);
   var DOMAIN_FIELDS = /* @__PURE__ */ new Set(["schemaVersion", "generatedAt", "data", "showcase"]);
-  var DOMAIN_DATA_FIELDS = /* @__PURE__ */ new Set(["meta", "sources", "voicePerformance", "products", "modelFamilies", "conditions", "benchmarkReleases", "benchmarkComparison", "results", "runs", "evaluations", "skills"]);
+  var DOMAIN_DATA_FIELDS = /* @__PURE__ */ new Set(["meta", "sources", "voicePerformance", "products", "modelFamilies", "conditions", "benchmarkReleases", "benchmarkComparison", "results", "runs", "evaluations"]);
   function plainObject(value) {
     return value !== null && typeof value === "object" && !Array.isArray(value);
   }
@@ -745,6 +676,11 @@
     if (!["verified", "pending", "provisional"].includes(score.evidence)) throw new TypeError(`${name}.evidence is unsupported`);
     assertString2(score.denominator, `${name}.denominator`, { max: 512 });
     assertArray2(score.detail, `${name}.detail`, 100);
+    score.detail.forEach((row, index) => {
+      if (!Array.isArray(row) || row.length !== 2) throw new TypeError(`${name}.detail[${index}] must be a [label, value] pair`);
+      assertString2(row[0], `${name}.detail[${index}][0]`, { max: 128 });
+      assertString2(row[1], `${name}.detail[${index}][1]`, { max: 1024 });
+    });
     if (score.progress !== void 0) {
       assertObject2(score.progress, `${name}.progress`);
       if (!Number.isSafeInteger(score.progress.current) || !Number.isSafeInteger(score.progress.total) || score.progress.current < 0 || score.progress.total < 0 || score.progress.current > score.progress.total) throw new TypeError(`${name}.progress counts are invalid`);
@@ -768,19 +704,16 @@
     assertArray2(data.runs, "domain projection.data.runs", 1e4);
     assertArray2(data.evaluations, "domain projection.data.evaluations", 1e3);
     assertObject2(data.voicePerformance, "domain projection.data.voicePerformance");
-    assertObject2(data.benchmarkReleases, "domain projection.data.benchmarkReleases", /* @__PURE__ */ new Set(["tool-use", "reasoning", "coding"]));
+    assertObject2(data.benchmarkReleases, "domain projection.data.benchmarkReleases", /* @__PURE__ */ new Set(["tool-use", "reasoning", "coding", "multi-turn-agent"]));
     for (const domain of ["tool-use", "reasoning", "coding"]) assertId(data.benchmarkReleases[domain], `domain projection.data.benchmarkReleases.${domain}`);
-    const sourceIds = assertUniqueIds(data.sources, "sources");
+    if (data.benchmarkReleases["multi-turn-agent"] !== void 0) assertId(data.benchmarkReleases["multi-turn-agent"], "domain projection.data.benchmarkReleases.multi-turn-agent");
+    assertUniqueIds(data.sources, "sources");
     const productIds = assertUniqueIds(data.products, "products");
     const familyIds = assertUniqueIds(data.modelFamilies, "modelFamilies");
     const conditionIds = assertUniqueIds(data.conditions, "conditions");
     const resultIds = assertUniqueIds(data.results, "results");
     const runIds = assertUniqueIds(data.runs, "runs");
     assertUniqueIds(data.evaluations, "evaluations");
-    if (!sourceIds.has("runtime") || !sourceIds.has("skill-meta")) throw new TypeError("domain projection must preserve runtime and skill-meta authorities");
-    data.products.forEach((product, index) => {
-      if (product.availabilityAuthority !== void 0 && !sourceIds.has(product.availabilityAuthority)) throw new TypeError(`products[${index}] references an unknown authority`);
-    });
     data.conditions.forEach((condition, index) => {
       if (!familyIds.has(condition.familyId)) throw new TypeError(`conditions[${index}] references an unknown family`);
     });
@@ -807,7 +740,7 @@
     });
     const showcase = validateShowcaseProjection(value.showcase);
     const projected = structuredClone(value);
-    projected.data.skills = structuredClone(showcase.operationalSkills);
+    projected.showcase = structuredClone(showcase);
     for (const condition of projected.data.conditions) condition.results = projected.data.results.filter((result) => result.conditionId === condition.id);
     assertTextTree(projected, "domain projection");
     return projected;
@@ -1193,8 +1126,7 @@
       column("condition", "Tested condition", "text"),
       column("score", "Score", "number"),
       column("denominator", "Denominator", "number"),
-      column("release", "Release", "text"),
-      column("availability", "Availability", "text")
+      column("release", "Release", "text")
     ])
   });
   var MISSING_LABELS = /* @__PURE__ */ new Set(["missing", "pending", "unknown"]);
@@ -1342,8 +1274,11 @@
       return h(
         "div",
         { className: "acc-view acc-analytics" },
-        h(SectionHeading, { eyebrow: "Measured systems", title: "Analytics" }),
-        h("p", { className: "acc-lede" }, "One reporting destination for web properties, AI services, and products or agents. Every source keeps its own authority, freshness, and metric definitions."),
+        h(SectionHeading, {
+          eyebrow: "Measured systems",
+          title: "Analytics",
+          help: "One reporting destination for web properties, AI services, and products or agents. Every source keeps its own authority, freshness, and metric definitions."
+        }),
         h(
           "section",
           { className: "acc-analytics-domain", "aria-labelledby": "acc-domain-web" },
@@ -1775,15 +1710,6 @@
     const run = getRun(runId);
     return run ? { condition, result, run } : null;
   }
-  function getEffectiveAvailability(condition) {
-    const authority = fixtures.sources.find((source) => source.id === "runtime");
-    return authority?.invalidatesClaims ? "unknown" : condition.availability;
-  }
-  function getEffectiveProductClaims(product) {
-    const authority = product.availabilityAuthority ? fixtures.sources.find((source) => source.id === product.availabilityAuthority) : null;
-    if (authority?.invalidatesClaims) return { state: "unknown", worksNow: null };
-    return { state: product.state, worksNow: product.worksNow };
-  }
   function getLeaderboard(domain, release = RELEASES[domain]) {
     return fixtures.results.filter((result) => result.domain === domain && result.release === release && result.status === "canonical").map((result) => ({ ...result, condition: getCondition(result.conditionId) })).sort((a, b) => b.score - a.score);
   }
@@ -1836,8 +1762,14 @@
       partial: representedRows.filter((row) => !row.complete).sort(byIndex)
     };
   }
-  function getEvaluationIndex() {
-    return [...fixtures.evaluations].sort((a, b) => a.title.localeCompare(b.title));
+  function getObjectTestingRecords(type, id) {
+    return fixtures.evaluations.filter((evaluation) => evaluation.affectedObjects.some((object) => object.type === type && object.id === id)).sort((a, b) => a.title.localeCompare(b.title));
+  }
+  function getEvaluationOwnerRoute(evaluationId) {
+    const evaluation = fixtures.evaluations.find((item) => item.id === evaluationId);
+    const owner = evaluation?.affectedObjects.find((object) => object.type === "product");
+    if (owner?.type === "product") return { view: "portfolio", product: owner.id };
+    return { view: "overview" };
   }
   function getVoicePerformance(id = fixtures.voicePerformance.id) {
     return id === fixtures.voicePerformance.id ? fixtures.voicePerformance : null;
@@ -1845,15 +1777,110 @@
   function getSourceTrust() {
     return fixtures.sources;
   }
+  function canonicalObservedAt(value) {
+    const match = String(value || "").match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z/);
+    return match ? match[0] : null;
+  }
+  function sourceStatus(source) {
+    if (source.state === "fresh" && !source.invalidatesClaims) return "healthy";
+    if (source.state === "fresh") return "warning";
+    if (source.state === "stale") return "stale";
+    if (source.state === "invalid") return "invalid";
+    if (source.state === "error" || source.state === "failed") return "error";
+    if (source.state === "unknown") return "unknown";
+    if (source.state === "missing" || source.state === "not-evaluated") return "not-evaluated";
+    return "warning";
+  }
+  function providerStatus(state) {
+    if (state === "fresh") return "healthy";
+    if (state === "stale" || state === "expired") return "stale";
+    if (state === "auth_error") return "error";
+    if (state === "error") return "collection-failed";
+    if (state === "unknown") return "unknown";
+    if (["inactive", "not_yet_observed", "not_configured", "unsupported"].includes(state)) return "not-evaluated";
+    return "warning";
+  }
+  function runtimeReachability(health) {
+    if (health?.valid) return "Available";
+    if (/unavailable|fetch|network/i.test(health?.error || "")) return "Unavailable";
+    if (health?.error) return "Available";
+    return "Unknown";
+  }
+  function getIntegrationStatus({ providerUsage = null, providerUsageHealth = null, runtimeHealth = null } = {}) {
+    const frozenSourceIds = /* @__PURE__ */ new Set(["benchmarks", "voice-performance"]);
+    const sourceIntegrations = getSourceTrust().map((source) => ({
+      id: `source:${source.id}`,
+      label: source.label,
+      category: frozenSourceIds.has(source.id) ? "Frozen artifact" : "Claim source",
+      status: sourceStatus(source),
+      reachability: frozenSourceIds.has(source.id) ? "Not applicable" : "Not reported",
+      configuration: "Not reported",
+      freshness: source.freshness,
+      validation: source.invalidatesClaims ? "Validated record \xB7 not claim-safe" : frozenSourceIds.has(source.id) ? "Validated frozen artifact version" : "Validated projection record",
+      claimImpact: source.invalidatesClaims ? "Dependent claims withheld" : "No dependent claims withheld",
+      observedAt: canonicalObservedAt(source.freshness),
+      authority: source.authority
+    }));
+    const runtimeIntegrations = ["edition", "domain"].map((key) => {
+      const health = runtimeHealth?.[key] || null;
+      const ready = health?.state === "ready" && health.valid === true && health.stale === false;
+      return {
+        id: `runtime:${key}`,
+        label: key === "edition" ? "ACC Edition projection" : "ACC Domain projection",
+        category: "Runtime projection",
+        status: ready ? "healthy" : health ? "invalid" : "unknown",
+        reachability: runtimeReachability(health),
+        configuration: "Not applicable",
+        freshness: ready ? "Current validated load" : health?.state === "stale_invalid" ? "Stale last-good projection" : "Bundled demonstration fallback",
+        validation: ready ? "Validated" : health ? "Invalid" : "Not evaluated",
+        claimImpact: ready ? "No dependent claims withheld" : "Projection claims fall back to stale or demonstration data",
+        observedAt: key === "domain" ? fixtures.meta?.generatedAt || null : null,
+        authority: key === "edition" ? "ACC Edition contract" : "ACC Domain projection contract"
+      };
+    });
+    const projectionReady = providerUsageHealth?.state === "ready" && providerUsageHealth.valid === true;
+    const projectionStatus = projectionReady ? "healthy" : providerUsageHealth?.state === "invalid" ? "invalid" : providerUsageHealth?.state === "unavailable" || providerUsageHealth?.state === "error" ? "collection-failed" : "unknown";
+    const providerProjection = {
+      id: "runtime:provider-usage",
+      label: "Provider usage projection",
+      category: "Runtime projection",
+      status: projectionStatus,
+      reachability: projectionReady ? "Available" : providerUsageHealth?.state === "unavailable" ? "Unavailable" : "Unknown",
+      configuration: "Not reported",
+      freshness: providerUsage?.generatedAt ? `Generated ${providerUsage.generatedAt}` : "No validated snapshot loaded",
+      validation: projectionReady ? "Validated" : providerUsageHealth ? "Not validated" : "Not evaluated",
+      claimImpact: projectionReady ? "No dependent claims withheld" : "Current provider usage headroom withheld",
+      observedAt: providerUsage?.generatedAt || null,
+      authority: "Provider usage public snapshot contract"
+    };
+    const providerIntegrations = (providerUsage?.providers || []).map((provider) => {
+      const status = providerStatus(provider.state);
+      const antigravityWaiting = provider.provider === "antigravity" && provider.state === "inactive";
+      const configuration = antigravityWaiting ? "Waiting for active trusted session" : provider.state === "auth_error" ? "Authentication error" : provider.state === "not_configured" ? "Not configured" : provider.state === "unsupported" ? "Unsupported observation path" : "Not reported";
+      return {
+        id: `provider:${provider.provider}`,
+        label: antigravityWaiting ? "Antigravity \u2014 Waiting for active trusted session" : `${provider.product} collector`,
+        category: "Provider usage collector",
+        status,
+        reachability: "Not reported",
+        configuration,
+        freshness: antigravityWaiting ? "Waiting for active trusted session" : provider.state === "fresh" ? "Fresh" : provider.state === "expired" ? "Expired reset window" : String(provider.state || "unknown").replaceAll("_", " "),
+        validation: projectionReady ? "Validated public snapshot" : "Not validated",
+        claimImpact: status === "healthy" ? "None \u2014 collector health does not represent quota pressure" : status === "stale" ? "Quota figures retained as last observed; current headroom is not claimed" : antigravityWaiting && provider.windows?.length ? "Current usage headroom withheld; retained windows are last-good only" : "Current usage headroom withheld",
+        observedAt: provider.observedAt || null,
+        authority: provider.authority,
+        collectionMode: provider.collectionMode
+      };
+    });
+    const integrations = [...runtimeIntegrations, providerProjection, ...sourceIntegrations, ...providerIntegrations];
+    const issues = integrations.filter((integration) => integration.status !== "healthy");
+    return { integrations, issues, allHealthy: integrations.length > 0 && issues.length === 0 };
+  }
   function getShowcasePortfolio() {
     return getPortfolioProjection(showcaseProjection, fixtures.products);
   }
-  function getShowcaseSkills() {
-    return getSkillsProjection(showcaseProjection);
-  }
   function getLocalAccSearchRecords() {
     const portfolio = getShowcasePortfolio();
-    const skills = getShowcaseSkills();
     const portfolioRecords = portfolio.internalProducts.map((product) => ({
       id: `portfolio:${product.id}`,
       kind: "portfolio",
@@ -1861,14 +1888,6 @@
       summary: product.value,
       keywords: [product.kind, product.state, product.outcome, product.limitation, ...product.worksNow || []],
       route: { view: "portfolio", product: product.id }
-    }));
-    const skillRecords = skills.operationalSkills.map((skill) => ({
-      id: `skills:${skill.id}`,
-      kind: "skills",
-      title: skill.name,
-      summary: skill.description,
-      keywords: [skill.category, skill.version, "skill registry reusable operational knowledge"],
-      route: { view: "skills", skill: skill.id }
     }));
     const benchmarkRecords = getBenchmarkComparison().map((profile) => ({
       id: `benchmarks:${profile.conditionId}`,
@@ -1901,7 +1920,7 @@
         route: { view: "analytics", domain: "ai", subject: edition.analytics.providerUsage.id }
       }
     ];
-    return [...portfolioRecords, ...skillRecords, ...benchmarkRecords, ...analyticsRecords];
+    return [...portfolioRecords, ...benchmarkRecords, ...analyticsRecords];
   }
   function filterLocalAcc(query) {
     const terms = String(query || "").normalize("NFKC").toLocaleLowerCase("en").trim().split(/\s+/).filter(Boolean);
@@ -1915,8 +1934,7 @@
     const summaries = {
       portfolio: "Products and durable capabilities",
       analytics: "Traffic, service usage, and coverage",
-      benchmarks: "Measured model evidence",
-      skills: "Reusable delivery knowledge"
+      benchmarks: "Measured model evidence"
     };
     return {
       sectionOrder: ["provider-usage", "source-exceptions", "destinations", "recently-landed"],
@@ -1924,7 +1942,7 @@
       destinations: NAV_ITEMS.filter((item) => Object.hasOwn(summaries, item.id)).map((item) => ({ ...item, summary: summaries[item.id] }))
     };
   }
-  var ROUTE_KEYS = ["view", "q", "domain", "subject", "range", "mode", "product", "condition", "result", "release", "run", "skill", "evaluation"];
+  var ROUTE_KEYS = ["view", "q", "domain", "subject", "range", "mode", "product", "condition", "result", "release", "run", "evaluation"];
   function buildAccUrl(state = {}, basePath = "/autobot-command-center") {
     const normalizedBase = basePath === "/" ? "" : String(basePath).replace(/\/$/, "");
     const standaloneSearch = state.view === "search" && !normalizedBase;
@@ -1951,18 +1969,34 @@
   function canonicalizeAccRoute(route = {}) {
     if (route.view === "usage") return { view: "analytics", domain: "ai", subject: "provider-usage" };
     if (route.view === "hivemind") return { view: "search", ...route.q ? { q: route.q } : {} };
+    if (route.view === "evidence") return getEvaluationOwnerRoute(route.evaluation);
     return { ...route };
   }
 
   // src/theme.mjs
   var ACC_THEME_STORAGE_KEY = "acc.presentation-theme.v1";
-  var DEFAULT_THEME = "g1-console";
+  var DEFAULT_THEME = "matrix";
   var STATUS_COLORS = Object.freeze({
     good: "#41e88a",
     warn: "#ffca62",
     bad: "#ff707b"
   });
   var THEME_PRESENTATION = Object.freeze({
+    autobots: Object.freeze({
+      label: "Autobots",
+      accentPrimary: "#e84b4f",
+      accentSecondary: "#7cc7ff"
+    }),
+    decepticons: Object.freeze({
+      label: "Decepticons",
+      accentPrimary: "#692789",
+      accentSecondary: "#c27bff"
+    }),
+    matrix: Object.freeze({
+      label: "Matrix",
+      accentPrimary: "#62ff72",
+      accentSecondary: "#b7ff5a"
+    }),
     "g1-console": Object.freeze({
       label: "Teletraan1",
       accentPrimary: "#ffb23e",
@@ -1972,16 +2006,6 @@
       label: "Terminal Dark",
       accentPrimary: "#ffb454",
       accentSecondary: "#ffe0a3"
-    }),
-    matrix: Object.freeze({
-      label: "Matrix",
-      accentPrimary: "#62ff72",
-      accentSecondary: "#b7ff5a"
-    }),
-    decepticons: Object.freeze({
-      label: "Decepticons",
-      accentPrimary: "#692789",
-      accentSecondary: "#c27bff"
     })
   });
   function validateTheme(value) {
@@ -2186,10 +2210,28 @@
       return h("span", { className: `acc-badge acc-badge--${tone}` }, children);
     }
     function StatusBadge({ state }) {
-      const tone = state === "fresh" || state === "canonical" || state === "validated" || state === "available" || state === "verified" ? "good" : state === "stale" || state === "provisional" || state === "unknown" || state === "pending" || state === "in-progress" || state === "queued" || state === "blocked" ? "warn" : state === "missing" || state === "unavailable" || state === "failed" ? "bad" : "neutral";
+      const tone = state === "healthy" || state === "fresh" || state === "canonical" || state === "validated" || state === "available" || state === "verified" ? "good" : state === "warning" || state === "stale" || state === "not-evaluated" || state === "provisional" || state === "unknown" || state === "pending" || state === "in-progress" || state === "queued" || state === "blocked" ? "warn" : state === "error" || state === "invalid" || state === "collection-failed" || state === "missing" || state === "unavailable" || state === "failed" ? "bad" : "neutral";
       return h(Badge, { tone }, String(state).replaceAll("-", " "));
     }
-    function SectionHeading({ eyebrow, title, action }) {
+    function InfoPopover({ title, children }) {
+      const [open, setOpen] = useState(false);
+      const panelId = `acc-info-${title.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/^-|-$/g, "")}`;
+      return h(
+        "div",
+        { className: cx("acc-info-popover", open && "is-open") },
+        h("button", {
+          type: "button",
+          className: "acc-info-button",
+          "aria-label": `About ${title}`,
+          "aria-expanded": open,
+          "aria-controls": panelId,
+          title: `About ${title}`,
+          onClick: () => setOpen((value) => !value)
+        }, h("span", { "aria-hidden": true }, "\u24D8")),
+        open ? h("div", { id: panelId, className: "acc-info-popover__panel", role: "note" }, children) : null
+      );
+    }
+    function SectionHeading({ eyebrow, title, action, help }) {
       return h(
         "div",
         { className: "acc-section-heading" },
@@ -2199,24 +2241,42 @@
           eyebrow ? h("p", { className: "acc-eyebrow" }, eyebrow) : null,
           h("h2", null, title)
         ),
-        action || null
+        help || action ? h(
+          "div",
+          { className: "acc-section-heading__actions" },
+          help ? h(InfoPopover, { title }, h("p", null, help)) : null,
+          action || null
+        ) : null
       );
     }
     function EmptyUnknown({ children = "Unknown \u2014 no authoritative source" }) {
       return h("span", { className: "acc-unknown" }, children);
     }
-    function RuntimeHealthNotice() {
-      const issues = ["edition", "domain"].map((key) => [key, runtime.health[key]]).filter(([, state]) => state.state !== "ready");
-      if (!issues.length) return null;
+    function IntegrationIssueBar({ integrationStatus, go }) {
+      if (integrationStatus.allHealthy) return null;
+      const shown = integrationStatus.issues.slice(0, 3);
+      const remainder = integrationStatus.issues.length - shown.length;
       return h(
         "aside",
-        { className: "acc-runtime-health", role: "status", "aria-live": "polite" },
-        h("strong", null, "Runtime data is stale or invalid"),
-        h("ul", null, issues.map(([key, state]) => h(
-          "li",
-          { key },
-          `${key === "edition" ? "Edition" : "Domain projection"} ${state.state === "stale_invalid" ? "is invalid; showing last-good data marked stale." : "is invalid or unavailable; showing bundled demonstration data marked stale."}`
-        )))
+        { className: "acc-integration-issues", role: "status", "aria-label": "Integration issues", "aria-live": "polite" },
+        h(
+          "div",
+          { className: "acc-integration-issues__summary" },
+          h("strong", null, "Integration issues"),
+          h("span", null, `${integrationStatus.issues.length} need attention`)
+        ),
+        h(
+          "div",
+          { className: "acc-integration-issues__items" },
+          shown.map((integration) => h(
+            "span",
+            { key: integration.id },
+            h(StatusBadge, { state: integration.status }),
+            h("span", null, integration.label)
+          )),
+          remainder > 0 ? h("span", { className: "acc-integration-issues__more" }, `+${remainder} more`) : null
+        ),
+        h("button", { type: "button", className: "acc-integration-issues__action", onClick: () => go({ view: "settings" }) }, "Review integration details")
       );
     }
     function Meter({ value, label }) {
@@ -2225,6 +2285,34 @@
         { className: "acc-meter", "aria-label": `${label}: ${value}%` },
         h("div", { className: "acc-meter__track" }, h("span", { style: { width: `${value}%` } })),
         h("span", null, `${value}% evidence complete`)
+      );
+    }
+    function TestingHistory({ type, id }) {
+      const records = getObjectTestingRecords(type, id);
+      if (!records.length) return null;
+      const headingId = `acc-testing-history-${type}-${id}`;
+      return h(
+        "section",
+        { className: "acc-related acc-testing-history", role: "region", "aria-labelledby": headingId },
+        h("h3", { id: headingId }, "Testing history"),
+        h("div", { className: "acc-testing-history__list" }, records.map((record) => h(
+          "article",
+          { className: "acc-testing-record", key: record.id },
+          h(
+            "div",
+            { className: "acc-testing-record__head" },
+            h("div", null, h("small", null, record.stage), h("h4", null, record.title)),
+            h(StatusBadge, { state: record.findingStatus })
+          ),
+          h(Meter, { value: record.progress, label: record.title }),
+          h(
+            "dl",
+            null,
+            h("div", null, h("dt", null, "Question"), h("dd", null, record.question)),
+            h("div", null, h("dt", null, "Current finding"), h("dd", null, record.finding)),
+            h("div", null, h("dt", null, "Decision outcome"), h("dd", null, record.decision))
+          )
+        )))
       );
     }
     function VoicePerformance({ comparisonId }) {
@@ -2274,35 +2362,6 @@
           )
         ))),
         h("div", { className: "acc-prototype-note acc-voice-warning" }, snapshot.reliabilityNote)
-      );
-    }
-    function TrustStrip({ openEvidence }) {
-      const sources = getSourceTrust();
-      const invalid = sources.filter((source) => source.invalidatesClaims);
-      return h(
-        "section",
-        { className: "acc-trust", "aria-labelledby": "acc-trust-title" },
-        h(
-          "div",
-          { className: "acc-trust__copy" },
-          h(
-            "div",
-            { className: "acc-trust__title-row" },
-            h("h2", { id: "acc-trust-title" }, invalid.length ? "Source confidence degraded" : "Sources verified"),
-            h(Badge, { tone: "warn" }, "Dev fixtures"),
-            h(Badge, { tone: invalid.length ? "warn" : "good" }, `${sources.length - invalid.length}/${sources.length} claim-safe`)
-          ),
-          h("p", null, invalid.length ? "Availability and publication claims are withheld where authority is stale or missing." : "All displayed claims are backed by current authoritative sources.")
-        ),
-        h("div", { className: "acc-trust__sources" }, sources.map(
-          (source) => h("button", {
-            type: "button",
-            className: "acc-source-chip",
-            key: source.id,
-            title: `${source.authority}. ${source.freshness}`,
-            onClick: openEvidence
-          }, h(StatusBadge, { state: source.state }), h("span", null, source.label))
-        ))
       );
     }
     function ProviderUsageWindow({ window: window2 }) {
@@ -2355,6 +2414,9 @@
       if (record.observedAt && ["fresh", "stale", "expired"].includes(record.state)) {
         return h("small", { className: "acc-provider-sync" }, `Last observed ${new Date(record.observedAt).toLocaleString()}`);
       }
+      if (record.observedAt && record.windows?.length && ["inactive", "error", "auth_error"].includes(record.state)) {
+        return h("small", { className: "acc-provider-sync" }, `Last successful observation ${new Date(record.observedAt).toLocaleString()}`);
+      }
       return h(StatusBadge, { state: record.state });
     }
     function ProviderUsage({ snapshot, go, compact = false }) {
@@ -2368,8 +2430,11 @@
         { key: record.provider, className: "acc-provider-card", "data-provider": record.provider },
         h("div", { className: "acc-provider-card__head" }, h("strong", null, record.product), h(ProviderUsageSync, { record })),
         h("small", null, record.authority),
-        record.provider === "claude" ? h("small", { className: "acc-provider-activity-note" }, "Genuine activity updates immediately; guarded /usage refresh also runs when a reported window resets or after 12 hours.") : null,
+        record.provider === "claude" ? h("small", { className: "acc-provider-activity-note" }, "Genuine activity updates private evidence immediately; the public snapshot advances on the scheduled collector. Guarded /usage refresh also runs when a reported window resets or after 12 hours.") : null,
         record.provider === "brave-search" ? h("small", { className: "acc-provider-activity-note" }, `${record.rateLimitPerSecond} request/second \xB7 Quota refresh uses one successful search and runs at most daily.`) : null,
+        record.provider === "antigravity" && record.state === "inactive" ? h("p", { className: "acc-provider-empty" }, "Waiting for active trusted session") : null,
+        ["error", "auth_error"].includes(record.state) && record.windows.length ? h("p", { className: "acc-provider-empty" }, "Latest refresh failed \u2014 retained quota is last-good only, not current headroom.") : null,
+        record.state === "inactive" && record.windows.length ? h("p", { className: "acc-provider-empty" }, "Last-good quota only \u2014 current headroom is not claimed.") : null,
         record.state === "expired" ? h("p", { className: "acc-provider-empty" }, "Expired \u2014 reported reset time has passed; showing the last known observation.") : null,
         record.windows.length ? h("dl", { className: "acc-provider-windows" }, record.windows.map((window2) => h(ProviderUsageWindow, { key: window2.id, window: window2 }))) : h("p", { className: "acc-provider-empty" }, record.state === "unsupported" ? "Unsupported \u2014 no supported API" : record.state === "not_configured" ? "Not configured \u2014 awaiting a validated observation" : record.state === "error" || record.state === "auth_error" ? "Unavailable \u2014 provider observation failed; no usage is shown" : record.state === "stale" ? "Stale \u2014 collector observation exceeded its freshness window" : "Unknown \u2014 no validated observation"),
         record.provider === "codex" ? h(CodexResetCredits, { resetCredits: record.resetCredits }) : null,
@@ -2381,9 +2446,9 @@
         h(SectionHeading, {
           eyebrow: "Authoritative usage headroom",
           title: compact ? "Provider usage" : "Usage & limits",
+          help: "Frontier subscriptions and service quotas stay separate. Unavailable data is never shown as zero.",
           action: compact ? h("button", { type: "button", className: "acc-secondary-button", onClick: () => go({ view: "analytics", domain: "ai", subject: "provider-usage" }) }, "Open details") : null
         }),
-        h("p", { className: "acc-lede" }, "Frontier subscriptions and service quotas stay separate. Unavailable data is never shown as zero."),
         groups.map((group) => h(
           "section",
           { key: group.id, className: cx("acc-provider-group", `acc-provider-group--${group.id}`), "aria-labelledby": `acc-provider-group-${group.id}` },
@@ -2398,29 +2463,30 @@
         h("p", { className: "acc-prototype-note" }, snapshot?.generatedAt ? `Sanitized snapshot generated ${new Date(snapshot.generatedAt).toLocaleString()}. No billing, prompts, account identity, or local activity is included.` : "No validated snapshot loaded.")
       );
     }
-    function Overview({ go, providerUsage }) {
+    function Overview({ go, providerUsage, integrationStatus }) {
       const overview = getOverviewProjection();
       return h(
         "div",
         { className: "acc-view acc-overview" },
         h(ProviderUsage, { snapshot: providerUsage, go, compact: true }),
-        h(
+        integrationStatus.issues.length ? h(
           "section",
-          { className: "acc-section acc-overview-exceptions" },
+          { className: "acc-section acc-overview-exceptions", role: "region", "aria-label": "Integration issues summary" },
           h(SectionHeading, {
-            eyebrow: "Claim boundaries",
-            title: "Source exceptions",
-            action: h(Badge, { tone: overview.sourceExceptions.length ? "warn" : "good" }, overview.sourceExceptions.length ? `${overview.sourceExceptions.length} need attention` : "All claim-safe")
+            eyebrow: "Actionable status",
+            title: "Integration issues",
+            action: h(Badge, { tone: "warn" }, `${integrationStatus.issues.length} need attention`)
           }),
-          h("div", { className: "acc-overview-exception-list" }, overview.sourceExceptions.map(
-            (source) => h(
+          h("div", { className: "acc-overview-exception-list" }, integrationStatus.issues.slice(0, 4).map(
+            (integration) => h(
               "article",
-              { className: "acc-overview-exception", key: source.id },
-              h(StatusBadge, { state: source.state }),
-              h("div", null, h("strong", null, source.label), h("small", null, `${source.authority} \xB7 ${source.freshness}`))
+              { className: "acc-overview-exception", key: integration.id },
+              h(StatusBadge, { state: integration.status }),
+              h("div", null, h("strong", null, integration.label), h("small", null, integration.claimImpact))
             )
-          ))
-        ),
+          )),
+          h("button", { type: "button", className: "acc-secondary-button acc-overview-integration-action", onClick: () => go({ view: "settings" }) }, "Open complete Integration Status")
+        ) : null,
         h(
           "section",
           { className: "acc-section acc-overview-destinations" },
@@ -2464,8 +2530,6 @@
       const portfolio = getShowcasePortfolio();
       const product = route.product ? portfolio.internalProducts.find((item) => item.id === route.product) : null;
       if (product) {
-        const evaluations = product.evaluations.map((id) => fixtures.evaluations.find((item) => item.id === id)).filter(Boolean);
-        const claims = getEffectiveProductClaims(product);
         return h(
           "div",
           { className: "acc-view" },
@@ -2477,35 +2541,29 @@
               "div",
               { className: "acc-detail__hero" },
               h("div", null, h("p", { className: "acc-eyebrow" }, product.kind), h("h2", null, product.name), h("p", { className: "acc-lede" }, product.value)),
-              h(StatusBadge, { state: claims.state.toLowerCase() })
+              h(StatusBadge, { state: product.state.toLowerCase() })
             ),
             h(
               "div",
               { className: "acc-detail-grid" },
-              claims.worksNow ? h("section", null, h("h3", null, "What works now"), h("ul", null, claims.worksNow.map((item) => h("li", { key: item }, item)))) : h("section", null, h("h3", null, "Current availability"), h("p", null, "Unknown \u2014 runtime telemetry is stale")),
+              product.worksNow ? h("section", null, h("h3", null, "What works now"), h("ul", null, product.worksNow.map((item) => h("li", { key: item }, item)))) : null,
               h("section", null, h("h3", null, "Operating limitation"), h("p", null, product.limitation)),
               h("section", null, h("h3", null, "Evidence"), h("ul", null, product.evidence.map((item) => h("li", { key: item }, item)))),
               h("section", null, h("h3", null, "Authority"), h("p", null, `${product.source} \xB7 last verified ${product.verified}`))
             ),
             product.id === "voice-lab" ? h(VoicePerformance, { comparisonId: fixtures.voicePerformance.id }) : null,
-            h(
-              "section",
-              { className: "acc-related" },
-              h("h3", null, "Evaluation timeline"),
-              evaluations.length ? evaluations.map((evaluation) => h(
-                "button",
-                { key: evaluation.id, type: "button", className: "acc-evaluation-row", onClick: () => go({ view: "evidence", evaluation: evaluation.id }) },
-                h("span", null, h(StatusBadge, { state: evaluation.findingStatus }), h("strong", null, evaluation.title), h("small", null, evaluation.finding))
-              )) : h(EmptyUnknown, { children: "No evaluation record attached" })
-            )
+            h(TestingHistory, { type: "product", id: product.id })
           )
         );
       }
       return h(
         "div",
         { className: "acc-view" },
-        h(SectionHeading, { eyebrow: "Products and capabilities", title: "Portfolio" }),
-        h("p", { className: "acc-lede" }, "Public GitHub evidence is refreshed into a frozen, allowlisted projection. Internal products remain a separate durable capability view with no implied public release."),
+        h(SectionHeading, {
+          eyebrow: "Products and capabilities",
+          title: "Portfolio",
+          help: "Public GitHub evidence is refreshed into a frozen, allowlisted projection. Internal products remain a separate durable capability view with no implied public release."
+        }),
         h(
           "div",
           { className: "acc-registry-summary", "aria-label": "Portfolio summary" },
@@ -2550,18 +2608,19 @@
             h("p", { className: "acc-eyebrow" }, "Private operating boundary"),
             h("h3", { id: "acc-internal-products-title" }, "Internal Products & Capabilities")
           )),
-          h("div", { className: "acc-portfolio-grid" }, portfolio.internalProducts.map((item) => {
-            const claims = getEffectiveProductClaims(item);
-            return h(
+          h(
+            "div",
+            { className: "acc-portfolio-grid" },
+            portfolio.internalProducts.map((item) => h(
               "button",
               { key: item.id, type: "button", className: "acc-portfolio-card", onClick: () => go({ view: "portfolio", product: item.id }) },
-              h("span", { className: "acc-object-card__top" }, h(Badge, null, `Internal \xB7 ${item.kind}`), h(StatusBadge, { state: claims.state.toLowerCase() })),
+              h("span", { className: "acc-object-card__top" }, h(Badge, null, `Internal \xB7 ${item.kind}`), h(StatusBadge, { state: item.state.toLowerCase() })),
               h("h3", null, item.name),
               h("p", null, item.value),
               h("div", { className: "acc-callout" }, h("span", null, "Landed outcome"), h("strong", null, item.outcome)),
               h("small", null, `${item.source} \xB7 verified ${item.verified}`)
-            );
-          }))
+            ))
+          )
         )
       );
     }
@@ -2963,7 +3022,6 @@
     function ConditionDetail({ condition, route, go, domain }) {
       const family = getFamily(condition.familyId);
       const benchmarkProfile = getBenchmarkComparison(condition.id);
-      const availability = getEffectiveAvailability(condition);
       if (route.run) {
         const lineage = getRunLineage({
           conditionId: condition.id,
@@ -2986,8 +3044,7 @@
         ["Quantization", condition.quantization],
         ["Reasoning", condition.reasoning],
         ["Context", condition.context],
-        ["Output envelope", condition.output],
-        ["Current availability", availability === "unknown" ? "Unknown \u2014 runtime telemetry is not claim-safe" : condition.availabilityNote]
+        ["Output envelope", condition.output]
       ];
       return h(
         "div",
@@ -2999,8 +3056,7 @@
           h(
             "div",
             { className: "acc-detail__hero" },
-            h("div", null, h("p", { className: "acc-eyebrow" }, "Exact tested condition"), h("h2", null, condition.shortName), h("p", { className: "acc-lede" }, family.roles.join(" \xB7 "))),
-            h(Badge, { tone: availability === "unknown" ? "warn" : availability === "available" ? "good" : "bad" }, `Availability ${availability}`)
+            h("div", null, h("p", { className: "acc-eyebrow" }, "Exact tested condition"), h("h2", null, condition.shortName), h("p", { className: "acc-lede" }, family.roles.join(" \xB7 ")))
           ),
           h("section", { className: "acc-fingerprint" }, h("span", null, "Condition fingerprint"), h("code", null, condition.fingerprint)),
           h(BenchmarkProfileSummary, { profile: benchmarkProfile }),
@@ -3030,8 +3086,7 @@
         condition: (row) => row.condition.shortName,
         score: (row) => row.score,
         denominator: (row) => row.denominator,
-        release: (row) => row.release,
-        availability: (row) => getEffectiveAvailability(row.condition)
+        release: (row) => row.release
       });
       const leaderboardSort = useSortableRows(getLeaderboard(domain, RELEASES[domain]).map((row, index) => ({ ...row, canonicalRank: index + 1 })), leaderboardColumns);
       if (route.mode === "methodology") return h(
@@ -3082,18 +3137,18 @@
               "article",
               { className: "acc-methodology-card" },
               h("p", { className: "acc-eyebrow" }, "Native tool use"),
-              h("h3", null, "BFCL V4"),
-              h("strong", { className: "acc-methodology-size" }, "150 frozen scored cases"),
-              h("p", null, "Chosen because real agent work depends on selecting the right function and producing valid arguments across single-turn and multi-turn tool situations. Complete collection requires 261 generated rows for the 150 scored cases.")
+              h("h3", null, "BFCL V4 Hard-50"),
+              h("strong", { className: "acc-methodology-size" }, "50 frozen hard cases"),
+              h("p", null, "A category-complete successor epoch covering all 20 BFCL types: 13 single-turn, 23 multi-turn, and 14 Memory cases. Complete collection requires 119 generated rows because the 14 scored Memory cases need 69 frozen prerequisites. Raw case accuracy is primary; BFCL official weighted aggregation is reported separately.")
             ),
             h(
               "article",
               { className: "acc-methodology-card" },
               h("p", { className: "acc-eyebrow" }, "Multi-turn agent work"),
-              h("h3", null, "tau2"),
-              h("strong", { className: "acc-methodology-size" }, "50 frozen tasks"),
-              h("small", null, "25 Retail \xB7 25 Telecom"),
-              h("p", null, "Chosen because it tests whether a model can preserve state, reason through a workflow, use tools, and recover across a sustained simulated interaction\u2014not just answer one isolated prompt.")
+              h("h3", null, "tau2 Hard-24"),
+              h("strong", { className: "acc-methodology-size" }, "24 frozen hard tasks"),
+              h("small", null, "12 Retail \xB7 12 Telecom"),
+              h("p", null, "An outcome-conditioned regression successor: Retail keeps 12 of Qwen3.6 35B\u2019s 15 raw scored failures, prioritized where Sol or Luna also failed; Telecom keeps both Qwen failures plus 10 hard Sol failures. Raw operational zeros remain failures exactly as scored. Calibration-model projections are retrospective, while future post-freeze models are out-of-sample.")
             )
           )
         ),
@@ -3120,8 +3175,7 @@
       if (isRollup) return h(
         "div",
         { className: "acc-view" },
-        h(SectionHeading, { eyebrow: "Model Observatory", title: "Benchmarks" }),
-        h("p", { className: "acc-lede" }, "Capability rollup is normalized within exact frozen releases. Complete and partial benchmark coverage are never cross-ranked."),
+        h(SectionHeading, { eyebrow: "Model Observatory", title: "Benchmarks", help: "Capability rollup is normalized within exact frozen releases. Complete and partial benchmark coverage are never cross-ranked." }),
         h("div", { className: "acc-toolbar" }, h(MetricTabs, { active: "rollup", onSelect: (nextDomain) => go({ view: "benchmarks", domain: nextDomain }) }), h(Badge, null, "Canonical only")),
         h(CapabilityRollup)
       );
@@ -3130,8 +3184,7 @@
       return h(
         "div",
         { className: "acc-view" },
-        h(SectionHeading, { eyebrow: "Model Observatory", title: "Benchmarks" }),
-        h("p", { className: "acc-lede" }, "Rankings are exact tested conditions within one frozen benchmark release. No universal aggregate score."),
+        h(SectionHeading, { eyebrow: "Model Observatory", title: "Benchmarks", help: "Rankings are exact tested conditions within one frozen benchmark release. No universal aggregate score." }),
         h("div", { className: "acc-toolbar" }, h(MetricTabs, { active: domain, onSelect: (nextDomain) => go({ view: "benchmarks", domain: nextDomain }) }), h(Badge, null, RELEASES[domain])),
         h(
           "section",
@@ -3151,8 +3204,7 @@
                 h("td", null, h("button", { type: "button", className: "acc-table-link", onClick: () => go({ view: "benchmarks", domain, condition: row.conditionId }) }, row.condition.shortName)),
                 h("td", { className: "acc-score-cell" }, `${row.score.toFixed(1)}%`),
                 h("td", null, row.denominator),
-                h("td", null, row.release),
-                h("td", null, h(StatusBadge, { state: getEffectiveAvailability(row.condition) }))
+                h("td", null, row.release)
               )))
             )
           ),
@@ -3186,111 +3238,15 @@
         )
       );
     }
-    function Skills({ route, go }) {
-      const registry = getShowcaseSkills();
-      const skill = route.skill ? registry.operationalSkills.find((item) => item.id === route.skill) : null;
-      if (skill) {
-        const fields = [
-          ["Purpose", skill.description],
-          ["Version", skill.version],
-          ["Category", skill.category],
-          ["License", skill.license || "Unknown"],
-          ["Platforms", skill.platforms?.join(", ") || "Unknown"],
-          ["Metadata status", skill.metadataStatus],
-          ["Validation", skill.validationStatus],
-          ["Projection refreshed", registry.refreshedAt]
-        ];
-        return h(
-          "div",
-          { className: "acc-view" },
-          h("button", { type: "button", className: "acc-back", onClick: () => go({ view: "skills" }) }, "\u2190 Skill Registry"),
-          h(
-            "article",
-            { className: "acc-detail" },
-            h("p", { className: "acc-eyebrow" }, skill.category),
-            h("h2", null, skill.name),
-            h("dl", { className: "acc-fact-grid" }, fields.map(([label, value]) => h("div", { key: label }, h("dt", null, label), h("dd", null, value)))),
-            h("a", { className: "acc-primary-link", href: window.__HERMES_SKILLS_URL__ || "/skills" }, "Manage in Hermes Skills")
-          )
-        );
-      }
-      return h(
-        "div",
-        { className: "acc-view" },
-        h(SectionHeading, { eyebrow: "Durable reusable artifacts", title: "Skill Registry" }),
-        h("p", { className: "acc-lede" }, "A frozen frontmatter projection of selected operational skills. Enable, edit, install, and full inventory actions stay in Hermes Skills."),
-        h(
-          "div",
-          { className: "acc-registry-summary", "aria-label": "Skill registry summary" },
-          h("div", null, h("strong", null, registry.operationalSkills.length), h("span", null, "Operational skills")),
-          h("div", null, h("strong", null, registry.showcaseEditions.length), h("span", null, "Showcase editions")),
-          h("div", null, h("strong", null, new Set(registry.operationalSkills.map((item) => item.category)).size), h("span", null, "Domains"))
-        ),
-        h(
-          "section",
-          { className: "acc-portfolio-group", "aria-labelledby": "acc-showcase-editions-title" },
-          h("div", { className: "acc-section-heading" }, h("div", null, h("p", { className: "acc-eyebrow" }, "Approved independent releases"), h("h3", { id: "acc-showcase-editions-title" }, "Showcase Editions"))),
-          registry.showcaseEditions.length ? h("div", { className: "acc-skill-list" }, registry.showcaseEditions.map((item) => h(
-            "a",
-            { key: item.id, className: "acc-skill-row", href: item.repositoryUrl, rel: "noreferrer" },
-            h("span", { className: "acc-skill-row__identity" }, h("small", null, item.repository), h("strong", null, item.name)),
-            h("span", { className: "acc-skill-row__states" }, h(Badge, { tone: "good" }, item.visibility), h(Badge, null, item.independenceStatus), h(Badge, null, item.validationStatus))
-          ))) : h("p", { className: "acc-empty-state" }, registry.showcaseEmptyState)
-        ),
-        h(
-          "section",
-          { className: "acc-portfolio-group", "aria-labelledby": "acc-operational-skills-title" },
-          h("div", { className: "acc-section-heading" }, h("div", null, h("p", { className: "acc-eyebrow" }, "Selected local frontmatter"), h("h3", { id: "acc-operational-skills-title" }, "Operational Skills"))),
-          h("div", { className: "acc-skill-list" }, registry.operationalSkills.map((item) => h(
-            "button",
-            { type: "button", key: item.id, className: "acc-skill-row", onClick: () => go({ view: "skills", skill: item.id }) },
-            h("span", { className: "acc-skill-row__identity" }, h("small", null, item.category), h("strong", null, item.name), h("span", { className: "acc-skill-row__purpose" }, item.description)),
-            h(
-              "span",
-              { className: "acc-skill-row__states" },
-              h(Badge, null, `v${item.version}`),
-              h(Badge, null, item.metadataStatus),
-              h(StatusBadge, { state: item.validationStatus.toLowerCase() })
-            )
-          )))
-        ),
-        h("div", { className: "acc-prototype-note" }, registry.boundary)
-      );
-    }
-    function Evidence({ route, go }) {
-      const evaluation = route.evaluation ? fixtures.evaluations.find((item) => item.id === route.evaluation) : null;
-      if (evaluation) {
-        return h(
-          "div",
-          { className: "acc-view" },
-          h("button", { type: "button", className: "acc-back", onClick: () => go({ view: "evidence" }) }, "\u2190 Evidence index"),
-          h(
-            "article",
-            { className: "acc-detail" },
-            h("div", { className: "acc-detail__hero" }, h("div", null, h("p", { className: "acc-eyebrow" }, evaluation.stage), h("h2", null, evaluation.title)), h(StatusBadge, { state: evaluation.findingStatus })),
-            h(Meter, { value: evaluation.progress, label: evaluation.title }),
-            h("section", null, h("h3", null, "Question"), h("p", { className: "acc-lede" }, evaluation.question)),
-            h("section", null, h("h3", null, "Current finding"), h("p", null, evaluation.finding)),
-            h("section", null, h("h3", null, "Decision outcome"), h("p", null, evaluation.decision)),
-            h("section", null, h("h3", null, "Affected objects"), h("div", { className: "acc-chip-list" }, evaluation.affectedObjects.map((object) => h(Badge, { key: `${object.type}-${object.id}` }, `${object.type}: ${object.label}`)))),
-            evaluation.comparisonId ? h(VoicePerformance, { comparisonId: evaluation.comparisonId }) : null
-          )
-        );
-      }
-      return h(
-        "div",
-        { className: "acc-view" },
-        h(SectionHeading, { eyebrow: "Secondary cross-domain index", title: "Evaluation evidence" }),
-        h("p", { className: "acc-lede" }, "Questions, findings, and decisions remain attached to the durable objects they affect."),
-        h("div", { className: "acc-evaluation-list" }, getEvaluationIndex().map(
-          (item) => h(
-            "button",
-            { type: "button", key: item.id, className: "acc-evaluation-row", onClick: () => go({ view: "evidence", evaluation: item.id }) },
-            h("span", null, h(StatusBadge, { state: item.findingStatus }), h("strong", null, item.title), h("small", null, item.question)),
-            h(Meter, { value: item.progress, label: item.title })
-          )
-        ))
-      );
+    function formatUtcTimestamp(value) {
+      if (!value) return "Unknown";
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return "Unknown";
+      return `${new Intl.DateTimeFormat("en", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "UTC"
+      }).format(parsed)} UTC`;
     }
     function Search({ route, go }) {
       const apiBase = window.__ACC_HIVEMIND_API__ || "http://127.0.0.1:8788";
@@ -3344,9 +3300,9 @@
         h(SectionHeading, {
           eyebrow: "Local-first discovery",
           title: "Search",
+          help: "Typing filters the bundled ACC index immediately. Results cover Portfolio, measured benchmark conditions, and analytics subjects without a network request.",
           action: h(Badge, { tone: "good" }, "Local index")
         }),
-        h("p", { className: "acc-lede" }, "Typing filters the bundled ACC index immediately. Results cover Portfolio, Skills, measured benchmark conditions, and analytics subjects without a network request."),
         h(
           "label",
           { className: "acc-field acc-local-search-field" },
@@ -3356,7 +3312,7 @@
             value: query,
             maxLength: 256,
             autoComplete: "off",
-            placeholder: "Portfolio, skills, Qwen 35B, Cloudflare visits\u2026",
+            placeholder: "Portfolio, Qwen 35B, Cloudflare visits\u2026",
             onChange: updateLocalQuery
           })
         ),
@@ -3370,7 +3326,7 @@
             className: "acc-local-search-result",
             onClick: () => go(record.route)
           }, h("span", null, h(Badge, null, record.kind), h("strong", null, record.title), h("small", null, record.summary)), h("span", { "aria-hidden": true }, "\u2192"))),
-          !localResults.length ? h("p", { className: "acc-empty-state" }, "No local ACC records matched. Try a product, skill, benchmark condition, or analytics subject.") : null
+          !localResults.length ? h("p", { className: "acc-empty-state" }, "No local ACC records matched. Try a product, benchmark condition, or analytics subject.") : null
         ) : h("p", { className: "acc-empty-state" }, "Start typing to filter the deterministic local index."),
         h(
           "section",
@@ -3458,10 +3414,79 @@
         }
       });
     }
+    function Settings({ theme, selectTheme, integrationStatus }) {
+      const presentation = THEME_PRESENTATION[theme] || THEME_PRESENTATION["g1-console"];
+      const detailFields = (integration) => [
+        ["Reachability", integration.reachability],
+        ["Configuration / authentication", integration.configuration],
+        ["Freshness / version", integration.freshness],
+        ["Validation", integration.validation],
+        ["Dependent-claim impact", integration.claimImpact],
+        ["Last observed", formatUtcTimestamp(integration.observedAt)],
+        ["Authority", integration.authority],
+        ...integration.collectionMode ? [["Collection mode", integration.collectionMode]] : []
+      ];
+      return h(
+        "div",
+        { className: "acc-view acc-settings" },
+        h(SectionHeading, { eyebrow: "Preferences", title: "Settings" }),
+        h(
+          "section",
+          { className: "acc-settings-panel", "aria-labelledby": "acc-settings-appearance" },
+          h(
+            "div",
+            null,
+            h("h3", { id: "acc-settings-appearance" }, "Appearance"),
+            h("p", null, "Presentation changes stay on this device and never alter evidence or status meaning.")
+          ),
+          h(
+            "label",
+            { className: "acc-theme-select acc-theme-select--settings" },
+            h("span", null, "Theme"),
+            h(
+              "select",
+              { value: theme, "aria-label": "Presentation theme", onChange: selectTheme },
+              Object.entries(THEME_PRESENTATION).map(([value, option]) => h("option", { value, key: value }, option.label))
+            )
+          ),
+          h("small", { className: "acc-settings-current" }, `Current presentation: ${presentation.label}`)
+        ),
+        h(
+          "section",
+          { className: "acc-integration-status", role: "region", "aria-label": "Integration Status details" },
+          h(
+            "div",
+            { className: "acc-integration-status__heading" },
+            h(
+              "div",
+              null,
+              h("p", { className: "acc-eyebrow" }, "Truthful source health"),
+              h("h2", null, "Integration Status"),
+              h("p", null, "Reachability, configuration, freshness, validation, claim impact, and observation time remain separate. Collector health never stands in for quota pressure.")
+            ),
+            h(Badge, { tone: integrationStatus.allHealthy ? "good" : "warn" }, integrationStatus.allHealthy ? "All validated healthy" : `${integrationStatus.issues.length} need attention`)
+          ),
+          h("div", { className: "acc-integration-grid" }, integrationStatus.integrations.map(
+            (integration) => h(
+              "article",
+              { className: "acc-integration-card", key: integration.id, "data-integration": integration.id },
+              h(
+                "div",
+                { className: "acc-integration-card__heading" },
+                h("div", null, h("small", null, integration.category), h("h3", null, integration.label)),
+                h(StatusBadge, { state: integration.status })
+              ),
+              h("dl", null, detailFields(integration).map(([label, value]) => h("div", { key: label }, h("dt", null, label), h("dd", null, value))))
+            )
+          ))
+        )
+      );
+    }
     const Analytics = createAnalyticsView({ React, h, useEffect, useState, Badge, StatusBadge, SectionHeading, ProviderUsage, edition });
     function App() {
       const [route, setRoute] = useState(() => canonicalizeAccRoute(parseAccUrl(window.location.href)));
       const [providerUsage, setProviderUsage] = useState(() => providerUsageFallback());
+      const [providerUsageHealth, setProviderUsageHealth] = useState({ state: "loading", valid: false });
       const [theme, setTheme] = useState(() => loadStoredTheme());
       const [heroQuery, setHeroQuery] = useState("");
       const mainRef = useRef(null);
@@ -3469,10 +3494,14 @@
         let active2 = true;
         loadProviderUsageSnapshot(window.__ACC_BASE_PATH__ || "/dashboard-plugins/autobot-command-center/dist", edition.projections.providerUsage).then(
           (snapshot) => {
-            if (active2) setProviderUsage(snapshot);
+            if (!active2) return;
+            setProviderUsage(snapshot);
+            setProviderUsageHealth({ state: "ready", valid: true });
           },
-          () => {
-            if (active2) setProviderUsage(providerUsageFallback());
+          (error) => {
+            if (!active2) return;
+            setProviderUsage(providerUsageFallback());
+            setProviderUsageHealth({ state: /validation/i.test(error.message) ? "invalid" : "unavailable", valid: false });
           }
         );
         return () => {
@@ -3481,8 +3510,8 @@
       }, []);
       useEffect(() => {
         const parsed = parseAccUrl(window.location.href);
-        if (parsed.view === "usage" || parsed.view === "hivemind") {
-          const target = canonicalizeAccRoute(parsed);
+        const target = canonicalizeAccRoute(parsed);
+        if (JSON.stringify(parsed) !== JSON.stringify(target)) {
           window.history.replaceState({}, "", buildAccUrl(target, window.__ACC_BASE_PATH__ || "/autobot-command-center"));
           setRoute(target);
         }
@@ -3511,17 +3540,16 @@
       function selectTheme(event) {
         setTheme(persistTheme(event.target.value));
       }
+      const integrationStatus = getIntegrationStatus({ providerUsage, providerUsageHealth, runtimeHealth: runtime.health });
       const primaryView = NAV_ITEMS.some((item) => item.id === route.view) ? route.view : null;
       let content;
       if (route.view === "portfolio") content = h(Portfolio, { route, go });
       else if (route.view === "analytics") content = h(Analytics, { route, go, providerUsage });
       else if (route.view === "benchmarks") content = h(Benchmarks, { route, go });
-      else if (route.view === "skills") content = h(Skills, { route, go });
       else if (route.view === "search") content = h(Search, { route, go });
-      else if (route.view === "evidence") content = h(Evidence, { route, go });
-      else content = h(Overview, { go, providerUsage });
+      else if (route.view === "settings") content = h(Settings, { theme, selectTheme, integrationStatus });
+      else content = h(Overview, { go, providerUsage, integrationStatus });
       const isAnalytics = route.view === "analytics";
-      const analyticsFixture = isAnalytics && route.mode === "fixture";
       return h(
         "div",
         { className: cx("acc-shell", route.view !== "overview" && "acc-shell--subview"), "data-acc-theme": theme },
@@ -3537,22 +3565,21 @@
             h(
               "div",
               null,
-              h("h1", null, edition.branding.title)
+              h("h1", null, edition.branding.title),
+              fixtures.meta.fixture ? h(Badge, { tone: "warn" }, "Dev fixtures") : null
             )
           ),
           h(
             "div",
             { className: "acc-hero__actions" },
-            h(
-              "label",
-              { className: "acc-theme-select" },
-              h("span", null, "Theme"),
-              h(
-                "select",
-                { value: theme, "aria-label": "Presentation theme", onChange: selectTheme },
-                Object.entries(THEME_PRESENTATION).map(([value, option]) => h("option", { value, key: value }, option.label))
-              )
-            ),
+            h("button", {
+              type: "button",
+              className: "acc-icon-button",
+              "aria-label": "Settings",
+              title: "Settings",
+              "aria-current": route.view === "settings" ? "page" : void 0,
+              onClick: () => go({ view: "settings" })
+            }, h("span", { "aria-hidden": true }, "\u2699")),
             h(
               "form",
               { className: "acc-hero-search", role: "search", onSubmit: submitHeroSearch },
@@ -3567,13 +3594,10 @@
               }),
               h("button", { type: "submit" }, "Search")
             ),
-            h("button", { type: "button", className: "acc-secondary-button acc-hero-search-mobile", onClick: () => go({ view: "search" }) }, "Search"),
-            isAnalytics ? h(Badge, { tone: analyticsFixture ? "warn" : "good" }, analyticsFixture ? "Illustrative fixture" : "Read-only analytics") : null,
-            h("button", { type: "button", className: "acc-secondary-button", onClick: () => go({ view: "evidence" }) }, "Evidence index")
+            h("button", { type: "button", className: "acc-secondary-button acc-hero-search-mobile", onClick: () => go({ view: "search" }) }, "Search")
           )
         ),
-        h(RuntimeHealthNotice),
-        isAnalytics ? null : h(TrustStrip, { openEvidence: () => go({ view: "evidence" }) }),
+        h(IntegrationIssueBar, { integrationStatus, go }),
         h("nav", { className: "acc-local-nav", "aria-label": "Command Center sections" }, NAV_ITEMS.map(
           (item) => h("button", {
             key: item.id,

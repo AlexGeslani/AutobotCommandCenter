@@ -37,7 +37,6 @@ export const SORTABLE_TABLES = Object.freeze({
     column('score', 'Score', 'number'),
     column('denominator', 'Denominator', 'number'),
     column('release', 'Release', 'text'),
-    column('availability', 'Availability', 'text'),
   ]),
 });
 

@@ -16,6 +16,7 @@ describe('scheduled provider usage refreshes', () => {
     expect(plist).toContain('__ACC_ROOT__');
     expect(plist).toContain('__NODE_PATH__');
     expect(plist).toContain('__OUTPUT_PATHS__');
+    expect(plist).toContain('<key>StartInterval</key>\n  <integer>60</integer>');
     expect(plist).not.toMatch(/\/Users\/|192\.168\.|\.lan\b/);
   });
 });

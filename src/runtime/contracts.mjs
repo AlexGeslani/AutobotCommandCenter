@@ -6,11 +6,11 @@ export const ACC_EDITION_SCHEMA_VERSION = 'acc-edition-v1';
 export const ACC_DOMAIN_SCHEMA_VERSION = 'acc-domain-projection-v1';
 export const ACC_RUNTIME_MAX_BYTES = 2 * 1024 * 1024;
 
-const KNOWN_MODULES = new Set(['overview', 'portfolio', 'analytics', 'benchmarks', 'skills', 'search']);
-const KNOWN_THEMES = new Set(['g1-console', 'current-dark', 'matrix', 'decepticons']);
+const KNOWN_MODULES = new Set(['overview', 'portfolio', 'analytics', 'benchmarks', 'search']);
+const KNOWN_THEMES = new Set(['g1-console', 'current-dark', 'matrix', 'decepticons', 'autobots']);
 const EDITION_FIELDS = new Set(['schemaVersion', 'id', 'branding', 'modules', 'projections', 'analytics']);
 const DOMAIN_FIELDS = new Set(['schemaVersion', 'generatedAt', 'data', 'showcase']);
-const DOMAIN_DATA_FIELDS = new Set(['meta', 'sources', 'voicePerformance', 'products', 'modelFamilies', 'conditions', 'benchmarkReleases', 'benchmarkComparison', 'results', 'runs', 'evaluations', 'skills']);
+const DOMAIN_DATA_FIELDS = new Set(['meta', 'sources', 'voicePerformance', 'products', 'modelFamilies', 'conditions', 'benchmarkReleases', 'benchmarkComparison', 'results', 'runs', 'evaluations']);
 
 function plainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -128,6 +128,11 @@ function validateScore(score, name) {
   if (!['verified', 'pending', 'provisional'].includes(score.evidence)) throw new TypeError(`${name}.evidence is unsupported`);
   assertString(score.denominator, `${name}.denominator`, { max: 512 });
   assertArray(score.detail, `${name}.detail`, 100);
+  score.detail.forEach((row, index) => {
+    if (!Array.isArray(row) || row.length !== 2) throw new TypeError(`${name}.detail[${index}] must be a [label, value] pair`);
+    assertString(row[0], `${name}.detail[${index}][0]`, { max: 128 });
+    assertString(row[1], `${name}.detail[${index}][1]`, { max: 1024 });
+  });
   if (score.progress !== undefined) {
     assertObject(score.progress, `${name}.progress`);
     if (!Number.isSafeInteger(score.progress.current) || !Number.isSafeInteger(score.progress.total) || score.progress.current < 0 || score.progress.total < 0 || score.progress.current > score.progress.total) throw new TypeError(`${name}.progress counts are invalid`);
@@ -152,20 +157,18 @@ export function validateDomainProjection(value) {
   assertArray(data.runs, 'domain projection.data.runs', 10000);
   assertArray(data.evaluations, 'domain projection.data.evaluations', 1000);
   assertObject(data.voicePerformance, 'domain projection.data.voicePerformance');
-  assertObject(data.benchmarkReleases, 'domain projection.data.benchmarkReleases', new Set(['tool-use', 'reasoning', 'coding']));
+  assertObject(data.benchmarkReleases, 'domain projection.data.benchmarkReleases', new Set(['tool-use', 'reasoning', 'coding', 'multi-turn-agent']));
   for (const domain of ['tool-use', 'reasoning', 'coding']) assertId(data.benchmarkReleases[domain], `domain projection.data.benchmarkReleases.${domain}`);
+  if (data.benchmarkReleases['multi-turn-agent'] !== undefined) assertId(data.benchmarkReleases['multi-turn-agent'], 'domain projection.data.benchmarkReleases.multi-turn-agent');
 
-  const sourceIds = assertUniqueIds(data.sources, 'sources');
+  assertUniqueIds(data.sources, 'sources');
   const productIds = assertUniqueIds(data.products, 'products');
   const familyIds = assertUniqueIds(data.modelFamilies, 'modelFamilies');
   const conditionIds = assertUniqueIds(data.conditions, 'conditions');
   const resultIds = assertUniqueIds(data.results, 'results');
   const runIds = assertUniqueIds(data.runs, 'runs');
   assertUniqueIds(data.evaluations, 'evaluations');
-  if (!sourceIds.has('runtime') || !sourceIds.has('skill-meta')) throw new TypeError('domain projection must preserve runtime and skill-meta authorities');
-  data.products.forEach((product, index) => {
-    if (product.availabilityAuthority !== undefined && !sourceIds.has(product.availabilityAuthority)) throw new TypeError(`products[${index}] references an unknown authority`);
-  });
+
   data.conditions.forEach((condition, index) => {
     if (!familyIds.has(condition.familyId)) throw new TypeError(`conditions[${index}] references an unknown family`);
   });
@@ -190,7 +193,7 @@ export function validateDomainProjection(value) {
   });
   const showcase = validateShowcaseProjection(value.showcase);
   const projected = structuredClone(value);
-  projected.data.skills = structuredClone(showcase.operationalSkills);
+  projected.showcase = structuredClone(showcase);
   for (const condition of projected.data.conditions) condition.results = projected.data.results.filter((result) => result.conditionId === condition.id);
   assertTextTree(projected, 'domain projection');
   return projected;

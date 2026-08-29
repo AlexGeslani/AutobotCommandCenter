@@ -15,6 +15,8 @@ const excludedFiles = new Set([
 const authorizedUiLabel = ['Tele', 'traan1'].join('');
 const authorizedUiLabelFiles = new Set([
   'src/theme.mjs',
+  'README.md',
+  'scripts/capture-showcase-media.mjs',
   '.hermes/plugins/autobot-command-center/dashboard/dist/index.js',
   'standalone/public/app.js',
 ]);
@@ -63,10 +65,18 @@ try {
 for (const path of candidateFiles) {
   const name = relative(root, path).replaceAll('\\', '/');
   if (excludedFiles.has(name)) continue;
-  const bytes = await readFile(path);
+  let bytes;
+  try {
+    bytes = await readFile(path);
+  } catch (error) {
+    if (error?.code === 'ENOENT') continue;
+    throw error;
+  }
   if (bytes.includes(0)) continue;
   const rawText = bytes.toString('utf8');
-  const text = authorizedUiLabelFiles.has(name) ? rawText.replaceAll(authorizedUiLabel, '') : rawText;
+  const text = authorizedUiLabelFiles.has(name)
+    ? rawText.replaceAll(authorizedUiLabel, '').replaceAll(authorizedUiLabel.toLowerCase(), '')
+    : rawText;
   for (const [label, pattern] of rules) {
     if (pattern.test(text)) findings.push(`${name}: ${label}`);
   }
