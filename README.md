@@ -2,7 +2,7 @@
 
 ![Autobot Command Center portfolio view](docs/screenshots/portfolio.png)
 
-A read-only, mobile-first evidence dashboard for AI products, model evaluations, reusable skills, provider usage, and privacy-safe web analytics. It turns scattered operational artifacts into a claim-safe visual projection without becoming a second source of truth.
+A read-only, mobile-first evidence dashboard for AI products, model evaluations, provider usage, and privacy-safe web analytics. It turns scattered operational artifacts into a claim-safe visual projection without becoming a second source of truth.
 
 > The checked-in application uses clearly labeled demonstration fixtures. Private deployment bindings, credentials, provider-account data, live traffic projections, runtime snapshots, hostnames, addresses, and local filesystem paths are intentionally excluded.
 
@@ -12,7 +12,7 @@ A read-only, mobile-first evidence dashboard for AI products, model evaluations,
 - **Privacy-safe web analytics** — Cloudflare edge aggregates are checksummed, reconciled, and projected without raw request logs or invented geography.
 - **Condition-aware model evaluation** — scores belong to an exact model condition, benchmark release, and supporting run lineage.
 - **Fail-closed provider usage** — missing telemetry is never presented as zero, healthy, unlimited, or current.
-- **Durable portfolio and skill projections** — products, capabilities, and reusable delivery knowledge retain provenance and operating boundaries.
+- **Durable portfolio projections** — products and capabilities retain provenance and operating boundaries.
 - **Responsive information architecture** — desktop matrices become focused, touch-friendly detail views on mobile.
 - **One source, two surfaces** — the same React application builds as a Hermes dashboard plugin and as a standalone static review artifact.
 - **Protected search boundary** — an optional server-side bridge uses strict request bounds, collection allowlists, origin checks, and file-mounted credentials.
@@ -23,9 +23,7 @@ A read-only, mobile-first evidence dashboard for AI products, model evaluations,
 |---|---|
 | ![Analytics index separating web, AI-service, and product sources](docs/screenshots/analytics.png) | ![Clearly labeled illustrative Cloudflare aggregate report](docs/screenshots/cloudflare-report.png) |
 
-| Model observatory | Skill registry |
-|---|---|
-| ![Condition-aware benchmark ranking with explicit availability boundaries](docs/screenshots/benchmarks.png) | ![Curated reusable skill registry with purpose, provenance, and validation](docs/screenshots/skills.png) |
+![Condition-aware benchmark ranking with explicit availability boundaries](docs/screenshots/benchmarks.png)
 
 The Cloudflare report image is generated from the repository's deterministic, explicitly non-current showcase fixture. The screenshots contain no provider-account usage or live traffic values.
 

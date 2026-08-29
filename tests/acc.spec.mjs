@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { readFile } from 'node:fs/promises';
 
 const pluginUrl = process.env.ACC_PLUGIN_PATH || '/autobot-command-center';
+const standaloneBuild = pluginUrl === '/';
 const pathSearchMode = pluginUrl === '/' || Boolean(process.env.ACC_BASE_URL);
 const searchUrl = pathSearchMode ? '/search' : `${pluginUrl}?view=search`;
 const searchDeepLink = (query = '') => `${searchUrl}${query ? `${searchUrl.includes('?') ? '&' : '?'}q=${encodeURIComponent(query).replaceAll('%20', '+')}` : ''}`;
@@ -49,6 +50,14 @@ async function routeProviderUsage(page, providers, generatedAt = '2026-07-31T23:
         contentType: 'application/json',
         body: JSON.stringify({ schemaVersion: 'provider-usage-v1', generatedAt, providers }),
       });
+    });
+  }
+}
+
+async function routeDomainProjection(page, projection) {
+  for (const pattern of ['**/data/domain.v1.json', '**/runtime/domain.v1.json']) {
+    await page.route(pattern, async (route) => {
+      await route.fulfill({ contentType: 'application/json', body: JSON.stringify(projection) });
     });
   }
 }
@@ -123,7 +132,7 @@ test('Overview prioritizes provider headroom and keeps destination summaries com
   const overview = page.locator('.acc-overview');
   const sections = overview.locator(':scope > section');
   await expect(sections.first().getByRole('heading', { name: 'Provider usage' })).toBeVisible();
-  await expect(sections.nth(1).getByRole('heading', { name: 'Source exceptions' })).toBeVisible();
+  await expect(sections.nth(1).getByRole('heading', { name: 'Integration issues' })).toBeVisible();
   await expect(sections.nth(2).getByRole('heading', { name: 'Explore details' })).toBeVisible();
   await expect(page.getByText('Recently landed', { exact: true })).toBeVisible();
   await expect(page.getByText('Durable capabilities', { exact: true })).toHaveCount(0);
@@ -132,11 +141,95 @@ test('Overview prioritizes provider headroom and keeps destination summaries com
   await expect(page.getByRole('button', { name: 'Open Portfolio' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open Analytics' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open Benchmarks' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Open Skill Registry' })).toBeVisible();
 
   const localNav = page.getByRole('navigation', { name: 'Command Center sections' });
-  await expect(localNav.getByRole('button')).toHaveCount(6);
+  await expect(localNav.getByRole('button')).toHaveCount(5);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  expect(browserErrors).toEqual([]);
+});
+
+test('Integration Status uses a compact issue bar, keeps complete details in Settings, and disappears only when validated healthy', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page);
+  const degradedDomain = structuredClone(demoDomainProjection);
+  degradedDomain.data.sources[0].state = 'stale';
+  degradedDomain.data.sources[0].freshness = 'Stale test projection';
+  degradedDomain.data.sources[0].invalidatesClaims = true;
+  await routeDomainProjection(page, degradedDomain);
+  await page.goto(pluginUrl);
+
+  const issueBar = page.getByRole('status', { name: 'Integration issues' });
+  await expect(issueBar).toBeVisible();
+  await expect(issueBar.getByText('Integration issues', { exact: true })).toBeVisible();
+  await expect(page.getByText('Source confidence degraded', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Sources verified', { exact: true })).toHaveCount(0);
+
+
+  const overviewIssues = page.getByRole('region', { name: 'Integration issues summary' });
+
+  await expect(overviewIssues.getByText('Reachability', { exact: true })).toHaveCount(0);
+  await issueBar.getByRole('button', { name: 'Review integration details' }).click();
+  await expect(page).toHaveURL(/view=settings/);
+  await expect(page.getByRole('heading', { name: 'Integration Status', exact: true })).toBeVisible();
+
+  for (const label of [
+    'Codex / ChatGPT collector',
+    'Claude Code collector',
+    'Antigravity CLI collector',
+    'Brave Search API collector',
+  ]) {
+    await expect(page.locator('[data-integration]').filter({ hasText: label })).toBeVisible();
+  }
+
+  const integrationDetails = page.getByRole('region', { name: 'Integration Status details' });
+  for (const field of ['Reachability', 'Configuration / authentication', 'Freshness / version', 'Validation', 'Dependent-claim impact', 'Last observed', 'Authority']) {
+    await expect(integrationDetails.getByText(field, { exact: true }).first()).toBeVisible();
+  }
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Integration Status', exact: true })).toBeVisible();
+
+  const now = new Date();
+  const observedAt = now.toISOString();
+  const resetsAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+  const healthyDomain = structuredClone(demoDomainProjection);
+  healthyDomain.generatedAt = observedAt;
+  healthyDomain.data.meta.fixture = false;
+  healthyDomain.data.meta.generatedAt = observedAt;
+  healthyDomain.data.sources.forEach((source) => {
+    source.state = 'fresh';
+    source.freshness = `Validated ${observedAt}`;
+    source.invalidatesClaims = false;
+  });
+  await routeDomainProjection(page, healthyDomain);
+  await routeProviderUsage(page, [
+    { provider: 'codex', product: 'Codex / ChatGPT', metricClass: 'subscription_quota', authority: 'installed Codex app-server account/rateLimits/read', collectionMode: 'local_app_server', adapterVersion: '1.0.0', sourceVersion: 'installed-app-server', observedAt, state: 'fresh', windows: [{ id: 'primary', label: 'Primary window', usedPercent: 99, resetsAt }] },
+    { provider: 'claude', product: 'Claude Code', metricClass: 'subscription_quota', authority: 'documented Claude Code status-line rate_limits event', collectionMode: 'status_line_cache', adapterVersion: '1.0.0', sourceVersion: 'claude-status-line', observedAt, state: 'fresh', windows: [{ id: 'five_hour', label: '5-hour window', usedPercent: 10, resetsAt }] },
+    { provider: 'antigravity', product: 'Antigravity CLI', metricClass: 'subscription_quota', authority: 'documented Antigravity CLI status-line quota event', collectionMode: 'status_line_cache', adapterVersion: '1.0.0', sourceVersion: 'antigravity-status-line', observedAt, state: 'fresh', windows: [{ id: 'gemini-5h', label: 'Gemini 5-hour window', usedPercent: 10, resetsAt }] },
+    { provider: 'brave-search', product: 'Brave Search API', metricClass: 'search_api_quota', authority: 'Brave Search API rate-limit response headers', collectionMode: 'direct_api_headers', adapterVersion: '1.0.0', sourceVersion: 'brave-rate-limit-headers', observedAt, state: 'fresh', windows: [{ id: 'monthly', label: 'Monthly searches', usedPercent: 0, resetsAt, limit: 2000, remaining: 2000 }], rateLimitPerSecond: 1 },
+  ], observedAt);
+  await page.goto(pluginUrl);
+  await expect(page.getByRole('status', { name: 'Integration issues' })).toHaveCount(0);
+  await expect(page.locator('[data-provider="codex"]')).toContainText('1% available');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const codexCollector = page.locator('[data-integration="provider:codex"]');
+  await expect(codexCollector.getByText('healthy', { exact: true })).toBeVisible();
+  await expect(codexCollector).toContainText('collector health does not represent quota pressure');
+  expect(browserErrors).toEqual([]);
+});
+
+test('Portfolio presents dated capability evidence without a runtime availability monitor', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page);
+  await routeDomainProjection(page, demoDomainProjection);
+  await page.goto(pluginUrl);
+  await page.getByRole('button', { name: 'Open Portfolio' }).click();
+  await page.getByRole('button', { name: /Demo Command Center/ }).click();
+
+  await expect(page.getByRole('heading', { name: 'Demo Command Center', exact: true })).toBeVisible();
+  await expect(page.getByText('demonstration', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'What works now', exact: true })).toBeVisible();
+  await expect(page.getByText('Validated JSON contracts', { exact: true })).toBeVisible();
+  await expect(page.getByText('Sanitized fixture · last verified 2026-01-01', { exact: true })).toBeVisible();
+  const history = page.getByRole('region', { name: 'Testing history' });
+  await expect(history.getByRole('heading', { name: 'Portable projection contract', exact: true })).toBeVisible();
   expect(browserErrors).toEqual([]);
 });
 
@@ -146,9 +239,9 @@ test('invalid runtime domain remains visible as stale while the dashboard falls 
     await route.fulfill({ contentType: 'application/json', body: '{"schemaVersion":"acc-domain-projection-v1","generatedAt":"invalid"}' });
   });
   await page.goto(pluginUrl);
-  const notice = page.locator('.acc-runtime-health');
-  await expect(notice).toContainText('Runtime data is stale or invalid');
-  await expect(notice).toContainText('Domain projection is invalid or unavailable; showing bundled demonstration data marked stale.');
+  const notice = page.getByRole('status', { name: 'Integration issues' });
+  await expect(notice).toContainText('ACC Domain projection');
+  await expect(notice).toContainText('invalid');
   await expect(page.getByRole('heading', { name: 'Autobot Command Center' })).toBeVisible();
   expect(await page.evaluate(() => window.__ACC_RUNTIME_HEALTH__.domain)).toMatchObject({ state: 'demo_invalid', stale: true, valid: false });
   expect(browserErrors).toEqual([]);
@@ -199,13 +292,13 @@ test('benchmark heading opens a detailed testing philosophy without a landing-pa
   await philosophyButton.click();
   await expect(page).toHaveURL(/view=benchmarks.*mode=methodology/);
   await expect(page.getByRole('heading', { name: 'Testing philosophy' })).toBeVisible();
-  for (const benchmark of ['IFEval', 'BFCL V4', 'tau2']) {
+  for (const benchmark of ['IFEval', 'BFCL V4 Hard-50', 'tau2 Hard-24']) {
     await expect(page.getByRole('heading', { name: benchmark })).toBeVisible();
   }
   await expect(page.getByText('40 frozen prompts', { exact: true })).toBeVisible();
-  await expect(page.getByText('150 frozen scored cases', { exact: true })).toBeVisible();
-  await expect(page.getByText('50 frozen tasks', { exact: true })).toBeVisible();
-  await expect(page.getByText('25 Retail · 25 Telecom', { exact: true })).toBeVisible();
+  await expect(page.getByText('50 frozen hard cases', { exact: true })).toBeVisible();
+  await expect(page.getByText('24 frozen hard tasks', { exact: true })).toBeVisible();
+  await expect(page.getByText('12 Retail · 12 Telecom', { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Testing philosophy' })).toBeVisible();
   await page.getByRole('button', { name: 'Back to Benchmarks' }).click();
@@ -282,7 +375,7 @@ test('Analytics remains readable without horizontal overflow on mobile', async (
   await page.goto(pluginUrl + '?view=analytics&domain=web&subject=kungfuclan.com&range=30d');
   await expect(page.getByRole('heading', { name: 'Kung Fu Clan', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-  await expect(page.getByRole('navigation', { name: 'Command Center sections' }).getByRole('button')).toHaveCount(6);
+  await expect(page.getByRole('navigation', { name: 'Command Center sections' }).getByRole('button')).toHaveCount(5);
 });
 
 test('legacy usage URL redirects to the canonical Analytics provider route', async ({ page }) => {
@@ -297,7 +390,7 @@ test('Search deep links, filters locally, and sends one explicit protected reque
   await page.goto(searchDeepLink('Qwen 35B'));
   await expect(page.getByRole('heading', { name: 'Search', exact: true })).toBeVisible();
   const navigation = page.getByRole('navigation', { name: 'Command Center sections' });
-  await expect(navigation.getByRole('button')).toHaveText(['Overview', 'Portfolio', 'Analytics', 'Benchmarks', 'Skill Registry', 'Search']);
+  await expect(navigation.getByRole('button')).toHaveText(['Overview', 'Portfolio', 'Analytics', 'Benchmarks', 'Search']);
   await expect(page.getByText('Hive Mind', { exact: true })).toHaveCount(0);
   const local = page.getByLabel('Search ACC', { exact: true });
   await expect(local).toHaveValue('Qwen 35B');
@@ -321,15 +414,15 @@ test('Search deep links, filters locally, and sends one explicit protected reque
 
 test('Search failure is unavailable without retry and keeps local results usable', async ({ page }) => {
   const counts = await routeProtectedKnowledge(page, { failure: true });
-  await page.goto(searchDeepLink('skills'));
-  await expect(page.getByText('autobots', { exact: true }).first()).toBeVisible();
+  await page.goto(searchDeepLink('qwen'));
+  await expect(page.getByText('Qwen3.6 35B Heretic · Q4_K_M · MTP-N2', { exact: true })).toBeVisible();
   await page.getByLabel('Protected knowledge query').fill('Unavailable fixture');
   expect(counts).toEqual({ search: 0, health: 0 });
   await page.getByRole('button', { name: 'Search protected knowledge' }).click();
   await expect(page.getByText(/Protected knowledge search is unavailable/)).toBeVisible();
   await page.waitForTimeout(250);
   expect(counts).toEqual({ search: 1, health: 0 });
-  await expect(page.getByText('autobots', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Qwen3.6 35B Heretic · Q4_K_M · MTP-N2', { exact: true })).toBeVisible();
 });
 
 test('legacy search view redirects one way and desktop hero Search creates a deep link', async ({ page }) => {
@@ -343,12 +436,14 @@ test('legacy search view redirects one way and desktop hero Search creates a dee
   await expect(page.getByText('Kung Fu Clan analytics', { exact: true })).toBeVisible();
 });
 
-test('four themes persist locally while status colors, themed mark, and reduced motion stay invariant', async ({ page }) => {
+test('five themes persist locally while status colors, themed mark, and reduced motion stay invariant', async ({ page }) => {
   await page.goto(pluginUrl);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
   const shell = page.locator('.acc-shell');
   const commandMark = page.locator('.acc-command-mark');
   await expect(shell).toHaveAttribute('data-acc-theme', 'g1-console');
-  await expect(page.getByLabel('Presentation theme').locator('option')).toHaveCount(4);
+  await expect(page.getByLabel('Presentation theme').locator('option')).toHaveCount(5);
   const g1Console = await shell.evaluate((element) => {
     const style = getComputedStyle(element);
     return {
@@ -363,6 +458,30 @@ test('four themes persist locally while status colors, themed mark, and reduced 
   const g1MarkColor = await commandMark.evaluate((element) => getComputedStyle(element).backgroundColor);
   await expect(page.locator('.acc-g1-console-detail')).toHaveAttribute('aria-hidden', 'true');
   await expect(page.locator('.acc-g1-console-detail > span')).toHaveCount(5);
+
+  await page.getByLabel('Presentation theme').selectOption('autobots');
+  await expect(shell).toHaveAttribute('data-acc-theme', 'autobots');
+  await expect(page.getByLabel('Presentation theme').locator('option:checked')).toHaveText('Autobots');
+  const autobots = await shell.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      good: style.getPropertyValue('--acc-status-good').trim(),
+      warn: style.getPropertyValue('--acc-status-warn').trim(),
+      bad: style.getPropertyValue('--acc-status-bad').trim(),
+      accent: style.getPropertyValue('--acc-accent-primary').trim(),
+      background: style.backgroundColor,
+    };
+  });
+  expect(autobots).toEqual({
+    good: g1Console.good,
+    warn: g1Console.warn,
+    bad: g1Console.bad,
+    accent: '#e84b4f',
+    background: 'rgb(7, 11, 18)',
+  });
+  await page.reload();
+  await expect(page.locator('.acc-shell')).toHaveAttribute('data-acc-theme', 'autobots');
+  await page.getByRole('button', { name: 'Settings' }).click();
 
   await page.getByLabel('Presentation theme').selectOption('current-dark');
   await expect(shell).toHaveAttribute('data-acc-theme', 'current-dark');
@@ -436,6 +555,7 @@ test('four themes persist locally while status colors, themed mark, and reduced 
 
 test('Decepticons uses the G1 insignia purple and a local faction mark', async ({ page }) => {
   await page.goto(pluginUrl);
+  await page.getByRole('button', { name: 'Settings' }).click();
   const shell = page.locator('.acc-shell');
   const mark = page.locator('.acc-command-mark');
   const autobotMask = await mark.evaluate((element) => {
@@ -486,10 +606,11 @@ test('Decepticons uses the G1 insignia purple and a local faction mark', async (
   await expect(page.locator('.acc-command-mark')).toHaveAttribute('data-acc-faction', 'decepticon');
 });
 
-test('desktop hero is concise with a smaller left title and right-aligned controls below', async ({ page }) => {
+test('desktop header keeps title, Settings, and Search in one compact row', async ({ page }) => {
   await page.setViewportSize({ width: 1210, height: 700 });
   await page.goto(pluginUrl);
-  await page.getByLabel('Presentation theme').selectOption('matrix');
+  await expect(page.locator('.acc-hero').getByLabel('Presentation theme')).toHaveCount(0);
+  await expect(page.locator('.acc-hero').getByRole('button', { name: 'Settings' })).toBeVisible();
   await expect(page.getByText('AUTOBOT SYSTEMS · READ-ONLY PROJECTION', { exact: true })).toHaveCount(0);
   await expect(page.getByText('What we built, what the evidence established, and what is available now.', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Prototype fixtures', { exact: true })).toHaveCount(0);
@@ -499,12 +620,14 @@ test('desktop hero is concise with a smaller left title and right-aligned contro
     range.selectNodeContents(heading);
     const text = range.getBoundingClientRect();
     const actions = document.querySelector('.acc-hero__actions').getBoundingClientRect();
+    const hero = document.querySelector('.acc-hero').getBoundingClientRect();
     return {
       fontSize: Number.parseFloat(getComputedStyle(heading).fontSize),
       leftAligned: getComputedStyle(heading).textAlign === 'left' || getComputedStyle(heading).textAlign === 'start',
-      controlsBelow: actions.top > text.bottom,
+      sameRow: Math.abs((actions.top + actions.height / 2) - (text.top + text.height / 2)) < 12,
       controlsAlignment: getComputedStyle(document.querySelector('.acc-hero__actions')).justifyContent,
       clipped: heading.scrollWidth > heading.clientWidth + 1,
+      compact: hero.height <= 88,
       overlaps: text.left < actions.right
         && text.right > actions.left
         && text.top < actions.bottom
@@ -514,9 +637,10 @@ test('desktop hero is concise with a smaller left title and right-aligned contro
   expect(geometry).toEqual({
     fontSize: expect.any(Number),
     leftAligned: true,
-    controlsBelow: true,
+    sameRow: true,
     controlsAlignment: 'flex-end',
     clipped: false,
+    compact: true,
     overlaps: false,
   });
   expect(geometry.fontSize).toBeLessThanOrEqual(42);
@@ -526,8 +650,11 @@ test('mobile hero exposes a 44px Search button and Search has no horizontal over
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(pluginUrl);
   const searchButton = page.locator('.acc-hero-search-mobile');
+  const settingsButton = page.locator('.acc-hero').getByRole('button', { name: 'Settings' });
   await expect(searchButton).toBeVisible();
+  await expect(settingsButton).toBeVisible();
   expect((await searchButton.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  expect((await settingsButton.boundingBox()).height).toBeGreaterThanOrEqual(44);
   await searchButton.click();
   await expect(page).toHaveURL(new RegExp(`${searchUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
   await page.locator('.acc-local-search-field').getByRole('searchbox', { name: 'Search ACC' }).fill('qwen heretic');
@@ -535,7 +662,7 @@ test('mobile hero exposes a 44px Search button and Search has no horizontal over
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 
-test('Portfolio and Skills render only the frozen source-backed showcase projection', async ({ page }) => {
+test('Portfolio stays on its frozen showcase projection', async ({ page }) => {
   await page.goto(pluginUrl + '?view=portfolio');
   const publicProjects = page.getByRole('region', { name: 'GitHub Showcase Projects' });
   await expect(publicProjects.locator('[data-showcase-project]')).toHaveCount(3);
@@ -549,19 +676,11 @@ test('Portfolio and Skills render only the frozen source-backed showcase project
   const internal = page.getByRole('region', { name: 'Internal Products & Capabilities' });
   await expect(internal.getByText('Jarvis Voice Agent', { exact: true })).toHaveCount(0);
 
-  await page.goto(pluginUrl + '?view=skills');
-  await expect(page.getByRole('heading', { name: 'Showcase Editions' })).toBeVisible();
-  await expect(page.getByText(/No independently approved public showcase editions/i)).toBeVisible();
-  const operational = page.getByRole('region', { name: 'Operational Skills' });
-  await expect(operational.locator('.acc-skill-row')).toHaveCount(8);
-  await expect(operational.getByText('v3.2.0', { exact: true })).toBeVisible();
-  await expect(operational.getByText('unknown', { exact: true })).toHaveCount(8);
-  await expect(page.getByText(/projection, not synchronization/i)).toBeVisible();
 });
 
 test('Voice Lab exposes the measured six-route performance visual and reliability boundary', async ({ page }) => {
   await page.goto(pluginUrl + '?view=portfolio&product=voice-lab');
-  await expect(page.getByRole('heading', { name: 'Voice runtime comparison' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Voice runtime comparison', exact: true })).toBeVisible();
   await expect(page.locator('img.acc-voice-visual')).toHaveAttribute('src', /^data:image\/png;base64,/);
   await expect(page.locator('[data-voice-route]')).toHaveCount(6);
   await expect(page.getByText('1 timeout', { exact: true })).toBeVisible();
@@ -572,7 +691,7 @@ test('Voice Lab exposes the measured six-route performance visual and reliabilit
 test('Voice Lab comparison is readable without mobile horizontal overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(pluginUrl + '?view=portfolio&product=voice-lab');
-  await expect(page.getByRole('heading', { name: 'Voice runtime comparison' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Voice runtime comparison', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   await expect(page.locator('.acc-voice-mobile')).toBeVisible();
   await expect(page.locator('.acc-voice-desktop')).toBeHidden();
@@ -592,7 +711,7 @@ test('measured benchmark view distinguishes verified capability, live completion
   await expect(measuredVisuals.locator('[data-measured-suite="agent"] [data-score-bar]')).toHaveCount(measuredConditionCount);
   const qwenAgentScore = measuredVisuals.locator('[data-measured-suite="agent"] [data-score-bar="qwen38-2b-mlx"]');
   await expect(qwenAgentScore.getByText('0.0', { exact: true })).toBeVisible();
-  await expect(qwenAgentScore.getByText('0 / 50 frozen tasks', { exact: true })).toBeVisible();
+  await expect(qwenAgentScore.getByText('0 / 24 frozen hard tasks · retrospective projection', { exact: true })).toBeVisible();
   await expect(measuredVisuals.getByText('36 / 40 strict prompts', { exact: true })).toBeVisible();
   await expect(measuredVisuals.getByText('Illustrative', { exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
@@ -600,52 +719,62 @@ test('measured benchmark view distinguishes verified capability, live completion
   await expect(comparison.locator('[data-benchmark-profile]')).toHaveCount(measuredConditionCount);
   const luna = comparison.locator('[data-benchmark-profile="gpt56-luna-max"]');
   await expect(luna.getByText('82.5', { exact: true })).toBeVisible();
-  await expect(luna.getByText('45.9', { exact: true })).toBeVisible();
-  await expect(luna.getByText('48.0', { exact: true })).toBeVisible();
-  await expect(luna.getByText('58.8', { exact: true })).toBeVisible();
+  await expect(luna.getByText('40.0', { exact: true })).toBeVisible();
+  await expect(luna.getByText('37.5', { exact: true })).toBeVisible();
+  await expect(luna.getByText('53.3', { exact: true })).toBeVisible();
   await expect(luna.getByText('Complete · 3/3 verified', { exact: true })).toBeVisible();
   await expect(luna.getByText('3 verified', { exact: true })).toBeVisible();
   const sol = comparison.locator('[data-benchmark-profile="gpt56-sol-max"]');
   await expect(sol.getByText('90.0', { exact: true })).toBeVisible();
-  await expect(sol.getByText('48.5', { exact: true })).toBeVisible();
-  await expect(sol.getByText('70.0', { exact: true })).toBeVisible();
-  await expect(sol.getByText('69.5', { exact: true })).toBeVisible();
+  await expect(sol.getByText('48.0', { exact: true })).toBeVisible();
+  await expect(sol.getByText('54.2', { exact: true })).toBeVisible();
+  await expect(sol.getByText('64.1', { exact: true })).toBeVisible();
   await expect(sol.getByText('3 verified', { exact: true })).toBeVisible();
   const qwen2b = comparison.locator('[data-benchmark-profile="qwen38-2b-mlx"]');
   await expect(qwen2b.getByText('22.5', { exact: true })).toBeVisible();
-  await expect(qwen2b.getByText('8.7', { exact: true })).toBeVisible();
+  await expect(qwen2b.getByText('6.0', { exact: true })).toBeVisible();
   await expect(qwen2b.getByText('0.0', { exact: true })).toBeVisible();
-  await expect(qwen2b.getByText('10.4', { exact: true })).toBeVisible();
+  await expect(qwen2b.getByText('9.5', { exact: true })).toBeVisible();
   await expect(qwen2b.getByText('Complete · 3/3 verified', { exact: true })).toBeVisible();
   await expect(qwen2b.getByText('3 verified', { exact: true })).toBeVisible();
   const gpu35 = comparison.locator('[data-benchmark-profile="qwen36-35b-heretic-gpu-b"]');
   await expect(gpu35.locator('.acc-three-score__value').getByText('77.5', { exact: true })).toBeVisible();
-  await expect(gpu35.locator('.acc-three-score__value').getByText('51.8', { exact: true })).toBeVisible();
-  await expect(gpu35.locator('.acc-three-score__value').getByText('66.0', { exact: true })).toBeVisible();
+  await expect(gpu35.locator('.acc-three-score__value').getByText('34.0', { exact: true })).toBeVisible();
+  await expect(gpu35.locator('.acc-three-score__value').getByText('41.7', { exact: true })).toBeVisible();
   await expect(gpu35.getByText('In progress', { exact: true })).toHaveCount(0);
   await expect(gpu35.getByText('Queued', { exact: true })).toHaveCount(0);
-  await expect(gpu35.getByText('65.1', { exact: true })).toBeVisible();
+  await expect(gpu35.getByText('51.1', { exact: true })).toBeVisible();
   await expect(gpu35.getByText('Complete · 3/3 verified', { exact: true })).toBeVisible();
   await expect(gpu35.getByText('3 verified', { exact: true })).toBeVisible();
   const qwen27 = comparison.locator('[data-benchmark-profile="qwen38-27b-rvn-heretic-gpu-b"]');
   await expect(qwen27.locator('.acc-three-score__value').getByText('80.0', { exact: true })).toBeVisible();
-  await expect(qwen27.getByText('In progress', { exact: true })).toHaveCount(1);
-  await expect(qwen27.getByText('Queued', { exact: true })).toHaveCount(1);
+  await expect(qwen27.getByText('In progress', { exact: true })).toHaveCount(0);
+  await expect(qwen27.getByText('Queued', { exact: true })).toHaveCount(2);
   await expect(qwen27.getByText('80.0', { exact: true })).toHaveCount(2);
   await expect(qwen27.getByText('In progress · 1/3 verified', { exact: true })).toBeVisible();
   const qwen4b = comparison.locator('[data-benchmark-profile="qwen38-4b-mlx"]');
-  await expect(qwen4b.getByText('In progress', { exact: true })).toHaveCount(1);
-  await expect(qwen4b.getByText('Queued', { exact: true })).toHaveCount(2);
-  await expect(qwen4b.getByText('17 / 40 frozen prompts · collection active', { exact: true })).toBeVisible();
-  await expect(qwen4b.getByText('0 / 261 required generated rows · queued behind IFEval', { exact: true })).toBeVisible();
-  await expect(qwen4b.getByText('0 / 50 frozen tasks · queued behind BFCL', { exact: true })).toBeVisible();
-  await expect(qwen4b.getByText('Pending · 0/3 verified', { exact: true })).toBeVisible();
+  const qwen4bSuites = qwen4b.locator('.acc-three-score__value');
+  await expect(qwen4bSuites).toHaveCount(3);
+  for (const suite of ['IFEval', 'BFCL V4 Hard-50', 'tau2 Hard-24']) {
+    await expect(qwen4b.getByText(suite, { exact: true })).toBeVisible();
+  }
+  const qwen4bStates = await qwen4bSuites.locator('strong').allTextContents();
+  expect(qwen4bStates.every((state) => /^(?:\d+\.\d|In progress|Queued|Pending)$/.test(state))).toBe(true);
+  const qwen4bProgress = qwen4bSuites.getByRole('progressbar');
+  for (let index = 0; index < await qwen4bProgress.count(); index += 1) {
+    const progress = qwen4bProgress.nth(index);
+    const current = Number(await progress.getAttribute('aria-valuenow'));
+    const total = Number(await progress.getAttribute('aria-valuemax'));
+    expect(Number.isFinite(current) && Number.isFinite(total) && current >= 0 && current <= total).toBe(true);
+  }
+  await expect(qwen4b.getByText(/^(?:Pending|In progress|Complete) · [0-3]\/3 verified$/)).toBeVisible();
   await expect(comparison.getByText('Illustrative', { exact: true })).toHaveCount(0);
   await expect(comparison.getByText('Current average is the equal-weight arithmetic mean', { exact: false })).toBeVisible();
   await sol.getByRole('button', { name: /GPT-5\.6 Sol/i }).click();
   await expect(page).toHaveURL(/condition=gpt56-sol-max/);
   await expect(page.getByRole('heading', { name: 'GPT-5.6 Sol · Max' })).toBeVisible();
-  await expect(page.getByText('69.52% equal-weight macro', { exact: false })).toBeVisible();
+  await expect(page.getByText('Current suite average', { exact: true })).toBeVisible();
+  await expect(page.getByText('64.1', { exact: true })).toBeVisible();
   const solOperations = page.getByRole('region', { name: 'Operational benchmark footprint' });
   await expect(solOperations.getByText('22.64M', { exact: true })).toBeVisible();
   await expect(solOperations.getByText('1.85M', { exact: true })).toBeVisible();
@@ -663,8 +792,8 @@ test('measured benchmark view distinguishes verified capability, live completion
   await luna.getByRole('button', { name: /GPT-5\.6 Luna/i }).click();
   await expect(page).toHaveURL(/condition=gpt56-luna-max/);
   await expect(page.getByRole('heading', { name: 'GPT-5.6 Luna · Max' })).toBeVisible();
-  await expect(page.getByText('Non-live AST', { exact: true })).toBeVisible();
-  await expect(page.getByText('12 / 25 · 48.0%', { exact: true })).toHaveCount(2);
+  await expect(page.getByText('20 / 50 correct · 40.0%', { exact: true })).toBeVisible();
+  await expect(page.getByText('25.20% official subset aggregation', { exact: true })).toBeVisible();
   await expect(page.getByText('acc-tau2-fixed-judge-v1.1 · GPT-5.5 Low', { exact: true })).toBeVisible();
   const lunaOperations = page.getByRole('region', { name: 'Operational benchmark footprint' });
   await expect(lunaOperations.getByText('18.55M', { exact: true })).toBeVisible();
@@ -683,10 +812,10 @@ test('measured benchmark view distinguishes verified capability, live completion
   await expect(page).toHaveURL(/condition=qwen38-2b-mlx/);
   await expect(page.getByRole('heading', { name: 'Qwen 3.8 2B Distill · 4-bit MLX' })).toBeVisible();
   await expect(page.getByText('9 / 40 strict prompts', { exact: true })).toBeVisible();
-  await expect(page.getByText('150 / 150 frozen scored cases', { exact: true })).toBeVisible();
-  await expect(page.getByText('0 / 50 frozen tasks', { exact: true })).toBeVisible();
+  await expect(page.getByText('50 / 50 frozen hard cases · 119 / 119 generated · retrospective calibration', { exact: true })).toBeVisible();
+  await expect(page.getByText('0 / 24 frozen hard tasks · retrospective projection', { exact: true })).toBeVisible();
   await expect(page.getByText('Current suite average', { exact: true })).toBeVisible();
-  await expect(page.getByText('10.4', { exact: true })).toBeVisible();
+  await expect(page.getByText('9.5', { exact: true })).toBeVisible();
   await expect(page.getByText('Complete · 3/3 final-verified suites', { exact: true })).toBeVisible();
   const qwenOperations = page.getByRole('region', { name: 'Operational benchmark footprint' });
   await expect(qwenOperations.getByText('51.30M', { exact: true })).toBeVisible();
@@ -701,13 +830,13 @@ test('measured benchmark view distinguishes verified capability, live completion
   await page.goto(pluginUrl + '?view=benchmarks');
   await gpu35.getByRole('button', { name: /Qwen3\.6 35B Heretic/i }).click();
   await expect(page.getByRole('heading', { name: 'Qwen3.6 35B Heretic · Q4_K_M · MTP-N2' })).toBeVisible();
-  await expect(page.getByText('150 / 150 frozen scored cases', { exact: true })).toBeVisible();
-  await expect(page.getByText('51.76% · 261 / 261 generated · 150 / 150 scored · final verification passed', { exact: true })).toBeVisible();
-  await expect(page.getByText('33 / 50 frozen tasks', { exact: true })).toBeVisible();
+  await expect(page.getByText('50 / 50 frozen hard cases · 119 / 119 generated · retrospective calibration', { exact: true })).toBeVisible();
+  await expect(page.getByText('17 / 50 correct · 34.0%', { exact: true })).toBeVisible();
+  await expect(page.getByText('10 / 24 frozen hard tasks · retrospective projection', { exact: true })).toBeVisible();
   await expect(page.getByText('Retail', { exact: true })).toBeVisible();
-  await expect(page.getByText('10 / 25 · 40.0%', { exact: true })).toBeVisible();
+  await expect(page.getByText('0 / 12 · 0.0%', { exact: true })).toBeVisible();
   await expect(page.getByText('Telecom', { exact: true })).toBeVisible();
-  await expect(page.getByText('23 / 25 · 92.0%', { exact: true })).toBeVisible();
+  await expect(page.getByText('10 / 12 · 83.3%', { exact: true })).toBeVisible();
   await expect(page.getByText('Complete · 3/3 final-verified suites', { exact: true })).toBeVisible();
   const gpuOperations = page.getByRole('region', { name: 'Operational benchmark footprint' });
   await expect(gpuOperations.getByText('36.56M', { exact: true })).toBeVisible();
@@ -718,8 +847,8 @@ test('measured benchmark view distinguishes verified capability, live completion
   await qwen27.getByRole('button', { name: /Qwen3\.8 27B RVN Heretic/i }).click();
   await expect(page.getByRole('heading', { name: 'Qwen3.8 27B RVN Heretic · Q4_K_M · MTP-N1' })).toBeVisible();
   await expect(page.getByText('32 / 40 strict prompts', { exact: true })).toBeVisible();
-  await expect(page.getByText(/\d+ \/ (261 generated · score withheld|150 frozen scored cases)/, { exact: true })).toBeVisible();
-  await expect(page.locator('.acc-core-score-card__denominator').filter({ hasText: /\d+ \/ 50 (queued · score withheld|live · score withheld|frozen tasks)/ })).toBeVisible();
+  await expect(page.getByText(/\d+ \/ 119 generated · score withheld/, { exact: true })).toBeVisible();
+  await expect(page.locator('.acc-core-score-card__denominator').filter({ hasText: /\d+ \/ 24 (queued · score withheld|live · score withheld|frozen hard tasks)/ })).toBeVisible();
   await expect(page.getByText('In progress · 1/3 final-verified suites · pending suites excluded', { exact: true })).toBeVisible();
   const qwen27Operations = page.getByRole('region', { name: 'Operational benchmark footprint' });
   await expect(qwen27Operations.getByText('80.33K', { exact: true })).toBeVisible();
@@ -729,9 +858,8 @@ test('measured benchmark view distinguishes verified capability, live completion
   expect(browserErrors).toEqual([]);
 });
 
-test('leaderboard opens exact tested condition then run evidence', async ({ page }) => {
-  await page.goto(pluginUrl + '?view=benchmarks&domain=tool-use');
-  await page.getByRole('button', { name: /Qwen3\.6 35B.*AWQ.*vLLM/i }).click();
+test('condition detail opens exact retained canonical run evidence', async ({ page }) => {
+  await page.goto(pluginUrl + '?view=benchmarks&domain=tool-use&condition=qwen36-awq-vllm');
   await expect(page).toHaveURL(/condition=qwen36-awq-vllm/);
   await expect(page.getByText('Condition fingerprint', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /Open run evidence for tool-use bfcl-v3/i }).click();
@@ -740,28 +868,63 @@ test('leaderboard opens exact tested condition then run evidence', async ({ page
   await expect(page.getByRole('heading', { name: 'Run evidence' })).toBeVisible();
 });
 
-test('capability rollup ranks complete coverage and separates partial evidence', async ({ page }) => {
+test('capability rollup keeps post-freeze coverage gaps Unknown and out of complete ranking', async ({ page }) => {
   await page.goto(pluginUrl + '?view=benchmarks&domain=rollup');
   await expect(page).toHaveURL(/domain=rollup/);
   const complete = page.getByRole('region', { name: 'Comparable rollup' });
-  await expect(complete.getByText('GPT-5.6 · Max · API', { exact: true })).toBeVisible();
-  await expect(complete.getByText('Qwen3.6 35B · AWQ · vLLM', { exact: true })).toBeVisible();
-  await expect(complete.getByText('3/3 domains', { exact: true })).toHaveCount(2);
-  const qwenRow = complete.locator('.acc-capability-row').filter({ hasText: 'Qwen3.6 35B · AWQ · vLLM' });
-  for (const contribution of ['94.1%', '84.9%', '87.6%']) await expect(qwenRow.getByText(contribution, { exact: true })).toBeVisible();
+  await expect(complete.locator('.acc-capability-row')).toHaveCount(0);
   const partial = page.getByRole('region', { name: 'Partial evidence' });
+  await expect(partial.getByText('GPT-5.6 · Max · API', { exact: true })).toBeVisible();
+  await expect(partial.getByText('Qwen3.6 35B · AWQ · vLLM', { exact: true })).toBeVisible();
   await expect(partial.getByText('Devstral Small 2 · FP8 · vLLM', { exact: true })).toBeVisible();
-  await expect(partial.getByText('2/3 domains · not ranked with complete coverage', { exact: true })).toBeVisible();
+  await expect(partial.getByText('2/4 domains · not ranked with complete coverage', { exact: true })).toHaveCount(2);
+  await expect(partial.getByText('1/4 domains · not ranked with complete coverage', { exact: true })).toBeVisible();
+  const qwenRow = partial.locator('.acc-capability-row').filter({ hasText: 'Qwen3.6 35B · AWQ · vLLM' });
+  await expect(qwenRow.getByText('Unknown', { exact: true })).toHaveCount(2);
+  for (const contribution of ['84.9%', '87.6%']) await expect(qwenRow.getByText(contribution, { exact: true })).toBeVisible();
   await expect(page.getByText('Missing evidence is Unknown, never zero.', { exact: true })).toBeVisible();
 });
 
-test('evaluations are globally discoverable and attached to objects', async ({ page }) => {
+test('testing records live with their owning projects without a global Evidence index', async ({ page }) => {
   await page.goto(pluginUrl);
-  await page.getByRole('button', { name: 'Evidence index' }).click();
-  await expect(page).toHaveURL(/view=evidence/);
-  await expect(page.getByRole('heading', { name: 'Evaluation evidence' })).toBeVisible();
-  await page.getByRole('button', { name: /Voice interaction latency envelope/i }).click();
-  await expect(page.getByText('Affected objects', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Evidence index' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Evaluation evidence' })).toHaveCount(0);
+
+  await page.goto(pluginUrl + '?view=portfolio&product=voice-lab');
+  const voiceHistory = page.getByRole('region', { name: 'Testing history' });
+  await expect(voiceHistory.getByRole('heading', { name: 'Prime voice runtime comparison' })).toBeVisible();
+  await expect(voiceHistory.getByRole('heading', { name: 'Voice interaction latency envelope' })).toBeVisible();
+  await expect(voiceHistory.getByText('Question', { exact: true })).toHaveCount(2);
+  await expect(voiceHistory.getByText('Current finding', { exact: true })).toHaveCount(2);
+  await expect(voiceHistory.getByText('Decision outcome', { exact: true })).toHaveCount(2);
+
+  await page.goto(pluginUrl + '?view=portfolio&product=model-serving');
+  await expect(page.getByRole('region', { name: 'Testing history' }).getByRole('heading', { name: 'Qwen3.6 production condition' })).toBeVisible();
+
+
+  await page.goto(pluginUrl + '?view=evidence&evaluation=eval-voice-latency');
+  await expect(page).toHaveURL(/view=portfolio.*product=voice-lab/);
+  await expect(page.getByRole('heading', { name: 'Prime Voice Lab' })).toBeVisible();
+});
+
+test('top-level page explanations use accessible information popovers instead of repeated ledes', async ({ page }) => {
+  for (const [route, title, copy] of [
+    ['?view=portfolio', 'Portfolio', 'Public GitHub evidence is refreshed'],
+    ['?view=analytics', 'Analytics', 'One reporting destination for web properties'],
+    ['?view=search', 'Search', 'Typing filters the bundled ACC index'],
+  ]) {
+    await page.goto(pluginUrl + route);
+    const view = page.locator('.acc-view').first();
+    await expect(view.locator(':scope > .acc-lede')).toHaveCount(0);
+    await expect(view.getByRole('heading', { name: title, exact: true })).toBeVisible();
+    const info = view.getByRole('button', { name: `About ${title}` });
+    await expect(info).toBeVisible();
+    const panelId = await info.getAttribute('aria-controls');
+    expect(panelId).toMatch(/^acc-info-/);
+    await info.click();
+    await expect(view.locator(`#${panelId}`)).toHaveAttribute('role', 'note');
+    await expect(view.getByText(new RegExp(copy))).toBeVisible();
+  }
 });
 
 test('mobile composition has no primary horizontal overflow', async ({ page }) => {
@@ -784,8 +947,7 @@ test('critical accessibility scan is clean across overview and detail routes', a
     '?view=analytics&domain=web&subject=kungfuclan.com&range=30d',
     '?view=benchmarks&domain=rollup',
     '?view=benchmarks&domain=tool-use&condition=qwen36-awq-vllm',
-    '?view=skills&skill=autobots',
-    '?view=evidence&evaluation=eval-voice-latency',
+    '?view=settings',
     '?view=hivemind',
   ]) {
     await page.goto(pluginUrl + route);
@@ -824,18 +986,6 @@ test('valid coding lineage opens its exact canonical result and run', async ({ p
   await expect(page.getByText('BigCodeBench-Hard · Qwen3.6 AWQ', { exact: true })).toBeVisible();
 });
 
-test('runtime-dependent service claims are withheld in overview and portfolio', async ({ page }) => {
-  await page.goto(pluginUrl);
-  const runtimeException = page.locator('.acc-overview-exception').filter({ hasText: 'Runtime telemetry' });
-  await expect(runtimeException.getByText('stale', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Open Portfolio' }).click();
-  const service = page.getByRole('button', { name: /Local AI Runtime/i });
-  await expect(service.getByText('unknown', { exact: true })).toBeVisible();
-  await service.click();
-  await expect(page.getByRole('heading', { name: 'Current availability' })).toBeVisible();
-  await expect(page.getByText('Unknown — runtime telemetry is stale', { exact: true })).toBeVisible();
-  await expect(page.getByText('OpenAI-compatible endpoint', { exact: true })).toHaveCount(0);
-});
 
 test('benchmark domain is reload-stable and participates in browser history', async ({ page }) => {
   const errors = [];
@@ -894,7 +1044,7 @@ test('every Analytics and Benchmarks data column is stably sortable with accessi
   expect(descendingRequests.slice(descendingRequests.findIndex((value) => value === '—')).every((value) => value === '—')).toBe(true);
 
   await page.goto(pluginUrl + '?view=benchmarks');
-  for (const suite of ['IFEval', 'BFCL V4', 'tau2']) {
+  for (const suite of ['IFEval', 'BFCL V4 Hard-50', 'tau2 Hard-24']) {
     await exerciseEverySortHeader(page.getByRole('table', { name: `${suite} measured suite comparison` }), ['Tested condition', 'Score or completion']);
   }
   const comparison = page.getByRole('table', { name: 'Three-score model comparison' });
@@ -970,9 +1120,7 @@ test('every visible mobile ACC control meets the 44px touch-target floor', async
     '?view=benchmarks&domain=rollup',
     '?view=benchmarks&domain=tool-use&condition=qwen36-awq-vllm',
     '?view=benchmarks&domain=tool-use&condition=qwen36-awq-vllm&result=r-bfcl-qwen&release=bfcl-v3&run=run-bfcl-qwen',
-    '?view=skills',
-    '?view=skills&skill=autobots',
-    '?view=evidence',
+    '?view=settings',
     '?view=hivemind',
   ];
   for (const route of routes) {
@@ -989,24 +1137,52 @@ test('every visible mobile ACC control meets the 44px touch-target floor', async
 });
 
 test('SPA navigation moves focus to the main result region', async ({ page }) => {
-  await page.goto(pluginUrl + '?view=benchmarks&domain=tool-use');
+  await page.goto(pluginUrl + '?view=benchmarks&domain=reasoning');
   await page.getByRole('button', { name: /Qwen3\.6 35B.*AWQ.*vLLM/i }).click();
   await expect(page.locator('.acc-main')).toBeFocused();
 });
 
+test('passive Antigravity waiting keeps last-good windows explicitly non-current and is the only healthy-system issue', async ({ page }) => {
+  const now = new Date();
+  const observedAt = new Date(now.getTime() - 60_000).toISOString();
+  const resetsAt = new Date(now.getTime() + 60 * 60_000).toISOString();
+  await routeDomainProjection(page, demoDomainProjection);
+  await routeProviderUsage(page, [
+    { provider: 'codex', product: 'Codex / ChatGPT', metricClass: 'subscription_quota', authority: 'installed Codex app-server account/rateLimits/read', collectionMode: 'local_app_server', adapterVersion: '1.0.0', sourceVersion: 'installed-app-server', observedAt, state: 'fresh', windows: [{ id: 'primary', label: 'Primary window', usedPercent: 10, resetsAt }] },
+    { provider: 'claude', product: 'Claude Code', metricClass: 'subscription_quota', authority: 'documented Claude Code status-line rate_limits event', collectionMode: 'status_line_cache', adapterVersion: '1.0.0', sourceVersion: 'claude-status-line', observedAt, state: 'fresh', windows: [{ id: 'five_hour', label: '5-hour window', usedPercent: 10, resetsAt }] },
+    { provider: 'antigravity', product: 'Antigravity CLI', metricClass: 'subscription_quota', authority: 'documented Antigravity CLI status-line quota event', collectionMode: 'status_line_cache', adapterVersion: '1.0.0', sourceVersion: 'antigravity-status-line', observedAt, state: 'inactive', windows: [{ id: 'gemini-5h', label: 'Gemini 5-hour window', usedPercent: 25, resetsAt }] },
+    { provider: 'brave-search', product: 'Brave Search API', metricClass: 'search_api_quota', authority: 'Brave Search API rate-limit response headers', collectionMode: 'direct_api_headers', adapterVersion: '1.0.0', sourceVersion: 'brave-rate-limit-headers', observedAt, state: 'fresh', windows: [{ id: 'monthly', label: 'Monthly searches', usedPercent: 10, resetsAt, limit: 2000, remaining: 1800 }], rateLimitPerSecond: 1 },
+  ], now.toISOString());
+  await page.goto(pluginUrl);
+  const card = page.locator('[data-provider="antigravity"]');
+  await expect(card.getByText('Waiting for active trusted session', { exact: true })).toBeVisible();
+  await expect(card.getByText(/^Last successful observation /)).toBeVisible();
+  await expect(card.getByText('Last-good quota only — current headroom is not claimed.', { exact: true })).toBeVisible();
+  const overviewIssues = page.getByRole('region', { name: 'Integration issues summary' });
+  await expect(overviewIssues.locator('.acc-overview-exception')).toHaveCount(1);
+  await expect(overviewIssues.getByText('Antigravity — Waiting for active trusted session', { exact: true })).toBeVisible();
+});
+
 test('provider usage projects a sanitized snapshot without expanding primary navigation', async ({ page }) => {
+  const observedAt = new Date().toISOString();
+  const resetsAt = new Date(Date.now() + 60 * 60_000).toISOString();
+  await routeProviderUsage(page, [
+    { provider: 'codex', product: 'Codex / ChatGPT', metricClass: 'subscription_quota', authority: 'installed Codex app-server account/rateLimits/read', collectionMode: 'local_app_server', adapterVersion: '1.0.0', sourceVersion: 'installed-app-server', observedAt, state: 'fresh', windows: [{ id: 'primary', label: 'Primary window', usedPercent: 10, resetsAt }] },
+    { provider: 'claude', product: 'Claude Code', metricClass: 'subscription_quota', authority: 'documented Claude Code status-line rate_limits event', collectionMode: 'status_line_cache', adapterVersion: '1.0.0', sourceVersion: 'claude-status-line', observedAt, state: 'fresh', windows: [{ id: 'five_hour', label: '5-hour window', usedPercent: 10, resetsAt }] },
+    { provider: 'antigravity', product: 'Antigravity CLI', metricClass: 'subscription_quota', authority: 'documented Antigravity CLI status-line quota event', collectionMode: 'status_line_cache', adapterVersion: '1.0.0', sourceVersion: 'antigravity-status-line', observedAt, state: 'fresh', windows: [{ id: 'gemini-5h', label: 'Gemini 5-hour window', usedPercent: 10, resetsAt }] },
+  ], observedAt);
   await page.goto(pluginUrl);
   await expect(page.getByRole('heading', { name: 'Provider usage' })).toBeVisible();
   await expect(page.locator('[data-provider="codex"]')).toContainText(/Codex \/ ChatGPT/);
   await expect(page.locator('[data-provider="claude"]').getByText(/^Last observed /)).toBeVisible();
-  await expect(page.locator('[data-provider="claude"]').getByText('Genuine activity updates immediately; guarded /usage refresh also runs when a reported window resets or after 12 hours.', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-provider="claude"]').getByText('Genuine activity updates private evidence immediately; the public snapshot advances on the scheduled collector. Guarded /usage refresh also runs when a reported window resets or after 12 hours.', { exact: true })).toBeVisible();
   await expect(page.locator('[data-provider="claude"]').getByText(/^stale$/i)).toHaveCount(0);
   await expect(page.locator('[data-provider="antigravity"]').getByText(/^Last observed /)).toBeVisible();
   await expect(page.locator('[data-provider="antigravity"]').getByText(/^stale$/i)).toHaveCount(0);
   await page.getByRole('button', { name: 'Open details' }).click();
   await expect(page).toHaveURL(/view=analytics.*domain=ai.*subject=provider-usage/);
   await expect(page.getByRole('heading', { name: 'Usage & limits' })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Command Center sections' }).getByRole('button')).toHaveCount(6);
+  await expect(page.getByRole('navigation', { name: 'Command Center sections' }).getByRole('button')).toHaveCount(5);
 });
 
 test('provider quota windows render accessible progress bars with reset information below', async ({ page }) => {

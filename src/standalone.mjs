@@ -3,8 +3,9 @@ import { createRoot } from 'react-dom/client';
 import { registerAutobotCommandCenter } from './plugin.mjs';
 
 window.__ACC_BASE_PATH__ = '/';
+window.__ACC_STANDALONE__ = true;
 window.__ACC_HIVEMIND_API__ = '/api/hivemind';
-window.__HERMES_SKILLS_URL__ = 'http://127.0.0.1:9129/skills';
+
 window.__HERMES_PLUGIN_SDK__ = {
   React,
   hooks: {

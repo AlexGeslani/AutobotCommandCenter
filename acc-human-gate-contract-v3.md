@@ -14,8 +14,6 @@ It is not a Wiki, task manager, session browser, benchmark launcher, or second c
 1. **Overview** — recently landed outcomes, current durable capabilities, separate model leaders by domain, and only evaluations awaiting a named decision.
 2. **Portfolio** — products and capabilities with operating envelope, limitations, evidence, and attached evaluation timeline.
 3. **Benchmarks / Model Observatory** — release-scoped rankings whose row identity is an exact tested condition, with family and run lineage.
-4. **Skill Registry** — only authored or materially maintained reusable artifacts, with separate provenance, stewardship, publication, and validation states.
-
 Evaluations are not a fifth primary destination. A secondary Evidence index provides cross-domain discovery while each record remains attached to affected objects.
 
 ## Model evidence identity

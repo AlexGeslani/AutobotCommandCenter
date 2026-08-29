@@ -1,5 +1,7 @@
+import { buildProviderUsageSnapshot, CLAUDE_USAGE_VALIDITY_MS } from '../../src/provider-usage/schema.mjs';
+
 const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
-export const CLAUDE_USAGE_REFRESH_AFTER_MS = 12 * 60 * 60 * 1000;
+export const CLAUDE_USAGE_REFRESH_AFTER_MS = CLAUDE_USAGE_VALIDITY_MS;
 export const CLAUDE_USAGE_COMMAND_TIMEOUT_MS = 110_000;
 
 const MONTHS = new Map([
@@ -175,6 +177,29 @@ export function shouldRefreshClaudeUsage(record, now = new Date().toISOString())
   return reportedResetPassed || !Number.isFinite(observedMs) || nowMs - observedMs >= CLAUDE_USAGE_REFRESH_AFTER_MS;
 }
 
+function canonicalFailureRecord(prior, state, now) {
+  let lastGood = null;
+  try {
+    const candidate = buildProviderUsageSnapshot({ generatedAt: now, providers: [prior] }, now).providers[0];
+    if (candidate.provider === 'claude') lastGood = candidate;
+  } catch {
+    // Malformed private cache bytes are never retained in a public failure record.
+  }
+  const fallback = {
+    provider: 'claude',
+    product: 'Claude Code',
+    metricClass: 'subscription_quota',
+    authority: 'documented Claude Code status-line rate_limits event',
+    collectionMode: 'status_line_cache',
+    adapterVersion: '1.0.0',
+    sourceVersion: 'unavailable',
+    observedAt: now,
+    windows: [],
+  };
+  const record = { ...(lastGood || fallback), state };
+  return buildProviderUsageSnapshot({ generatedAt: now, providers: [record] }, now).providers[0];
+}
+
 export async function refreshClaudeUsageCache({
   readRecord,
   runUsage,
@@ -188,10 +213,21 @@ export async function refreshClaudeUsageCache({
     if (error?.code !== 'ENOENT') throw error;
   }
   if (!shouldRefreshClaudeUsage(prior, now)) return { outcome: 'skipped_recent' };
-  const transcript = await runUsage();
-  const record = normalizeClaudeUsageTranscript(transcript, now);
-  await writeRecord(record);
-  return { outcome: 'updated', record };
+  try {
+    const transcript = await runUsage();
+    const record = normalizeClaudeUsageTranscript(transcript, now);
+    await writeRecord(record);
+    return { outcome: 'updated', record };
+  } catch (error) {
+    const outcome = error?.code === 'AUTH_ERROR' ? 'auth_error' : 'error';
+    const record = canonicalFailureRecord(prior, outcome, now);
+    await writeRecord(record);
+    return { outcome, record };
+  }
+}
+
+export function classifyClaudeUsageExitStatus(status) {
+  return status === 20 ? 'AUTH_ERROR' : 'REFRESH_ERROR';
 }
 
 export function buildClaudeUsageExpectProgram() {

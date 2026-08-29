@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { writeAntigravityStatusLineCache } from '../adapters/antigravity-statusline.mjs';
 import { captureAndPublishStatusLine } from '../lib/statusline-capture.mjs';
-import { requestSnapshotPublication } from '../lib/request-snapshot-publication.mjs';
 import { loadAccPathConfig, pathInPrivateCache } from '../../src/path-config.mjs';
 
 const paths = await loadAccPathConfig();
@@ -15,7 +14,6 @@ process.stdin.on('end', async () => {
   const captured = await captureAndPublishStatusLine({
     input,
     writeCache: (value) => writeAntigravityStatusLineCache(value, { cachePath }),
-    publish: requestSnapshotPublication,
   });
   process.stdout.write(captured ? 'ACC Antigravity usage captured\n' : 'ACC Antigravity usage unavailable\n');
 });

@@ -3,19 +3,18 @@
   "id": "demo",
   "branding": {
     "title": "Command Center",
-    "defaultTheme": "current-dark"
+    "defaultTheme": "matrix"
   },
   "modules": [
     { "id": "overview", "label": "Overview" },
     { "id": "portfolio", "label": "Portfolio" },
     { "id": "analytics", "label": "Analytics" },
     { "id": "benchmarks", "label": "Benchmarks" },
-    { "id": "skills", "label": "Skill Registry" },
     { "id": "search", "label": "Search" }
   ],
   "projections": {
     "domain": "runtime/domain.v1.json",
-    "providerUsage": "runtime/provider-usage.v1.json"
+    "providerUsage": "data/provider-usage.v1.json"
   },
   "analytics": {
     "web": [],

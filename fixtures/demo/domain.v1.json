@@ -23,22 +23,6 @@
         "state": "fresh",
         "freshness": "Demo fixture",
         "invalidatesClaims": false
-      },
-      {
-        "id": "runtime",
-        "label": "Runtime telemetry",
-        "authority": "Current service availability",
-        "state": "missing",
-        "freshness": "No local projection connected",
-        "invalidatesClaims": true
-      },
-      {
-        "id": "skill-meta",
-        "label": "Skill metadata",
-        "authority": "Publication and stewardship state",
-        "state": "missing",
-        "freshness": "No local projection connected",
-        "invalidatesClaims": true
       }
     ],
     "voicePerformance": {
@@ -100,8 +84,6 @@
         "host": "Demo host",
         "context": "Example envelope",
         "output": "Example envelope",
-        "availability": "unknown",
-        "availabilityNote": "No runtime authority connected",
         "fingerprint": "demo-model|local|example",
         "results": []
       }
@@ -236,18 +218,6 @@
   "showcase": {
     "schemaVersion": "showcase-projection-v1",
     "refreshedAt": "2026-01-01T00:00:00.000Z",
-    "githubProjects": [],
-    "showcaseEditions": [],
-    "operationalSkills": [
-      {
-        "id": "demo-skill",
-        "name": "Demo Operational Skill",
-        "description": "Illustrative reusable procedure metadata.",
-        "version": "1.0.0",
-        "category": "Demonstration",
-        "metadataStatus": "frontmatter",
-        "validationStatus": "Unknown"
-      }
-    ]
+    "githubProjects": []
   }
 }

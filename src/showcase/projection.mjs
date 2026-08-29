@@ -63,17 +63,8 @@ function validatePointerPolicy(pointers, label) {
   if (pointers.relatedArticle !== undefined) assertHttpsUrl(pointers.relatedArticle, `${label}.relatedArticle`);
 }
 
-function validateShowcaseEditionPolicy(edition, label) {
-  assertObject(edition, label, ['id', 'name', 'repository', 'independenceStatus', 'validationStatus']);
-  assertString(edition.id, `${label}.id`);
-  assertString(edition.name, `${label}.name`);
-  assertString(edition.repository, `${label}.repository`);
-  if (edition.independenceStatus !== 'approved-independent') throw new Error(`${label} is not an independently approved showcase edition`);
-  assertString(edition.validationStatus, `${label}.validationStatus`);
-}
-
 export function validateShowcasePolicy(policy) {
-  assertObject(policy, 'policy', ['schemaVersion', 'github', 'skills']);
+  assertObject(policy, 'policy', ['schemaVersion', 'github']);
   if (policy.schemaVersion !== 'showcase-projection-policy-v1') throw new Error('Unsupported showcase projection policy schema');
   assertObject(policy.github, 'policy.github', ['projects']);
   const projects = assertArray(policy.github.projects, 'policy.github.projects');
@@ -87,18 +78,6 @@ export function validateShowcasePolicy(policy) {
     if (seen.has(project.id)) throw new Error(`${label}.id must be unique`);
     seen.add(project.id);
     validatePointerPolicy(project.pointers, `${label}.pointers`);
-  });
-  assertObject(policy.skills, 'policy.skills', ['showcaseEditions', 'operational']);
-  assertArray(policy.skills.showcaseEditions, 'policy.skills.showcaseEditions').forEach(validateShowcaseEditionPolicy);
-  const skillIds = new Set();
-  assertArray(policy.skills.operational, 'policy.skills.operational').forEach((skill, index) => {
-    const label = `policy.skills.operational[${index}]`;
-    assertObject(skill, label, ['id', 'category', 'source']);
-    assertString(skill.id, `${label}.id`);
-    assertString(skill.category, `${label}.category`);
-    assertRelativePointer(skill.source, `${label}.source`);
-    if (!skill.source.endsWith('/SKILL.md') || skillIds.has(skill.id)) throw new Error(`${label} must select one unique relative SKILL.md`);
-    skillIds.add(skill.id);
   });
   assertSafeClientStrings(policy, 'policy');
   return policy;
@@ -121,31 +100,8 @@ function validateGithubProject(project, index) {
   if (project.repositoryUrl !== `https://github.com/${repository}`) throw new Error(`${label}.repositoryUrl is not canonical`);
 }
 
-function validateOperationalSkill(skill, index) {
-  const label = `snapshot.operationalSkills[${index}]`;
-  assertObject(skill, label, [
-    'id', 'name', 'description', 'version', 'category', 'license', 'platforms',
-    'metadataStatus', 'validationStatus',
-  ], ['id', 'name', 'description', 'version', 'category', 'metadataStatus', 'validationStatus']);
-  for (const field of ['id', 'name', 'description', 'version', 'category']) assertString(skill[field], `${label}.${field}`);
-  if (skill.license !== undefined) assertString(skill.license, `${label}.license`);
-  if (skill.platforms !== undefined) assertArray(skill.platforms, `${label}.platforms`).forEach((item, itemIndex) => assertString(item, `${label}.platforms[${itemIndex}]`));
-  if (skill.metadataStatus !== 'frontmatter') throw new Error(`${label}.metadataStatus must be frontmatter`);
-  if (skill.validationStatus !== 'Unknown') throw new Error(`${label}.validationStatus requires retained validation authority and must currently be Unknown`);
-}
-
-function validateShowcaseEdition(edition, index) {
-  const label = `snapshot.showcaseEditions[${index}]`;
-  assertObject(edition, label, ['id', 'name', 'repository', 'repositoryUrl', 'visibility', 'independenceStatus', 'validationStatus']);
-  for (const field of ['id', 'name', 'repository', 'independenceStatus', 'validationStatus']) assertString(edition[field], `${label}.${field}`);
-  assertHttpsUrl(edition.repositoryUrl, `${label}.repositoryUrl`);
-  if (edition.visibility !== 'PUBLIC' || edition.independenceStatus !== 'approved-independent') {
-    throw new Error(`${label} must be PUBLIC and independently approved`);
-  }
-}
-
 export function validateShowcaseProjection(snapshot) {
-  assertObject(snapshot, 'snapshot', ['schemaVersion', 'refreshedAt', 'githubProjects', 'showcaseEditions', 'operationalSkills']);
+  assertObject(snapshot, 'snapshot', ['schemaVersion', 'refreshedAt', 'githubProjects']);
   if (snapshot.schemaVersion !== 'showcase-projection-v1') throw new Error('Unsupported showcase projection snapshot schema');
   assertString(snapshot.refreshedAt, 'snapshot.refreshedAt');
   if (Number.isNaN(Date.parse(snapshot.refreshedAt))) throw new Error('snapshot.refreshedAt must be an ISO timestamp');
@@ -153,8 +109,7 @@ export function validateShowcaseProjection(snapshot) {
   if (projects.length > 50) throw new Error('Snapshot project selection must be bounded');
   projects.forEach(validateGithubProject);
   if (new Set(projects.map((project) => project.id)).size !== projects.length) throw new Error('Snapshot project identities must be unique');
-  assertArray(snapshot.showcaseEditions, 'snapshot.showcaseEditions').forEach(validateShowcaseEdition);
-  assertArray(snapshot.operationalSkills, 'snapshot.operationalSkills').forEach(validateOperationalSkill);
+
   assertSafeClientStrings(snapshot, 'snapshot');
   return snapshot;
 }
@@ -166,16 +121,5 @@ export function getPortfolioProjection(snapshot, internalProducts) {
     refreshedAt: checked.refreshedAt,
     githubShowcaseProjects: checked.githubProjects,
     internalProducts: internalProducts.filter((product) => !publicIds.has(product.id)),
-  };
-}
-
-export function getSkillsProjection(snapshot) {
-  const checked = validateShowcaseProjection(snapshot);
-  return {
-    refreshedAt: checked.refreshedAt,
-    showcaseEditions: checked.showcaseEditions,
-    showcaseEmptyState: checked.showcaseEditions.length ? null : 'No independently approved public showcase editions are allowlisted.',
-    operationalSkills: checked.operationalSkills,
-    boundary: 'This is a one-way metadata projection, not synchronization. Editing and enablement remain in Hermes Skills.',
   };
 }

@@ -13,7 +13,7 @@ import {
   RELEASES,
   fixtures,
   getCondition,
-  getEvaluationIndex,
+  getObjectTestingRecords,
   getVoicePerformance,
   getFamily,
   getLeaderboard,
@@ -21,11 +21,9 @@ import {
   getBenchmarkComparison,
   getMeasuredBenchmarkVisuals,
   getRunLineage,
-  getEffectiveAvailability,
-  getEffectiveProductClaims,
+
   getShowcasePortfolio,
-  getShowcaseSkills,
-  getSourceTrust,
+  getIntegrationStatus,
   getOverviewProjection,
   filterLocalAcc,
   buildAccUrl,
@@ -238,23 +236,38 @@ export async function registerAutobotCommandCenter() {
   }
 
   function StatusBadge({ state }) {
-    const tone = state === 'fresh' || state === 'canonical' || state === 'validated' || state === 'available' || state === 'verified'
+    const tone = state === 'healthy' || state === 'fresh' || state === 'canonical' || state === 'validated' || state === 'available' || state === 'verified'
       ? 'good'
-      : state === 'stale' || state === 'provisional' || state === 'unknown' || state === 'pending' || state === 'in-progress' || state === 'queued' || state === 'blocked'
+      : state === 'warning' || state === 'stale' || state === 'not-evaluated' || state === 'provisional' || state === 'unknown' || state === 'pending' || state === 'in-progress' || state === 'queued' || state === 'blocked'
         ? 'warn'
-        : state === 'missing' || state === 'unavailable' || state === 'failed'
+        : state === 'error' || state === 'invalid' || state === 'collection-failed' || state === 'missing' || state === 'unavailable' || state === 'failed'
           ? 'bad'
           : 'neutral';
     return h(Badge, { tone }, String(state).replaceAll('-', ' '));
   }
 
-  function SectionHeading({ eyebrow, title, action }) {
+  function InfoPopover({ title, children }) {
+    const [open, setOpen] = useState(false);
+    const panelId = `acc-info-${title.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-').replaceAll(/^-|-$/g, '')}`;
+    return h('div', { className: cx('acc-info-popover', open && 'is-open') },
+      h('button', {
+        type: 'button', className: 'acc-info-button', 'aria-label': `About ${title}`,
+        'aria-expanded': open, 'aria-controls': panelId, title: `About ${title}`, onClick: () => setOpen((value) => !value),
+      }, h('span', { 'aria-hidden': true }, 'ⓘ')),
+      open ? h('div', { id: panelId, className: 'acc-info-popover__panel', role: 'note' }, children) : null,
+    );
+  }
+
+  function SectionHeading({ eyebrow, title, action, help }) {
     return h('div', { className: 'acc-section-heading' },
       h('div', null,
         eyebrow ? h('p', { className: 'acc-eyebrow' }, eyebrow) : null,
         h('h2', null, title),
       ),
-      action || null,
+      help || action ? h('div', { className: 'acc-section-heading__actions' },
+        help ? h(InfoPopover, { title }, h('p', null, help)) : null,
+        action || null,
+      ) : null,
     );
   }
 
@@ -262,16 +275,24 @@ export async function registerAutobotCommandCenter() {
     return h('span', { className: 'acc-unknown' }, children);
   }
 
-  function RuntimeHealthNotice() {
-    const issues = ['edition', 'domain']
-      .map((key) => [key, runtime.health[key]])
-      .filter(([, state]) => state.state !== 'ready');
-    if (!issues.length) return null;
-    return h('aside', { className: 'acc-runtime-health', role: 'status', 'aria-live': 'polite' },
-      h('strong', null, 'Runtime data is stale or invalid'),
-      h('ul', null, issues.map(([key, state]) => h('li', { key },
-        `${key === 'edition' ? 'Edition' : 'Domain projection'} ${state.state === 'stale_invalid' ? 'is invalid; showing last-good data marked stale.' : 'is invalid or unavailable; showing bundled demonstration data marked stale.'}`,
-      ))),
+  function IntegrationIssueBar({ integrationStatus, go }) {
+    if (integrationStatus.allHealthy) return null;
+    const shown = integrationStatus.issues.slice(0, 3);
+    const remainder = integrationStatus.issues.length - shown.length;
+    return h('aside', { className: 'acc-integration-issues', role: 'status', 'aria-label': 'Integration issues', 'aria-live': 'polite' },
+      h('div', { className: 'acc-integration-issues__summary' },
+        h('strong', null, 'Integration issues'),
+        fixtures.meta.fixture ? h(Badge, { tone: 'warn' }, 'Dev fixtures') : null,
+        h('span', null, `${integrationStatus.issues.length} need attention`),
+      ),
+      h('div', { className: 'acc-integration-issues__items' },
+        shown.map((integration) => h('span', { key: integration.id },
+          h(StatusBadge, { state: integration.status }),
+          h('span', null, integration.label),
+        )),
+        remainder > 0 ? h('span', { className: 'acc-integration-issues__more' }, `+${remainder} more`) : null,
+      ),
+      h('button', { type: 'button', className: 'acc-integration-issues__action', onClick: () => go({ view: 'settings' }) }, 'Review integration details'),
     );
   }
 
@@ -279,6 +300,27 @@ export async function registerAutobotCommandCenter() {
     return h('div', { className: 'acc-meter', 'aria-label': `${label}: ${value}%` },
       h('div', { className: 'acc-meter__track' }, h('span', { style: { width: `${value}%` } })),
       h('span', null, `${value}% evidence complete`),
+    );
+  }
+
+  function TestingHistory({ type, id }) {
+    const records = getObjectTestingRecords(type, id);
+    if (!records.length) return null;
+    const headingId = `acc-testing-history-${type}-${id}`;
+    return h('section', { className: 'acc-related acc-testing-history', role: 'region', 'aria-labelledby': headingId },
+      h('h3', { id: headingId }, 'Testing history'),
+      h('div', { className: 'acc-testing-history__list' }, records.map((record) => h('article', { className: 'acc-testing-record', key: record.id },
+        h('div', { className: 'acc-testing-record__head' },
+          h('div', null, h('small', null, record.stage), h('h4', null, record.title)),
+          h(StatusBadge, { state: record.findingStatus }),
+        ),
+        h(Meter, { value: record.progress, label: record.title }),
+        h('dl', null,
+          h('div', null, h('dt', null, 'Question'), h('dd', null, record.question)),
+          h('div', null, h('dt', null, 'Current finding'), h('dd', null, record.finding)),
+          h('div', null, h('dt', null, 'Decision outcome'), h('dd', null, record.decision)),
+        ),
+      ))),
     );
   }
 
@@ -316,30 +358,6 @@ export async function registerAutobotCommandCenter() {
         ),
       ))),
       h('div', { className: 'acc-prototype-note acc-voice-warning' }, snapshot.reliabilityNote),
-    );
-  }
-
-  function TrustStrip({ openEvidence }) {
-    const sources = getSourceTrust();
-    const invalid = sources.filter((source) => source.invalidatesClaims);
-    return h('section', { className: 'acc-trust', 'aria-labelledby': 'acc-trust-title' },
-      h('div', { className: 'acc-trust__copy' },
-        h('div', { className: 'acc-trust__title-row' },
-          h('h2', { id: 'acc-trust-title' }, invalid.length ? 'Source confidence degraded' : 'Sources verified'),
-          h(Badge, { tone: 'warn' }, 'Dev fixtures'),
-          h(Badge, { tone: invalid.length ? 'warn' : 'good' }, `${sources.length - invalid.length}/${sources.length} claim-safe`),
-        ),
-        h('p', null, invalid.length
-          ? 'Availability and publication claims are withheld where authority is stale or missing.'
-          : 'All displayed claims are backed by current authoritative sources.'),
-      ),
-      h('div', { className: 'acc-trust__sources' }, sources.map((source) =>
-        h('button', {
-          type: 'button', className: 'acc-source-chip', key: source.id,
-          title: `${source.authority}. ${source.freshness}`,
-          onClick: openEvidence,
-        }, h(StatusBadge, { state: source.state }), h('span', null, source.label)),
-      )),
     );
   }
 
@@ -387,6 +405,9 @@ export async function registerAutobotCommandCenter() {
     if (record.observedAt && ['fresh', 'stale', 'expired'].includes(record.state)) {
       return h('small', { className: 'acc-provider-sync' }, `Last observed ${new Date(record.observedAt).toLocaleString()}`);
     }
+    if (record.observedAt && record.windows?.length && ['inactive', 'error', 'auth_error'].includes(record.state)) {
+      return h('small', { className: 'acc-provider-sync' }, `Last successful observation ${new Date(record.observedAt).toLocaleString()}`);
+    }
     return h(StatusBadge, { state: record.state });
   }
 
@@ -399,8 +420,11 @@ export async function registerAutobotCommandCenter() {
     const renderCard = (record) => h('article', { key: record.provider, className: 'acc-provider-card', 'data-provider': record.provider },
       h('div', { className: 'acc-provider-card__head' }, h('strong', null, record.product), h(ProviderUsageSync, { record })),
       h('small', null, record.authority),
-      record.provider === 'claude' ? h('small', { className: 'acc-provider-activity-note' }, 'Genuine activity updates immediately; guarded /usage refresh also runs when a reported window resets or after 12 hours.') : null,
+      record.provider === 'claude' ? h('small', { className: 'acc-provider-activity-note' }, 'Genuine activity updates private evidence immediately; the public snapshot advances on the scheduled collector. Guarded /usage refresh also runs when a reported window resets or after 12 hours.') : null,
       record.provider === 'brave-search' ? h('small', { className: 'acc-provider-activity-note' }, `${record.rateLimitPerSecond} request/second · Quota refresh uses one successful search and runs at most daily.`) : null,
+      record.provider === 'antigravity' && record.state === 'inactive' ? h('p', { className: 'acc-provider-empty' }, 'Waiting for active trusted session') : null,
+      ['error', 'auth_error'].includes(record.state) && record.windows.length ? h('p', { className: 'acc-provider-empty' }, 'Latest refresh failed — retained quota is last-good only, not current headroom.') : null,
+      record.state === 'inactive' && record.windows.length ? h('p', { className: 'acc-provider-empty' }, 'Last-good quota only — current headroom is not claimed.') : null,
       record.state === 'expired' ? h('p', { className: 'acc-provider-empty' }, 'Expired — reported reset time has passed; showing the last known observation.') : null,
       record.windows.length
         ? h('dl', { className: 'acc-provider-windows' }, record.windows.map((window) => h(ProviderUsageWindow, { key: window.id, window })))
@@ -411,9 +435,9 @@ export async function registerAutobotCommandCenter() {
     return h('section', { className: cx('acc-section', 'acc-provider-usage'), 'aria-labelledby': 'acc-provider-usage-title' },
       h(SectionHeading, {
         eyebrow: 'Authoritative usage headroom', title: compact ? 'Provider usage' : 'Usage & limits',
+        help: 'Frontier subscriptions and service quotas stay separate. Unavailable data is never shown as zero.',
         action: compact ? h('button', { type: 'button', className: 'acc-secondary-button', onClick: () => go({ view: 'analytics', domain: 'ai', subject: 'provider-usage' }) }, 'Open details') : null,
       }),
-      h('p', { className: 'acc-lede' }, 'Frontier subscriptions and service quotas stay separate. Unavailable data is never shown as zero.'),
       groups.map((group) => h('section', { key: group.id, className: cx('acc-provider-group', `acc-provider-group--${group.id}`), 'aria-labelledby': `acc-provider-group-${group.id}` },
         h('div', { className: 'acc-provider-group__head' },
           h('h3', { id: `acc-provider-group-${group.id}` }, group.label),
@@ -425,23 +449,24 @@ export async function registerAutobotCommandCenter() {
     );
   }
 
-  function Overview({ go, providerUsage }) {
+  function Overview({ go, providerUsage, integrationStatus }) {
     const overview = getOverviewProjection();
     return h('div', { className: 'acc-view acc-overview' },
       h(ProviderUsage, { snapshot: providerUsage, go, compact: true }),
-      h('section', { className: 'acc-section acc-overview-exceptions' },
+      integrationStatus.issues.length ? h('section', { className: 'acc-section acc-overview-exceptions', role: 'region', 'aria-label': 'Integration issues summary' },
         h(SectionHeading, {
-          eyebrow: 'Claim boundaries',
-          title: 'Source exceptions',
-          action: h(Badge, { tone: overview.sourceExceptions.length ? 'warn' : 'good' }, overview.sourceExceptions.length ? `${overview.sourceExceptions.length} need attention` : 'All claim-safe'),
+          eyebrow: 'Actionable status',
+          title: 'Integration issues',
+          action: h(Badge, { tone: 'warn' }, `${integrationStatus.issues.length} need attention`),
         }),
-        h('div', { className: 'acc-overview-exception-list' }, overview.sourceExceptions.map((source) =>
-          h('article', { className: 'acc-overview-exception', key: source.id },
-            h(StatusBadge, { state: source.state }),
-            h('div', null, h('strong', null, source.label), h('small', null, `${source.authority} · ${source.freshness}`)),
+        h('div', { className: 'acc-overview-exception-list' }, integrationStatus.issues.slice(0, 4).map((integration) =>
+          h('article', { className: 'acc-overview-exception', key: integration.id },
+            h(StatusBadge, { state: integration.status }),
+            h('div', null, h('strong', null, integration.label), h('small', null, integration.claimImpact)),
           ),
         )),
-      ),
+        h('button', { type: 'button', className: 'acc-secondary-button acc-overview-integration-action', onClick: () => go({ view: 'settings' }) }, 'Open complete Integration Status'),
+      ) : null,
       h('section', { className: 'acc-section acc-overview-destinations' },
         h(SectionHeading, { eyebrow: 'Focused destinations', title: 'Explore details' }),
         h('div', { className: 'acc-overview-destination-strip' }, overview.destinations.map((destination) =>
@@ -476,36 +501,32 @@ export async function registerAutobotCommandCenter() {
     const portfolio = getShowcasePortfolio();
     const product = route.product ? portfolio.internalProducts.find((item) => item.id === route.product) : null;
     if (product) {
-      const evaluations = product.evaluations.map((id) => fixtures.evaluations.find((item) => item.id === id)).filter(Boolean);
-      const claims = getEffectiveProductClaims(product);
       return h('div', { className: 'acc-view' },
         h('button', { type: 'button', className: 'acc-back', onClick: () => go({ view: 'portfolio' }) }, '← Portfolio'),
         h('article', { className: 'acc-detail' },
           h('div', { className: 'acc-detail__hero' },
             h('div', null, h('p', { className: 'acc-eyebrow' }, product.kind), h('h2', null, product.name), h('p', { className: 'acc-lede' }, product.value)),
-            h(StatusBadge, { state: claims.state.toLowerCase() }),
+            h(StatusBadge, { state: product.state.toLowerCase() }),
           ),
           h('div', { className: 'acc-detail-grid' },
-            claims.worksNow
-              ? h('section', null, h('h3', null, 'What works now'), h('ul', null, claims.worksNow.map((item) => h('li', { key: item }, item))))
-              : h('section', null, h('h3', null, 'Current availability'), h('p', null, 'Unknown — runtime telemetry is stale')),
+            product.worksNow
+              ? h('section', null, h('h3', null, 'What works now'), h('ul', null, product.worksNow.map((item) => h('li', { key: item }, item))))
+              : null,
             h('section', null, h('h3', null, 'Operating limitation'), h('p', null, product.limitation)),
             h('section', null, h('h3', null, 'Evidence'), h('ul', null, product.evidence.map((item) => h('li', { key: item }, item)))),
             h('section', null, h('h3', null, 'Authority'), h('p', null, `${product.source} · last verified ${product.verified}`)),
           ),
           product.id === 'voice-lab' ? h(VoicePerformance, { comparisonId: fixtures.voicePerformance.id }) : null,
-          h('section', { className: 'acc-related' },
-            h('h3', null, 'Evaluation timeline'),
-            evaluations.length ? evaluations.map((evaluation) => h('button', { key: evaluation.id, type: 'button', className: 'acc-evaluation-row', onClick: () => go({ view: 'evidence', evaluation: evaluation.id }) },
-              h('span', null, h(StatusBadge, { state: evaluation.findingStatus }), h('strong', null, evaluation.title), h('small', null, evaluation.finding)),
-            )) : h(EmptyUnknown, { children: 'No evaluation record attached' }),
-          ),
+          h(TestingHistory, { type: 'product', id: product.id }),
         ),
       );
     }
     return h('div', { className: 'acc-view' },
-      h(SectionHeading, { eyebrow: 'Products and capabilities', title: 'Portfolio' }),
-      h('p', { className: 'acc-lede' }, 'Public GitHub evidence is refreshed into a frozen, allowlisted projection. Internal products remain a separate durable capability view with no implied public release.'),
+      h(SectionHeading, {
+        eyebrow: 'Products and capabilities',
+        title: 'Portfolio',
+        help: 'Public GitHub evidence is refreshed into a frozen, allowlisted projection. Internal products remain a separate durable capability view with no implied public release.',
+      }),
       h('div', { className: 'acc-registry-summary', 'aria-label': 'Portfolio summary' },
         h('div', null, h('strong', null, portfolio.githubShowcaseProjects.length), h('span', null, 'Public projects')),
         h('div', null, h('strong', null, portfolio.internalProducts.length), h('span', null, 'Internal entries')),
@@ -537,15 +558,14 @@ export async function registerAutobotCommandCenter() {
           h('p', { className: 'acc-eyebrow' }, 'Private operating boundary'),
           h('h3', { id: 'acc-internal-products-title' }, 'Internal Products & Capabilities'),
         )),
-        h('div', { className: 'acc-portfolio-grid' }, portfolio.internalProducts.map((item) => {
-          const claims = getEffectiveProductClaims(item);
-          return h('button', { key: item.id, type: 'button', className: 'acc-portfolio-card', onClick: () => go({ view: 'portfolio', product: item.id }) },
-            h('span', { className: 'acc-object-card__top' }, h(Badge, null, `Internal · ${item.kind}`), h(StatusBadge, { state: claims.state.toLowerCase() })),
+        h('div', { className: 'acc-portfolio-grid' }, portfolio.internalProducts.map((item) =>
+          h('button', { key: item.id, type: 'button', className: 'acc-portfolio-card', onClick: () => go({ view: 'portfolio', product: item.id }) },
+            h('span', { className: 'acc-object-card__top' }, h(Badge, null, `Internal · ${item.kind}`), h(StatusBadge, { state: item.state.toLowerCase() })),
             h('h3', null, item.name), h('p', null, item.value),
             h('div', { className: 'acc-callout' }, h('span', null, 'Landed outcome'), h('strong', null, item.outcome)),
             h('small', null, `${item.source} · verified ${item.verified}`),
-          );
-        })),
+          )),
+        ),
       ),
     );
   }
@@ -840,7 +860,6 @@ export async function registerAutobotCommandCenter() {
   function ConditionDetail({ condition, route, go, domain }) {
     const family = getFamily(condition.familyId);
     const benchmarkProfile = getBenchmarkComparison(condition.id);
-    const availability = getEffectiveAvailability(condition);
     if (route.run) {
       const lineage = getRunLineage({
         conditionId: condition.id,
@@ -859,14 +878,13 @@ export async function registerAutobotCommandCenter() {
     const fields = [
       ['Publisher / family', `${family.publisher} · ${family.name}`], ['Provider / runtime', `${condition.provider} · ${condition.runtime}`],
       ['Host', condition.host], ['Quantization', condition.quantization], ['Reasoning', condition.reasoning],
-      ['Context', condition.context], ['Output envelope', condition.output], ['Current availability', availability === 'unknown' ? 'Unknown — runtime telemetry is not claim-safe' : condition.availabilityNote],
+      ['Context', condition.context], ['Output envelope', condition.output],
     ];
     return h('div', { className: 'acc-view' },
       h('button', { type: 'button', className: 'acc-back', onClick: () => go(benchmarkProfile ? { view: 'benchmarks' } : { view: 'benchmarks', domain }) }, '← Benchmarks'),
       h('article', { className: 'acc-detail' },
         h('div', { className: 'acc-detail__hero' },
           h('div', null, h('p', { className: 'acc-eyebrow' }, 'Exact tested condition'), h('h2', null, condition.shortName), h('p', { className: 'acc-lede' }, family.roles.join(' · '))),
-          h(Badge, { tone: availability === 'unknown' ? 'warn' : availability === 'available' ? 'good' : 'bad' }, `Availability ${availability}`),
         ),
         h('section', { className: 'acc-fingerprint' }, h('span', null, 'Condition fingerprint'), h('code', null, condition.fingerprint)),
         h(BenchmarkProfileSummary, { profile: benchmarkProfile }),
@@ -894,7 +912,6 @@ export async function registerAutobotCommandCenter() {
       score: (row) => row.score,
       denominator: (row) => row.denominator,
       release: (row) => row.release,
-      availability: (row) => getEffectiveAvailability(row.condition),
     });
     const leaderboardSort = useSortableRows(getLeaderboard(domain, RELEASES[domain]).map((row, index) => ({ ...row, canonicalRank: index + 1 })), leaderboardColumns);
     if (route.mode === 'methodology') return h('article', { className: 'acc-view acc-detail acc-benchmark-methodology' },
@@ -927,16 +944,16 @@ export async function registerAutobotCommandCenter() {
           ),
           h('article', { className: 'acc-methodology-card' },
             h('p', { className: 'acc-eyebrow' }, 'Native tool use'),
-            h('h3', null, 'BFCL V4'),
-            h('strong', { className: 'acc-methodology-size' }, '150 frozen scored cases'),
-            h('p', null, 'Chosen because real agent work depends on selecting the right function and producing valid arguments across single-turn and multi-turn tool situations. Complete collection requires 261 generated rows for the 150 scored cases.'),
+            h('h3', null, 'BFCL V4 Hard-50'),
+            h('strong', { className: 'acc-methodology-size' }, '50 frozen hard cases'),
+            h('p', null, 'A category-complete successor epoch covering all 20 BFCL types: 13 single-turn, 23 multi-turn, and 14 Memory cases. Complete collection requires 119 generated rows because the 14 scored Memory cases need 69 frozen prerequisites. Raw case accuracy is primary; BFCL official weighted aggregation is reported separately.'),
           ),
           h('article', { className: 'acc-methodology-card' },
             h('p', { className: 'acc-eyebrow' }, 'Multi-turn agent work'),
-            h('h3', null, 'tau2'),
-            h('strong', { className: 'acc-methodology-size' }, '50 frozen tasks'),
-            h('small', null, '25 Retail · 25 Telecom'),
-            h('p', null, 'Chosen because it tests whether a model can preserve state, reason through a workflow, use tools, and recover across a sustained simulated interaction—not just answer one isolated prompt.'),
+            h('h3', null, 'tau2 Hard-24'),
+            h('strong', { className: 'acc-methodology-size' }, '24 frozen hard tasks'),
+            h('small', null, '12 Retail · 12 Telecom'),
+            h('p', null, 'An outcome-conditioned regression successor: Retail keeps 12 of Qwen3.6 35B’s 15 raw scored failures, prioritized where Sol or Luna also failed; Telecom keeps both Qwen failures plus 10 hard Sol failures. Raw operational zeros remain failures exactly as scored. Calibration-model projections are retrospective, while future post-freeze models are out-of-sample.'),
           ),
         ),
       ),
@@ -957,16 +974,14 @@ export async function registerAutobotCommandCenter() {
       h(MeasuredBenchmarkVisuals, { go }),
     );
     if (isRollup) return h('div', { className: 'acc-view' },
-      h(SectionHeading, { eyebrow: 'Model Observatory', title: 'Benchmarks' }),
-      h('p', { className: 'acc-lede' }, 'Capability rollup is normalized within exact frozen releases. Complete and partial benchmark coverage are never cross-ranked.'),
+      h(SectionHeading, { eyebrow: 'Model Observatory', title: 'Benchmarks', help: 'Capability rollup is normalized within exact frozen releases. Complete and partial benchmark coverage are never cross-ranked.' }),
       h('div', { className: 'acc-toolbar' }, h(MetricTabs, { active: 'rollup', onSelect: (nextDomain) => go({ view: 'benchmarks', domain: nextDomain }) }), h(Badge, null, 'Canonical only')),
       h(CapabilityRollup),
     );
     const rows = leaderboardSort.rows;
     const title = domain === 'tool-use' ? 'Tool Use' : domain === 'reasoning' ? 'GPQA Diamond' : 'Offline-safe Coding';
     return h('div', { className: 'acc-view' },
-      h(SectionHeading, { eyebrow: 'Model Observatory', title: 'Benchmarks' }),
-      h('p', { className: 'acc-lede' }, 'Rankings are exact tested conditions within one frozen benchmark release. No universal aggregate score.'),
+      h(SectionHeading, { eyebrow: 'Model Observatory', title: 'Benchmarks', help: 'Rankings are exact tested conditions within one frozen benchmark release. No universal aggregate score.' }),
       h('div', { className: 'acc-toolbar' }, h(MetricTabs, { active: domain, onSelect: (nextDomain) => go({ view: 'benchmarks', domain: nextDomain }) }), h(Badge, null, RELEASES[domain])),
       h('section', { className: 'acc-ranking-panel', 'aria-labelledby': 'acc-ranking-title' },
         h('div', { className: 'acc-ranking-heading' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Canonical ranking'), h('h2', { id: 'acc-ranking-title' }, title)), h('small', null, 'Higher is better · fixture data')),
@@ -977,7 +992,6 @@ export async function registerAutobotCommandCenter() {
               h('td', null, `#${row.canonicalRank}`),
               h('td', null, h('button', { type: 'button', className: 'acc-table-link', onClick: () => go({ view: 'benchmarks', domain, condition: row.conditionId }) }, row.condition.shortName)),
               h('td', { className: 'acc-score-cell' }, `${row.score.toFixed(1)}%`), h('td', null, row.denominator), h('td', null, row.release),
-              h('td', null, h(StatusBadge, { state: getEffectiveAvailability(row.condition) })),
             ))),
           ),
         ),
@@ -1008,81 +1022,13 @@ export async function registerAutobotCommandCenter() {
     );
   }
 
-  function Skills({ route, go }) {
-    const registry = getShowcaseSkills();
-    const skill = route.skill ? registry.operationalSkills.find((item) => item.id === route.skill) : null;
-    if (skill) {
-      const fields = [
-        ['Purpose', skill.description], ['Version', skill.version], ['Category', skill.category],
-        ['License', skill.license || 'Unknown'], ['Platforms', skill.platforms?.join(', ') || 'Unknown'],
-        ['Metadata status', skill.metadataStatus], ['Validation', skill.validationStatus], ['Projection refreshed', registry.refreshedAt],
-      ];
-      return h('div', { className: 'acc-view' },
-        h('button', { type: 'button', className: 'acc-back', onClick: () => go({ view: 'skills' }) }, '← Skill Registry'),
-        h('article', { className: 'acc-detail' }, h('p', { className: 'acc-eyebrow' }, skill.category), h('h2', null, skill.name),
-          h('dl', { className: 'acc-fact-grid' }, fields.map(([label, value]) => h('div', { key: label }, h('dt', null, label), h('dd', null, value)))),
-          h('a', { className: 'acc-primary-link', href: window.__HERMES_SKILLS_URL__ || '/skills' }, 'Manage in Hermes Skills'),
-        ),
-      );
-    }
-    return h('div', { className: 'acc-view' },
-      h(SectionHeading, { eyebrow: 'Durable reusable artifacts', title: 'Skill Registry' }),
-      h('p', { className: 'acc-lede' }, 'A frozen frontmatter projection of selected operational skills. Enable, edit, install, and full inventory actions stay in Hermes Skills.'),
-      h('div', { className: 'acc-registry-summary', 'aria-label': 'Skill registry summary' },
-        h('div', null, h('strong', null, registry.operationalSkills.length), h('span', null, 'Operational skills')),
-        h('div', null, h('strong', null, registry.showcaseEditions.length), h('span', null, 'Showcase editions')),
-        h('div', null, h('strong', null, new Set(registry.operationalSkills.map((item) => item.category)).size), h('span', null, 'Domains')),
-      ),
-      h('section', { className: 'acc-portfolio-group', 'aria-labelledby': 'acc-showcase-editions-title' },
-        h('div', { className: 'acc-section-heading' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Approved independent releases'), h('h3', { id: 'acc-showcase-editions-title' }, 'Showcase Editions'))),
-        registry.showcaseEditions.length
-          ? h('div', { className: 'acc-skill-list' }, registry.showcaseEditions.map((item) => h('a', { key: item.id, className: 'acc-skill-row', href: item.repositoryUrl, rel: 'noreferrer' },
-            h('span', { className: 'acc-skill-row__identity' }, h('small', null, item.repository), h('strong', null, item.name)),
-            h('span', { className: 'acc-skill-row__states' }, h(Badge, { tone: 'good' }, item.visibility), h(Badge, null, item.independenceStatus), h(Badge, null, item.validationStatus)),
-          )))
-          : h('p', { className: 'acc-empty-state' }, registry.showcaseEmptyState),
-      ),
-      h('section', { className: 'acc-portfolio-group', 'aria-labelledby': 'acc-operational-skills-title' },
-        h('div', { className: 'acc-section-heading' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Selected local frontmatter'), h('h3', { id: 'acc-operational-skills-title' }, 'Operational Skills'))),
-        h('div', { className: 'acc-skill-list' }, registry.operationalSkills.map((item) => h('button', { type: 'button', key: item.id, className: 'acc-skill-row', onClick: () => go({ view: 'skills', skill: item.id }) },
-          h('span', { className: 'acc-skill-row__identity' }, h('small', null, item.category), h('strong', null, item.name), h('span', { className: 'acc-skill-row__purpose' }, item.description)),
-          h('span', { className: 'acc-skill-row__states' },
-            h(Badge, null, `v${item.version}`),
-            h(Badge, null, item.metadataStatus),
-            h(StatusBadge, { state: item.validationStatus.toLowerCase() }),
-          ),
-        ))),
-      ),
-      h('div', { className: 'acc-prototype-note' }, registry.boundary),
-    );
-  }
-
-  function Evidence({ route, go }) {
-    const evaluation = route.evaluation ? fixtures.evaluations.find((item) => item.id === route.evaluation) : null;
-    if (evaluation) {
-      return h('div', { className: 'acc-view' },
-        h('button', { type: 'button', className: 'acc-back', onClick: () => go({ view: 'evidence' }) }, '← Evidence index'),
-        h('article', { className: 'acc-detail' },
-          h('div', { className: 'acc-detail__hero' }, h('div', null, h('p', { className: 'acc-eyebrow' }, evaluation.stage), h('h2', null, evaluation.title)), h(StatusBadge, { state: evaluation.findingStatus })),
-          h(Meter, { value: evaluation.progress, label: evaluation.title }),
-          h('section', null, h('h3', null, 'Question'), h('p', { className: 'acc-lede' }, evaluation.question)),
-          h('section', null, h('h3', null, 'Current finding'), h('p', null, evaluation.finding)),
-          h('section', null, h('h3', null, 'Decision outcome'), h('p', null, evaluation.decision)),
-          h('section', null, h('h3', null, 'Affected objects'), h('div', { className: 'acc-chip-list' }, evaluation.affectedObjects.map((object) => h(Badge, { key: `${object.type}-${object.id}` }, `${object.type}: ${object.label}`)))),
-          evaluation.comparisonId ? h(VoicePerformance, { comparisonId: evaluation.comparisonId }) : null,
-        ),
-      );
-    }
-    return h('div', { className: 'acc-view' },
-      h(SectionHeading, { eyebrow: 'Secondary cross-domain index', title: 'Evaluation evidence' }),
-      h('p', { className: 'acc-lede' }, 'Questions, findings, and decisions remain attached to the durable objects they affect.'),
-      h('div', { className: 'acc-evaluation-list' }, getEvaluationIndex().map((item) =>
-        h('button', { type: 'button', key: item.id, className: 'acc-evaluation-row', onClick: () => go({ view: 'evidence', evaluation: item.id }) },
-          h('span', null, h(StatusBadge, { state: item.findingStatus }), h('strong', null, item.title), h('small', null, item.question)),
-          h(Meter, { value: item.progress, label: item.title }),
-        ),
-      )),
-    );
+  function formatUtcTimestamp(value) {
+    if (!value) return 'Unknown';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return 'Unknown';
+    return `${new Intl.DateTimeFormat('en', {
+      dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC',
+    }).format(parsed)} UTC`;
   }
 
   function Search({ route, go }) {
@@ -1140,13 +1086,13 @@ export async function registerAutobotCommandCenter() {
       h(SectionHeading, {
         eyebrow: 'Local-first discovery',
         title: 'Search',
+        help: 'Typing filters the bundled ACC index immediately. Results cover Portfolio, measured benchmark conditions, and analytics subjects without a network request.',
         action: h(Badge, { tone: 'good' }, 'Local index'),
       }),
-      h('p', { className: 'acc-lede' }, 'Typing filters the bundled ACC index immediately. Results cover Portfolio, Skills, measured benchmark conditions, and analytics subjects without a network request.'),
       h('label', { className: 'acc-field acc-local-search-field' },
         h('span', null, 'Search ACC'),
         h('input', {
-          type: 'search', value: query, maxLength: 256, autoComplete: 'off', placeholder: 'Portfolio, skills, Qwen 35B, Cloudflare visits…',
+          type: 'search', value: query, maxLength: 256, autoComplete: 'off', placeholder: 'Portfolio, Qwen 35B, Cloudflare visits…',
           onChange: updateLocalQuery,
         }),
       ),
@@ -1155,7 +1101,7 @@ export async function registerAutobotCommandCenter() {
         localResults.map((record) => h('button', {
           type: 'button', key: record.id, className: 'acc-local-search-result', onClick: () => go(record.route),
         }, h('span', null, h(Badge, null, record.kind), h('strong', null, record.title), h('small', null, record.summary)), h('span', { 'aria-hidden': true }, '→'))),
-        !localResults.length ? h('p', { className: 'acc-empty-state' }, 'No local ACC records matched. Try a product, skill, benchmark condition, or analytics subject.') : null,
+        !localResults.length ? h('p', { className: 'acc-empty-state' }, 'No local ACC records matched. Try a product, benchmark condition, or analytics subject.') : null,
       ) : h('p', { className: 'acc-empty-state' }, 'Start typing to filter the deterministic local index.'),
       h('section', { className: 'acc-protected-search', 'aria-labelledby': 'acc-protected-search-title' },
         h('div', { className: 'acc-ranking-heading' },
@@ -1222,26 +1168,84 @@ export async function registerAutobotCommandCenter() {
     });
   }
 
+  function Settings({ theme, selectTheme, integrationStatus }) {
+    const presentation = THEME_PRESENTATION[theme] || THEME_PRESENTATION['g1-console'];
+    const detailFields = (integration) => [
+      ['Reachability', integration.reachability],
+      ['Configuration / authentication', integration.configuration],
+      ['Freshness / version', integration.freshness],
+      ['Validation', integration.validation],
+      ['Dependent-claim impact', integration.claimImpact],
+      ['Last observed', formatUtcTimestamp(integration.observedAt)],
+      ['Authority', integration.authority],
+      ...(integration.collectionMode ? [['Collection mode', integration.collectionMode]] : []),
+    ];
+    return h('div', { className: 'acc-view acc-settings' },
+      h(SectionHeading, { eyebrow: 'Preferences', title: 'Settings' }),
+      h('section', { className: 'acc-settings-panel', 'aria-labelledby': 'acc-settings-appearance' },
+        h('div', null,
+          h('h3', { id: 'acc-settings-appearance' }, 'Appearance'),
+          h('p', null, 'Presentation changes stay on this device and never alter evidence or status meaning.'),
+        ),
+        h('label', { className: 'acc-theme-select acc-theme-select--settings' },
+          h('span', null, 'Theme'),
+          h('select', { value: theme, 'aria-label': 'Presentation theme', onChange: selectTheme },
+            Object.entries(THEME_PRESENTATION).map(([value, option]) => h('option', { value, key: value }, option.label)),
+          ),
+        ),
+        h('small', { className: 'acc-settings-current' }, `Current presentation: ${presentation.label}`),
+      ),
+      h('section', { className: 'acc-integration-status', role: 'region', 'aria-label': 'Integration Status details' },
+        h('div', { className: 'acc-integration-status__heading' },
+          h('div', null,
+            h('p', { className: 'acc-eyebrow' }, 'Truthful source health'),
+            h('h2', null, 'Integration Status'),
+            h('p', null, 'Reachability, configuration, freshness, validation, claim impact, and observation time remain separate. Collector health never stands in for quota pressure.'),
+          ),
+          h(Badge, { tone: integrationStatus.allHealthy ? 'good' : 'warn' }, integrationStatus.allHealthy ? 'All validated healthy' : `${integrationStatus.issues.length} need attention`),
+        ),
+        h('div', { className: 'acc-integration-grid' }, integrationStatus.integrations.map((integration) =>
+          h('article', { className: 'acc-integration-card', key: integration.id, 'data-integration': integration.id },
+            h('div', { className: 'acc-integration-card__heading' },
+              h('div', null, h('small', null, integration.category), h('h3', null, integration.label)),
+              h(StatusBadge, { state: integration.status }),
+            ),
+            h('dl', null, detailFields(integration).map(([label, value]) => h('div', { key: label }, h('dt', null, label), h('dd', null, value)))),
+          ),
+        )),
+      ),
+    );
+  }
+
   const Analytics = createAnalyticsView({ React, h, useEffect, useState, Badge, StatusBadge, SectionHeading, ProviderUsage, edition });
 
   function App() {
     const [route, setRoute] = useState(() => canonicalizeAccRoute(parseAccUrl(window.location.href)));
     const [providerUsage, setProviderUsage] = useState(() => providerUsageFallback());
+    const [providerUsageHealth, setProviderUsageHealth] = useState({ state: 'loading', valid: false });
     const [theme, setTheme] = useState(() => loadStoredTheme());
     const [heroQuery, setHeroQuery] = useState('');
     const mainRef = useRef(null);
     useEffect(() => {
       let active = true;
       loadProviderUsageSnapshot(window.__ACC_BASE_PATH__ || '/dashboard-plugins/autobot-command-center/dist', edition.projections.providerUsage).then(
-        (snapshot) => { if (active) setProviderUsage(snapshot); },
-        () => { if (active) setProviderUsage(providerUsageFallback()); },
+        (snapshot) => {
+          if (!active) return;
+          setProviderUsage(snapshot);
+          setProviderUsageHealth({ state: 'ready', valid: true });
+        },
+        (error) => {
+          if (!active) return;
+          setProviderUsage(providerUsageFallback());
+          setProviderUsageHealth({ state: /validation/i.test(error.message) ? 'invalid' : 'unavailable', valid: false });
+        },
       );
       return () => { active = false; };
     }, []);
     useEffect(() => {
       const parsed = parseAccUrl(window.location.href);
-      if (parsed.view === 'usage' || parsed.view === 'hivemind') {
-        const target = canonicalizeAccRoute(parsed);
+      const target = canonicalizeAccRoute(parsed);
+      if (JSON.stringify(parsed) !== JSON.stringify(target)) {
         window.history.replaceState({}, '', buildAccUrl(target, window.__ACC_BASE_PATH__ || '/autobot-command-center'));
         setRoute(target);
       }
@@ -1274,18 +1278,17 @@ export async function registerAutobotCommandCenter() {
       setTheme(persistTheme(event.target.value));
     }
 
+    const integrationStatus = getIntegrationStatus({ providerUsage, providerUsageHealth, runtimeHealth: runtime.health });
     const primaryView = NAV_ITEMS.some((item) => item.id === route.view) ? route.view : null;
     let content;
     if (route.view === 'portfolio') content = h(Portfolio, { route, go });
     else if (route.view === 'analytics') content = h(Analytics, { route, go, providerUsage });
     else if (route.view === 'benchmarks') content = h(Benchmarks, { route, go });
-    else if (route.view === 'skills') content = h(Skills, { route, go });
     else if (route.view === 'search') content = h(Search, { route, go });
-    else if (route.view === 'evidence') content = h(Evidence, { route, go });
-    else content = h(Overview, { go, providerUsage });
+    else if (route.view === 'settings') content = h(Settings, { theme, selectTheme, integrationStatus });
+    else content = h(Overview, { go, providerUsage, integrationStatus });
 
     const isAnalytics = route.view === 'analytics';
-    const analyticsFixture = isAnalytics && route.mode === 'fixture';
 
     return h('div', { className: cx('acc-shell', route.view !== 'overview' && 'acc-shell--subview'), 'data-acc-theme': theme },
       theme === 'matrix' ? h(MatrixRain) : null,
@@ -1298,12 +1301,11 @@ export async function registerAutobotCommandCenter() {
           ),
         ),
         h('div', { className: 'acc-hero__actions' },
-          h('label', { className: 'acc-theme-select' },
-            h('span', null, 'Theme'),
-            h('select', { value: theme, 'aria-label': 'Presentation theme', onChange: selectTheme },
-              Object.entries(THEME_PRESENTATION).map(([value, option]) => h('option', { value, key: value }, option.label)),
-            ),
-          ),
+          h('button', {
+            type: 'button', className: 'acc-icon-button', 'aria-label': 'Settings', title: 'Settings',
+            'aria-current': route.view === 'settings' ? 'page' : undefined,
+            onClick: () => go({ view: 'settings' }),
+          }, h('span', { 'aria-hidden': true }, '⚙')),
           h('form', { className: 'acc-hero-search', role: 'search', onSubmit: submitHeroSearch },
             h('label', { className: 'acc-sr-only', htmlFor: 'acc-hero-search-input' }, 'Search ACC from header'),
             h('input', {
@@ -1313,12 +1315,9 @@ export async function registerAutobotCommandCenter() {
             h('button', { type: 'submit' }, 'Search'),
           ),
           h('button', { type: 'button', className: 'acc-secondary-button acc-hero-search-mobile', onClick: () => go({ view: 'search' }) }, 'Search'),
-          isAnalytics ? h(Badge, { tone: analyticsFixture ? 'warn' : 'good' }, analyticsFixture ? 'Illustrative fixture' : 'Read-only analytics') : null,
-          h('button', { type: 'button', className: 'acc-secondary-button', onClick: () => go({ view: 'evidence' }) }, 'Evidence index'),
         ),
       ),
-      h(RuntimeHealthNotice),
-      isAnalytics ? null : h(TrustStrip, { openEvidence: () => go({ view: 'evidence' }) }),
+      h(IntegrationIssueBar, { integrationStatus, go }),
       h('nav', { className: 'acc-local-nav', 'aria-label': 'Command Center sections' }, NAV_ITEMS.map((item) =>
         h('button', {
           key: item.id, type: 'button', className: cx(primaryView === item.id && 'is-active'),

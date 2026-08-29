@@ -63,7 +63,13 @@ try {
 for (const path of candidateFiles) {
   const name = relative(root, path).replaceAll('\\', '/');
   if (excludedFiles.has(name)) continue;
-  const bytes = await readFile(path);
+  let bytes;
+  try {
+    bytes = await readFile(path);
+  } catch (error) {
+    if (error?.code === 'ENOENT') continue;
+    throw error;
+  }
   if (bytes.includes(0)) continue;
   const rawText = bytes.toString('utf8');
   const text = authorizedUiLabelFiles.has(name) ? rawText.replaceAll(authorizedUiLabel, '') : rawText;

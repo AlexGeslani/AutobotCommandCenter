@@ -1,5 +1,6 @@
 export const PUBLIC_PROVIDER_USAGE_SCHEMA_VERSION = 'provider-usage-v1';
 export const PROVIDER_USAGE_MAX_AGE_MS = 15 * 60 * 1000;
+export const CLAUDE_USAGE_VALIDITY_MS = 12 * 60 * 60 * 1000;
 
 const STATES = new Set(['fresh', 'stale', 'expired', 'inactive', 'not_yet_observed', 'unsupported', 'unknown', 'error', 'auth_error', 'not_configured']);
 const PROVIDER_FIELDS = new Set(['provider', 'product', 'metricClass', 'authority', 'collectionMode', 'adapterVersion', 'sourceVersion', 'observedAt', 'state', 'windows', 'resetCredits', 'rateLimitPerSecond']);
@@ -20,6 +21,7 @@ const PROVIDER_CONTRACTS = {
     product: 'Claude Code',
     authority: 'documented Claude Code status-line rate_limits event',
     collectionMode: 'status_line_cache',
+    maxAgeMs: CLAUDE_USAGE_VALIDITY_MS,
     sourceVersions: new Set(['claude-status-line', 'claude-usage-cli', 'not_configured', 'unavailable']),
     sources: {
       'claude-usage-cli': {

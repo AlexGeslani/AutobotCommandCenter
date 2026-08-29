@@ -4,7 +4,7 @@ import {
   validateDomainProjection,
   validateEdition,
 } from './runtime/contracts.mjs';
-import { getPortfolioProjection, getSkillsProjection } from './showcase/projection.mjs';
+import { getPortfolioProjection } from './showcase/projection.mjs';
 
 function bindProjection(projection) {
   const data = structuredClone(projection.data);
@@ -112,24 +112,6 @@ export function getRunLineage({ conditionId, resultId, domain, release, runId })
   return run ? { condition, result, run } : null;
 }
 
-export function getEffectiveAvailability(condition) {
-  const authority = fixtures.sources.find((source) => source.id === 'runtime');
-  return authority?.invalidatesClaims ? 'unknown' : condition.availability;
-}
-
-export function getEffectiveProductClaims(product) {
-  const authority = product.availabilityAuthority
-    ? fixtures.sources.find((source) => source.id === product.availabilityAuthority)
-    : null;
-  if (authority?.invalidatesClaims) return { state: 'unknown', worksNow: null };
-  return { state: product.state, worksNow: product.worksNow };
-}
-
-export function getEffectiveSkillClaims(skill) {
-  const authority = fixtures.sources.find((source) => source.id === 'skill-meta');
-  if (!authority?.invalidatesClaims) return { stewardship: skill.stewardship, publication: skill.publication };
-  return { stewardship: 'unknown', publication: 'unknown' };
-}
 
 export function getLeaderboard(domain, release = RELEASES[domain]) {
   return fixtures.results
@@ -188,8 +170,17 @@ export function getCapabilityRollup() {
   };
 }
 
-export function getEvaluationIndex() {
-  return [...fixtures.evaluations].sort((a, b) => a.title.localeCompare(b.title));
+export function getObjectTestingRecords(type, id) {
+  return fixtures.evaluations
+    .filter((evaluation) => evaluation.affectedObjects.some((object) => object.type === type && object.id === id))
+    .sort((a, b) => a.title.localeCompare(b.title));
+}
+
+export function getEvaluationOwnerRoute(evaluationId) {
+  const evaluation = fixtures.evaluations.find((item) => item.id === evaluationId);
+  const owner = evaluation?.affectedObjects.find((object) => object.type === 'product');
+  if (owner?.type === 'product') return { view: 'portfolio', product: owner.id };
+  return { view: 'overview' };
 }
 
 export function getVoicePerformance(id = fixtures.voicePerformance.id) {
@@ -200,17 +191,145 @@ export function getSourceTrust() {
   return fixtures.sources;
 }
 
+
+function canonicalObservedAt(value) {
+  const match = String(value || '').match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z/);
+  return match ? match[0] : null;
+}
+
+function sourceStatus(source) {
+  if (source.state === 'fresh' && !source.invalidatesClaims) return 'healthy';
+  if (source.state === 'fresh') return 'warning';
+  if (source.state === 'stale') return 'stale';
+  if (source.state === 'invalid') return 'invalid';
+  if (source.state === 'error' || source.state === 'failed') return 'error';
+  if (source.state === 'unknown') return 'unknown';
+  if (source.state === 'missing' || source.state === 'not-evaluated') return 'not-evaluated';
+  return 'warning';
+}
+
+function providerStatus(state) {
+  if (state === 'fresh') return 'healthy';
+  if (state === 'stale' || state === 'expired') return 'stale';
+  if (state === 'auth_error') return 'error';
+  if (state === 'error') return 'collection-failed';
+  if (state === 'unknown') return 'unknown';
+  if (['inactive', 'not_yet_observed', 'not_configured', 'unsupported'].includes(state)) return 'not-evaluated';
+  return 'warning';
+}
+
+function runtimeReachability(health) {
+  if (health?.valid) return 'Available';
+  if (/unavailable|fetch|network/i.test(health?.error || '')) return 'Unavailable';
+  if (health?.error) return 'Available';
+  return 'Unknown';
+}
+
+export function getIntegrationStatus({ providerUsage = null, providerUsageHealth = null, runtimeHealth = null } = {}) {
+  const frozenSourceIds = new Set(['benchmarks', 'voice-performance']);
+  const sourceIntegrations = getSourceTrust().map((source) => ({
+    id: `source:${source.id}`,
+    label: source.label,
+    category: frozenSourceIds.has(source.id) ? 'Frozen artifact' : 'Claim source',
+    status: sourceStatus(source),
+    reachability: frozenSourceIds.has(source.id) ? 'Not applicable' : 'Not reported',
+    configuration: 'Not reported',
+    freshness: source.freshness,
+    validation: source.invalidatesClaims
+      ? 'Validated record · not claim-safe'
+      : frozenSourceIds.has(source.id)
+        ? 'Validated frozen artifact version'
+        : 'Validated projection record',
+    claimImpact: source.invalidatesClaims ? 'Dependent claims withheld' : 'No dependent claims withheld',
+    observedAt: canonicalObservedAt(source.freshness),
+    authority: source.authority,
+  }));
+
+  const runtimeIntegrations = ['edition', 'domain'].map((key) => {
+    const health = runtimeHealth?.[key] || null;
+    const ready = health?.state === 'ready' && health.valid === true && health.stale === false;
+    return {
+      id: `runtime:${key}`,
+      label: key === 'edition' ? 'ACC Edition projection' : 'ACC Domain projection',
+      category: 'Runtime projection',
+      status: ready ? 'healthy' : health ? 'invalid' : 'unknown',
+      reachability: runtimeReachability(health),
+      configuration: 'Not applicable',
+      freshness: ready ? 'Current validated load' : health?.state === 'stale_invalid' ? 'Stale last-good projection' : 'Bundled demonstration fallback',
+      validation: ready ? 'Validated' : health ? 'Invalid' : 'Not evaluated',
+      claimImpact: ready ? 'No dependent claims withheld' : 'Projection claims fall back to stale or demonstration data',
+      observedAt: key === 'domain' ? fixtures.meta?.generatedAt || null : null,
+      authority: key === 'edition' ? 'ACC Edition contract' : 'ACC Domain projection contract',
+    };
+  });
+
+  const projectionReady = providerUsageHealth?.state === 'ready' && providerUsageHealth.valid === true;
+  const projectionStatus = projectionReady
+    ? 'healthy'
+    : providerUsageHealth?.state === 'invalid'
+      ? 'invalid'
+      : providerUsageHealth?.state === 'unavailable' || providerUsageHealth?.state === 'error'
+        ? 'collection-failed'
+        : 'unknown';
+  const providerProjection = {
+    id: 'runtime:provider-usage',
+    label: 'Provider usage projection',
+    category: 'Runtime projection',
+    status: projectionStatus,
+    reachability: projectionReady ? 'Available' : providerUsageHealth?.state === 'unavailable' ? 'Unavailable' : 'Unknown',
+    configuration: 'Not reported',
+    freshness: providerUsage?.generatedAt ? `Generated ${providerUsage.generatedAt}` : 'No validated snapshot loaded',
+    validation: projectionReady ? 'Validated' : providerUsageHealth ? 'Not validated' : 'Not evaluated',
+    claimImpact: projectionReady ? 'No dependent claims withheld' : 'Current provider usage headroom withheld',
+    observedAt: providerUsage?.generatedAt || null,
+    authority: 'Provider usage public snapshot contract',
+  };
+
+  const providerIntegrations = (providerUsage?.providers || []).map((provider) => {
+    const status = providerStatus(provider.state);
+    const antigravityWaiting = provider.provider === 'antigravity' && provider.state === 'inactive';
+    const configuration = antigravityWaiting
+      ? 'Waiting for active trusted session'
+      : provider.state === 'auth_error'
+        ? 'Authentication error'
+        : provider.state === 'not_configured'
+          ? 'Not configured'
+          : provider.state === 'unsupported'
+            ? 'Unsupported observation path'
+            : 'Not reported';
+    return {
+      id: `provider:${provider.provider}`,
+      label: antigravityWaiting ? 'Antigravity — Waiting for active trusted session' : `${provider.product} collector`,
+      category: 'Provider usage collector',
+      status,
+      reachability: 'Not reported',
+      configuration,
+      freshness: antigravityWaiting ? 'Waiting for active trusted session' : provider.state === 'fresh' ? 'Fresh' : provider.state === 'expired' ? 'Expired reset window' : String(provider.state || 'unknown').replaceAll('_', ' '),
+      validation: projectionReady ? 'Validated public snapshot' : 'Not validated',
+      claimImpact: status === 'healthy'
+        ? 'None — collector health does not represent quota pressure'
+        : status === 'stale'
+          ? 'Quota figures retained as last observed; current headroom is not claimed'
+          : antigravityWaiting && provider.windows?.length
+            ? 'Current usage headroom withheld; retained windows are last-good only'
+            : 'Current usage headroom withheld',
+      observedAt: provider.observedAt || null,
+      authority: provider.authority,
+      collectionMode: provider.collectionMode,
+    };
+  });
+
+  const integrations = [...runtimeIntegrations, providerProjection, ...sourceIntegrations, ...providerIntegrations];
+  const issues = integrations.filter((integration) => integration.status !== 'healthy');
+  return { integrations, issues, allHealthy: integrations.length > 0 && issues.length === 0 };
+}
+
 export function getShowcasePortfolio() {
   return getPortfolioProjection(showcaseProjection, fixtures.products);
 }
 
-export function getShowcaseSkills() {
-  return getSkillsProjection(showcaseProjection);
-}
-
 export function getLocalAccSearchRecords() {
   const portfolio = getShowcasePortfolio();
-  const skills = getShowcaseSkills();
   const portfolioRecords = portfolio.internalProducts.map((product) => ({
     id: `portfolio:${product.id}`,
     kind: 'portfolio',
@@ -219,14 +338,7 @@ export function getLocalAccSearchRecords() {
     keywords: [product.kind, product.state, product.outcome, product.limitation, ...(product.worksNow || [])],
     route: { view: 'portfolio', product: product.id },
   }));
-  const skillRecords = skills.operationalSkills.map((skill) => ({
-    id: `skills:${skill.id}`,
-    kind: 'skills',
-    title: skill.name,
-    summary: skill.description,
-    keywords: [skill.category, skill.version, 'skill registry reusable operational knowledge'],
-    route: { view: 'skills', skill: skill.id },
-  }));
+
   const benchmarkRecords = getBenchmarkComparison().map((profile) => ({
     id: `benchmarks:${profile.conditionId}`,
     kind: 'benchmarks',
@@ -258,7 +370,7 @@ export function getLocalAccSearchRecords() {
       route: { view: 'analytics', domain: 'ai', subject: edition.analytics.providerUsage.id },
     },
   ];
-  return [...portfolioRecords, ...skillRecords, ...benchmarkRecords, ...analyticsRecords];
+  return [...portfolioRecords, ...benchmarkRecords, ...analyticsRecords];
 }
 
 export function filterLocalAcc(query) {
@@ -278,7 +390,6 @@ export function getOverviewProjection() {
     portfolio: 'Products and durable capabilities',
     analytics: 'Traffic, service usage, and coverage',
     benchmarks: 'Measured model evidence',
-    skills: 'Reusable delivery knowledge',
   };
   return {
     sectionOrder: ['provider-usage', 'source-exceptions', 'destinations', 'recently-landed'],
@@ -287,7 +398,7 @@ export function getOverviewProjection() {
   };
 }
 
-const ROUTE_KEYS = ['view', 'q', 'domain', 'subject', 'range', 'mode', 'product', 'condition', 'result', 'release', 'run', 'skill', 'evaluation'];
+const ROUTE_KEYS = ['view', 'q', 'domain', 'subject', 'range', 'mode', 'product', 'condition', 'result', 'release', 'run', 'evaluation'];
 
 export function buildAccUrl(state = {}, basePath = '/autobot-command-center') {
   const normalizedBase = basePath === '/' ? '' : String(basePath).replace(/\/$/, '');
@@ -317,5 +428,6 @@ export function parseAccUrl(input) {
 export function canonicalizeAccRoute(route = {}) {
   if (route.view === 'usage') return { view: 'analytics', domain: 'ai', subject: 'provider-usage' };
   if (route.view === 'hivemind') return { view: 'search', ...(route.q ? { q: route.q } : {}) };
+  if (route.view === 'evidence') return getEvaluationOwnerRoute(route.evaluation);
   return { ...route };
 }

@@ -1,5 +1,5 @@
 export const ACC_THEME_STORAGE_KEY = 'acc.presentation-theme.v1';
-export const DEFAULT_THEME = 'g1-console';
+export const DEFAULT_THEME = 'matrix';
 
 export const STATUS_COLORS = Object.freeze({
   good: '#41e88a',
@@ -8,6 +8,21 @@ export const STATUS_COLORS = Object.freeze({
 });
 
 export const THEME_PRESENTATION = Object.freeze({
+  autobots: Object.freeze({
+    label: 'Autobots',
+    accentPrimary: '#e84b4f',
+    accentSecondary: '#7cc7ff',
+  }),
+  decepticons: Object.freeze({
+    label: 'Decepticons',
+    accentPrimary: '#692789',
+    accentSecondary: '#c27bff',
+  }),
+  matrix: Object.freeze({
+    label: 'Matrix',
+    accentPrimary: '#62ff72',
+    accentSecondary: '#b7ff5a',
+  }),
   'g1-console': Object.freeze({
     label: 'Teletraan1',
     accentPrimary: '#ffb23e',
@@ -17,16 +32,6 @@ export const THEME_PRESENTATION = Object.freeze({
     label: 'Terminal Dark',
     accentPrimary: '#ffb454',
     accentSecondary: '#ffe0a3',
-  }),
-  matrix: Object.freeze({
-    label: 'Matrix',
-    accentPrimary: '#62ff72',
-    accentSecondary: '#b7ff5a',
-  }),
-  decepticons: Object.freeze({
-    label: 'Decepticons',
-    accentPrimary: '#692789',
-    accentSecondary: '#c27bff',
   }),
 });
 

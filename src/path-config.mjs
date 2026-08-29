@@ -11,7 +11,6 @@ const ENV_KEYS = Object.freeze({
   hiveMindTlsPinFile: 'HIVEMIND_TLS_PIN_FILE',
   providerUsagePrivateCacheDir: 'ACC_PROVIDER_USAGE_PRIVATE_DIR',
   braveHermesEnvFile: 'ACC_BRAVE_HERMES_ENV_FILE',
-  showcaseSkillsRoot: 'HERMES_SKILLS_ROOT',
 });
 
 function plainObject(value) {

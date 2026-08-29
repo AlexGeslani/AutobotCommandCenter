@@ -25,11 +25,6 @@
       "kind": "file",
       "required": false,
       "default": ".hermes/.env"
-    },
-    "showcaseSkillsRoot": {
-      "kind": "directory",
-      "required": false,
-      "default": ".hermes/skills"
     }
   }
 }

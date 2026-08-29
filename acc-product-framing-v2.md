@@ -11,7 +11,7 @@ It is not a Wiki, task manager, session browser, or second configuration surface
 
 ## Why the prior framing was wrong
 
-The first SVG over-weighted current operations. “Outcomes & Exceptions” and “Prime Now” made the ACC resemble a mission-control/task dashboard. Hermes already has Sessions, Chat, Analytics, Models, Logs, Cron, Kanban, Skills, Profiles, and Config for those concerns.
+The first SVG over-weighted current operations. “Outcomes & Exceptions” and “Prime Now” made the ACC resemble a mission-control/task dashboard. Hermes already has Sessions, Chat, Analytics, Models, Logs, Cron, Kanban, Profiles, and Config for those concerns.
 
 The legacy ACC was a Markdown map-of-content for doctrine, decisions, questions, projects, and links. Recreating that structure visually would produce another parallel information architecture that needs maintenance and competes with the canonical Wiki.
 
@@ -97,23 +97,6 @@ Do not borrow:
 - Implied comparability across materially different harness generations.
 - Provider quota guesses.
 
-### 4. Skill Registry
-
-A durable catalog of the skills we created, substantially maintain, adopted, or may publish.
-
-Hermes OOTB already owns operational skill management: list/search/filter, profile scoping, enable/disable, create/edit `SKILL.md`, Learn a skill, hub discovery/install/update, and toolset configuration. ACC should deep-link to that surface rather than reproduce it.
-
-ACC adds the missing artifact-lifecycle views:
-
-- Ours: authored here.
-- Maintained: forked or substantially adapted here.
-- Adopted: installed upstream/community skills we use but do not own.
-- Publish Queue: skills being prepared for the shared GitHub repository.
-- Published: repository/release link, version, license, and upstream relationship.
-- Deprecated: retained provenance and successor.
-
-Each skill record should show origin, category, profile scope, lifecycle status, version, last changed, last validated, platform/dependency envelope, linked files, consumers, Git/repository state, publication readiness, and quality/security checks. A skill detail page can show changelog, validation evidence, portability blockers, and links to the Hermes editor or repository workflow.
-
 ### Embedded Evaluation Records
 
 Evaluations are the conversion pipeline from question to product/capability decision, but not a top-level navigation silo.
@@ -128,7 +111,7 @@ Each evaluation shows:
 - Decision outcome: Promote, Retain, Reject, Re-run, or No decision.
 - What it changed when completed: product readiness, model ranking, deployment profile, or no change.
 
-Completed evaluations remain browsable as provenance through the portfolio item, model condition, benchmark run, or skill they affected. Cross-cutting search/filter can expose all evaluations without creating a parallel home for them.
+Completed evaluations remain browsable as provenance through the portfolio item, model condition, or benchmark run they affected. Cross-cutting search/filter can expose all evaluations without creating a parallel home for them.
 
 ## Lifecycle model
 
@@ -148,20 +131,6 @@ Overview shows the landed outcome
 
 Benchmark evaluations also publish into the permanent Model Observatory after final verification.
 
-Skill work follows a parallel artifact lifecycle:
-
-```text
-Reusable workflow
-        ↓
-Skill draft
-        ↓
-Validation and real use
-        ↓
-Maintained internal asset
-        ↓
-Publish candidate → GitHub release / upstream contribution
-```
-
 ## Hermes Dashboard integration
 
 Recommendation: implement ACC as one native web-dashboard plugin tab with its own internal routes.
@@ -179,7 +148,7 @@ Verified installed contract:
 Recommended integration behavior:
 
 - Add one `Command Center` tab; do not override Hermes Overview.
-- Use internal subnavigation: Overview, Portfolio, Benchmarks, Skills.
+- Use internal subnavigation: Overview, Portfolio, Analytics, Benchmarks, and Search.
 - Deep-link to existing Hermes Chat, Sessions, Kanban, Cron, Logs, Models, and Config where the action belongs.
 - Keep ACC read-only in v1. No inline Wiki editing, provider configuration, benchmark execution, task mutation, or approval actions.
 - Use Hermes theme variables/components so ACC survives theme changes.
@@ -212,15 +181,9 @@ Do not squeeze the desktop leaderboard table onto a phone.
 - Evidence gallery supports screenshots/audio where appropriate.
 - Product detail is narrative and visual, not a dense table.
 
-### Mobile Skills
-
-- Filter chips for Ours, Maintained, Adopted, Publish Queue, and Published.
-- Compact rows show skill name, lifecycle, validation state, and repository status.
-- Skill detail opens full-screen; editing continues in the existing Hermes Skills surface.
-
 ### Mobile Evaluation Evidence
 
-- Evaluations appear inside their product, initiative, model-condition, benchmark-run, or skill detail.
+- Evaluations appear inside their product, initiative, model-condition, or benchmark-run detail.
 - Portfolio can expose an `All evaluations` filter with stage chips and compact evidence-progress bars.
 - Provisional/final status always visible without opening detail.
 - Completed evaluation shows the product/model state it changed.
@@ -243,8 +206,7 @@ ACC is a projection layer. It should read source-specific adapters and never bec
 - Current service state: verified service/model endpoints or retained health artifacts.
 - Provider quota: only authoritative provider telemetry or explicit retained quota state. Hermes token analytics are local usage estimates, not provider balance.
 - Images/audio/demos: immutable or repository-managed artifact references.
-- Skill inventory and enabled/profile state: Hermes Skills APIs and filesystem metadata.
-- Skill authorship, maintenance, validation, and publication state: repository-backed metadata or a deterministic projection from skill/repository history; never a second manually maintained catalog.
+
 
 Every visual datum should carry source class and freshness. Missing authority renders as Unknown, not zero or healthy.
 
@@ -257,25 +219,25 @@ Every visual datum should carry source class and freshness. Missing authority re
 5. A stale/missing source degrades visibly and never presents old state as live.
 6. Benchmark rankings remain condition-aware and category-separated.
 7. A completed evaluation visibly changes a product, capability, or benchmark record—or records that it changed nothing.
-8. Every maintained skill has visible origin, validation, and publication state without duplicating its `SKILL.md` content.
+
 
 ## Questions for the eventual Autobots MoA
 
 The MoA should challenge this product hypothesis, not brainstorm from zero:
 
-1. Is Portfolio + Model Observatory + Skill Registry the correct durable core, with evaluation evidence embedded rather than separately navigated?
+1. Is Portfolio + Model Observatory the correct durable core, with evaluation evidence embedded rather than separately navigated?
 2. What should Overview show to prove value without becoming another operations dashboard?
 3. Is a single Hermes plugin tab with internal routes the safest low-maintenance integration?
 4. What is the minimum mobile information density that still feels like a command center?
 5. How should condition-level benchmark ranking remain understandable to a non-research glance?
 6. Which source adapters can be built without introducing a second truth store?
 7. What should be explicitly excluded from v1?
-8. What is the leanest repository metadata contract that distinguishes authored, maintained, adopted, publish-ready, and published skills?
+
 
 ## Proposed v1 exclusion list
 
 - Wiki editing.
-- Skill editing or enable/disable controls; use the existing Hermes Skills page.
+
 - Git commit, repository publication, release, or upstream-submission controls.
 - Kanban/task mutation.
 - Benchmark launch controls.

@@ -1,12 +1,12 @@
 {
   "name": "autobot-command-center",
   "label": "Command Center",
-  "description": "Read-only visual projection of durable products, benchmark evidence, and maintained skills.",
+  "description": "Read-only visual projection of durable products, benchmark evidence, analytics, and provider usage.",
   "icon": "BarChart3",
   "version": "0.1.0",
   "tab": {
     "path": "/autobot-command-center",
-    "position": "after:skills"
+    "position": "after:analytics"
   },
   "entry": "dist/index.js",
   "css": "dist/style.css"

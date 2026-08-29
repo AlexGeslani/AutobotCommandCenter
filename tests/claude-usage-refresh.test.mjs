@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { CLAUDE_USAGE_VALIDITY_MS } from '../src/provider-usage/schema.mjs';
 import {
   CLAUDE_USAGE_REFRESH_AFTER_MS,
   CLAUDE_USAGE_COMMAND_TIMEOUT_MS,
   buildClaudeUsageExpectProgram,
+  classifyClaudeUsageExitStatus,
   normalizeClaudeUsageTranscript,
   refreshClaudeUsageCache,
   shouldRefreshClaudeUsage,
@@ -67,9 +69,10 @@ ResetsAug18at12pm(America/New_York)`;
     ]);
   });
 
-  it('refreshes when a reported window resets or the last observation reaches twelve hours', () => {
+  it('refreshes when a reported window resets or the last observation reaches the shared validity boundary', () => {
     const now = '2026-08-01T19:00:00.000Z';
-    expect(CLAUDE_USAGE_REFRESH_AFTER_MS).toBe(12 * 60 * 60 * 1000);
+    expect(CLAUDE_USAGE_VALIDITY_MS).toBe(12 * 60 * 60 * 1000);
+    expect(CLAUDE_USAGE_REFRESH_AFTER_MS).toBe(CLAUDE_USAGE_VALIDITY_MS);
     expect(shouldRefreshClaudeUsage(null, now)).toBe(true);
     expect(shouldRefreshClaudeUsage({ observedAt: '2026-08-01T07:00:01.000Z' }, now)).toBe(false);
     expect(shouldRefreshClaudeUsage({ observedAt: '2026-08-01T07:00:00.000Z' }, now)).toBe(true);
@@ -81,6 +84,12 @@ ResetsAug18at12pm(America/New_York)`;
       observedAt: '2026-08-01T18:30:00.000Z',
       windows: [{ resetsAt: '2026-08-01T19:00:01.000Z' }],
     }, now)).toBe(false);
+  });
+
+  it('classifies user-owned authentication dialogs separately from other refresh failures', () => {
+    expect(classifyClaudeUsageExitStatus(20)).toBe('AUTH_ERROR');
+    expect(classifyClaudeUsageExitStatus(22)).toBe('REFRESH_ERROR');
+    expect(classifyClaudeUsageExitStatus(null)).toBe('REFRESH_ERROR');
   });
 
   it('runs only the documented read-only command under user settings and exits at user-owned dialogs', () => {
@@ -126,5 +135,33 @@ ResetsAug18at12pm(America/New_York)`;
     expect(updated.record.sourceVersion).toBe('claude-usage-cli');
     expect(runs).toBe(1);
     expect(writes).toHaveLength(1);
+  });
+
+  it('publishes canonical auth and other failures immediately while retaining only validated last-good windows', async () => {
+    const prior = normalizeClaudeUsageTranscript(transcript, '2026-08-01T06:00:00.000Z');
+    const cases = [
+      { code: 'AUTH_ERROR', outcome: 'auth_error' },
+      { code: 'REFRESH_ERROR', outcome: 'error' },
+    ];
+    for (const failure of cases) {
+      const writes = [];
+      const result = await refreshClaudeUsageCache({
+        now: '2026-08-01T19:00:00.000Z',
+        readRecord: async () => prior,
+        runUsage: async () => {
+          const error = new Error('redacted failure');
+          error.code = failure.code;
+          throw error;
+        },
+        writeRecord: async (record) => writes.push(record),
+      });
+      expect(result.outcome).toBe(failure.outcome);
+      expect(writes).toHaveLength(1);
+      expect(writes[0]).toMatchObject({
+        provider: 'claude', state: failure.outcome, observedAt: prior.observedAt,
+        windows: prior.windows,
+      });
+      expect(JSON.stringify(writes[0])).not.toContain('redacted failure');
+    }
   });
 });

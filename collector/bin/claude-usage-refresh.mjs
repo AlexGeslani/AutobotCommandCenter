@@ -6,6 +6,7 @@ import { loadAccPathConfig, pathInPrivateCache } from '../../src/path-config.mjs
 import {
   CLAUDE_USAGE_COMMAND_TIMEOUT_MS,
   buildClaudeUsageExpectProgram,
+  classifyClaudeUsageExitStatus,
   refreshClaudeUsageCache,
 } from '../lib/claude-usage-refresh.mjs';
 
@@ -34,7 +35,11 @@ async function runUsage() {
     maxBuffer: 1024 * 1024,
     env: { ...process.env, ACC_CLAUDE_EMPTY_MCP: emptyMcpPath },
   });
-  if (result.error || result.status !== 0) throw new Error('guarded Claude /usage command did not complete');
+  if (result.error || result.status !== 0) {
+    const error = new Error('guarded Claude /usage command did not complete');
+    error.code = classifyClaudeUsageExitStatus(result.status);
+    throw error;
+  }
   return result.stdout || '';
 }
 
@@ -45,6 +50,7 @@ try {
     writeRecord: (record) => writeAtomicJson(claudeCachePath, record),
   });
   process.stdout.write(`claude-usage-refresh=${result.outcome}\n`);
+  if (['auth_error', 'error'].includes(result.outcome)) process.exitCode = 1;
 } catch {
   process.stderr.write('claude-usage-refresh=failed\n');
   process.exitCode = 1;

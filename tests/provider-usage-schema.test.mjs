@@ -46,6 +46,17 @@ describe('public provider usage snapshot', () => {
     expect(deriveProviderUsageState({ state: 'fresh', observedAt: '2026-07-27T11:00:00.000Z', windows: [{ resetsAt: '2026-07-27T11:30:00.000Z' }] }, generatedAt)).toBe('expired');
   });
 
+  it('keeps Claude observations valid for the shared twelve-hour policy', () => {
+    const claude = {
+      provider: 'claude',
+      state: 'fresh',
+      observedAt: '2026-07-27T00:00:00.000Z',
+      windows: [{ resetsAt: '2026-07-28T00:00:00.000Z' }],
+    };
+    expect(deriveProviderUsageState(claude, '2026-07-27T11:59:59.999Z')).toBe('fresh');
+    expect(deriveProviderUsageState(claude, '2026-07-27T12:00:00.001Z')).toBe('stale');
+  });
+
   it('rejects unbounded provider-controlled metadata and window identities', () => {
     expect(() => buildProviderUsageSnapshot({ generatedAt, providers: [{ ...codex, sourceVersion: 'Codex 9.9.9 user@host' }] })).toThrow(/sourceVersion/i);
     expect(() => buildProviderUsageSnapshot({ generatedAt, providers: [{ ...codex, windows: [{ ...codex.windows[0], label: 'raw provider label' }] }] })).toThrow(/canonical/i);

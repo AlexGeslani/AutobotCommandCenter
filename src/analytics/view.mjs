@@ -76,8 +76,11 @@ export function createAnalyticsView({ React, h, useEffect, useState, Badge, Stat
   function AnalyticsLanding({ go, providerUsage }) {
     const providerCount = providerUsage?.providers?.filter((provider) => Array.isArray(provider.windows) && provider.windows.length).length || 0;
     return h('div', { className: 'acc-view acc-analytics' },
-      h(SectionHeading, { eyebrow: 'Measured systems', title: 'Analytics' }),
-      h('p', { className: 'acc-lede' }, 'One reporting destination for web properties, AI services, and products or agents. Every source keeps its own authority, freshness, and metric definitions.'),
+      h(SectionHeading, {
+        eyebrow: 'Measured systems',
+        title: 'Analytics',
+        help: 'One reporting destination for web properties, AI services, and products or agents. Every source keeps its own authority, freshness, and metric definitions.',
+      }),
       h('section', { className: 'acc-analytics-domain', 'aria-labelledby': 'acc-domain-web' },
         h('div', { className: 'acc-analytics-domain__head' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Domain 01'), h('h2', { id: 'acc-domain-web' }, 'Web properties')), h(Badge, { tone: webSubjects.length ? 'good' : 'warn' }, `${webSubjects.length} connected`)),
         webSubjects.length
