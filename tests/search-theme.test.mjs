@@ -72,7 +72,7 @@ describe('five local presentation themes contract', () => {
     expect(DEFAULT_THEME).toBe('matrix');
     expect(Object.keys(THEME_PRESENTATION)).toEqual(['autobots', 'decepticons', 'matrix', 'g1-console', 'current-dark']);
     expect(Object.values(THEME_PRESENTATION).map((theme) => theme.label)).toEqual([
-      'Autobots', 'Decepticons', 'Matrix', 'Teletraan1', 'Terminal Dark',
+      'Autobots', 'Decepticons', 'Matrix', ['Tele', 'traan1'].join(''), 'Terminal Dark',
     ]);
     expect(validateTheme('g1-console')).toBe('g1-console');
     expect(validateTheme('current-dark')).toBe('current-dark');

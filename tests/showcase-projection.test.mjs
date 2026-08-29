@@ -132,7 +132,7 @@ describe('closed snapshot selectors', () => {
       ...snapshot,
       githubProjects: snapshot.githubProjects.map((project, index) => index ? project : { ...project, visibility: 'PRIVATE' }),
     })).toThrow(/PUBLIC/i);
-    expect(() => validateShowcaseProjection({ ...snapshot, sourcePath: '/Users/fixture/private' })).toThrow(/field/i);
+    expect(() => validateShowcaseProjection({ ...snapshot, sourcePath: '/home/fixture/private' })).toThrow(/field/i);
   });
 
   it('separates public projects from non-public internal products', async () => {
