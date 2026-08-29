@@ -32,7 +32,6 @@ describe('Core + Edition + Projection runtime contract', () => {
     expect(() => validateDomainProjection(broken)).toThrow(/unknown condition/i);
   });
 
-
   it('rejects malformed benchmark detail rows before tuple destructuring can corrupt the UI', () => {
     const broken = structuredClone(DEMO_DOMAIN_PROJECTION);
     broken.data.benchmarkComparison[0].scores.tools.detail = ['not a label-value pair'];
