@@ -216,7 +216,7 @@
     schemaVersion: "acc-edition-v1",
     id: "demo",
     branding: {
-      title: "Command Center",
+      title: "Autobot Command Center",
       defaultTheme: "matrix"
     },
     modules: [

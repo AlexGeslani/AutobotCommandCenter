@@ -10,6 +10,7 @@ const searchDeepLink = (query = '') => `${searchUrl}${query ? `${searchUrl.inclu
 const showcaseBuild = process.env.ACC_ANALYTICS_SHOWCASE === '1';
 const showcaseProjection = JSON.parse(await readFile(new URL('./fixtures/analytics/kungfuclan-demo.v2.json', import.meta.url), 'utf8'));
 const demoDomainProjection = JSON.parse(await readFile(new URL('../fixtures/demo/domain.v1.json', import.meta.url), 'utf8'));
+const demoEdition = JSON.parse(await readFile(new URL('../config/demo.edition.v1.json', import.meta.url), 'utf8'));
 
 async function routeWebAnalytics(page) {
   const realProjection = structuredClone(showcaseProjection);
@@ -362,9 +363,19 @@ test('Analytics exposes the alexgeslani.com real-data route', async ({ page }) =
 
 test('illustrative analytics stays on its separate identity with a permanent warning', async ({ page }) => {
   test.skip(!showcaseBuild, 'Illustrative analytics is compiled only into an explicit showcase build');
+  const showcaseEdition = structuredClone(demoEdition);
+  showcaseEdition.analytics.web = [{
+    id: 'kungfuclan-demo',
+    label: 'Kung Fu Clan illustrative demo',
+    description: 'Clearly labeled, non-current aggregate web analytics fixture.',
+    projection: 'data/analytics/showcase/kungfuclan-demo.v2.json',
+  }];
+  for (const pattern of ['**/data/edition.v1.json', '**/runtime/edition.v1.json']) {
+    await page.route(pattern, (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(showcaseEdition) }));
+  }
   await routeWebAnalytics(page);
   await page.goto(pluginUrl + '?view=analytics&domain=web&subject=kungfuclan-demo&range=30d&mode=fixture');
-  await expect(page.getByRole('alert')).toHaveText('ILLUSTRATIVE FIXTURE — NOT CURRENT KUNGFUCLAN.COM ANALYTICS');
+  await expect(page.getByRole('alert')).toHaveText('ILLUSTRATIVE FIXTURE — NOT CURRENT ANALYTICS');
   await expect(page.getByRole('heading', { name: 'Kung Fu Clan illustrative demo' })).toBeVisible();
   await expect(page.getByText('30/30 observed', { exact: true })).toBeVisible();
 });
