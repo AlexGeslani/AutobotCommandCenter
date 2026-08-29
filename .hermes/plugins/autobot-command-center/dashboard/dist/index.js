@@ -745,6 +745,11 @@
     if (!["verified", "pending", "provisional"].includes(score.evidence)) throw new TypeError(`${name}.evidence is unsupported`);
     assertString2(score.denominator, `${name}.denominator`, { max: 512 });
     assertArray2(score.detail, `${name}.detail`, 100);
+    score.detail.forEach((row, index) => {
+      if (!Array.isArray(row) || row.length !== 2) throw new TypeError(`${name}.detail[${index}] must be a [label, value] pair`);
+      assertString2(row[0], `${name}.detail[${index}][0]`, { max: 128 });
+      assertString2(row[1], `${name}.detail[${index}][1]`, { max: 1024 });
+    });
     if (score.progress !== void 0) {
       assertObject2(score.progress, `${name}.progress`);
       if (!Number.isSafeInteger(score.progress.current) || !Number.isSafeInteger(score.progress.total) || score.progress.current < 0 || score.progress.total < 0 || score.progress.current > score.progress.total) throw new TypeError(`${name}.progress counts are invalid`);
@@ -768,8 +773,9 @@
     assertArray2(data.runs, "domain projection.data.runs", 1e4);
     assertArray2(data.evaluations, "domain projection.data.evaluations", 1e3);
     assertObject2(data.voicePerformance, "domain projection.data.voicePerformance");
-    assertObject2(data.benchmarkReleases, "domain projection.data.benchmarkReleases", /* @__PURE__ */ new Set(["tool-use", "reasoning", "coding"]));
+    assertObject2(data.benchmarkReleases, "domain projection.data.benchmarkReleases", /* @__PURE__ */ new Set(["tool-use", "reasoning", "coding", "multi-turn-agent"]));
     for (const domain of ["tool-use", "reasoning", "coding"]) assertId(data.benchmarkReleases[domain], `domain projection.data.benchmarkReleases.${domain}`);
+    if (data.benchmarkReleases["multi-turn-agent"] !== void 0) assertId(data.benchmarkReleases["multi-turn-agent"], "domain projection.data.benchmarkReleases.multi-turn-agent");
     const sourceIds = assertUniqueIds(data.sources, "sources");
     const productIds = assertUniqueIds(data.products, "products");
     const familyIds = assertUniqueIds(data.modelFamilies, "modelFamilies");
@@ -3082,18 +3088,18 @@
               "article",
               { className: "acc-methodology-card" },
               h("p", { className: "acc-eyebrow" }, "Native tool use"),
-              h("h3", null, "BFCL V4"),
-              h("strong", { className: "acc-methodology-size" }, "150 frozen scored cases"),
-              h("p", null, "Chosen because real agent work depends on selecting the right function and producing valid arguments across single-turn and multi-turn tool situations. Complete collection requires 261 generated rows for the 150 scored cases.")
+              h("h3", null, "BFCL V4 Hard-50"),
+              h("strong", { className: "acc-methodology-size" }, "50 frozen hard cases"),
+              h("p", null, "A category-complete successor epoch covering all 20 BFCL types: 13 single-turn, 23 multi-turn, and 14 Memory cases. Complete collection requires 119 generated rows because the 14 scored Memory cases need 69 frozen prerequisites. Raw case accuracy is primary; BFCL official weighted aggregation is reported separately.")
             ),
             h(
               "article",
               { className: "acc-methodology-card" },
               h("p", { className: "acc-eyebrow" }, "Multi-turn agent work"),
-              h("h3", null, "tau2"),
-              h("strong", { className: "acc-methodology-size" }, "50 frozen tasks"),
-              h("small", null, "25 Retail \xB7 25 Telecom"),
-              h("p", null, "Chosen because it tests whether a model can preserve state, reason through a workflow, use tools, and recover across a sustained simulated interaction\u2014not just answer one isolated prompt.")
+              h("h3", null, "tau2 Hard-24"),
+              h("strong", { className: "acc-methodology-size" }, "24 frozen hard tasks"),
+              h("small", null, "12 Retail \xB7 12 Telecom"),
+              h("p", null, "An outcome-conditioned regression successor: Retail keeps 12 of Qwen3.6 35B\u2019s 15 raw scored failures, prioritized where Sol or Luna also failed; Telecom keeps both Qwen failures plus 10 hard Sol failures. Raw operational zeros remain failures exactly as scored. Calibration-model projections are retrospective, while future post-freeze models are out-of-sample.")
             )
           )
         ),
