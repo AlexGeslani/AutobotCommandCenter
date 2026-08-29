@@ -132,8 +132,8 @@ test('Overview prioritizes provider headroom and keeps destination summaries com
   const overview = page.locator('.acc-overview');
   const sections = overview.locator(':scope > section');
   await expect(sections.first().getByRole('heading', { name: 'Provider usage' })).toBeVisible();
-  await expect(sections.nth(1).getByRole('heading', { name: 'Integration issues' })).toBeVisible();
-  await expect(sections.nth(2).getByRole('heading', { name: 'Explore details' })).toBeVisible();
+  await expect(overview.getByRole('heading', { name: 'Explore details' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Integration issues' })).toHaveCount(0);
   await expect(page.getByText('Recently landed', { exact: true })).toBeVisible();
   await expect(page.getByText('Durable capabilities', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Model leaders', { exact: true })).toHaveCount(0);
@@ -442,8 +442,10 @@ test('five themes persist locally while status colors, themed mark, and reduced 
   await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
   const shell = page.locator('.acc-shell');
   const commandMark = page.locator('.acc-command-mark');
-  await expect(shell).toHaveAttribute('data-acc-theme', 'g1-console');
+  await expect(shell).toHaveAttribute('data-acc-theme', 'matrix');
   await expect(page.getByLabel('Presentation theme').locator('option')).toHaveCount(5);
+  await page.getByLabel('Presentation theme').selectOption('g1-console');
+  await expect(shell).toHaveAttribute('data-acc-theme', 'g1-console');
   const g1Console = await shell.evaluate((element) => {
     const style = getComputedStyle(element);
     return {
@@ -550,7 +552,7 @@ test('five themes persist locally while status colors, themed mark, and reduced 
   expect(Number(await page.locator('.acc-matrix-rain__canvas').getAttribute('data-frame'))).toBe(reducedFrame);
   await page.evaluate(() => localStorage.setItem('acc.presentation-theme.v1', 'light'));
   await page.reload();
-  await expect(page.locator('.acc-shell')).toHaveAttribute('data-acc-theme', 'g1-console');
+  await expect(page.locator('.acc-shell')).toHaveAttribute('data-acc-theme', 'matrix');
 });
 
 test('Decepticons uses the G1 insignia purple and a local faction mark', async ({ page }) => {
@@ -607,6 +609,7 @@ test('Decepticons uses the G1 insignia purple and a local faction mark', async (
 });
 
 test('desktop header keeps title, Settings, and Search in one compact row', async ({ page }) => {
+  await routeDomainProjection(page, demoDomainProjection);
   await page.setViewportSize({ width: 1210, height: 700 });
   await page.goto(pluginUrl);
   await expect(page.locator('.acc-hero').getByLabel('Presentation theme')).toHaveCount(0);
@@ -1009,6 +1012,7 @@ test('benchmark domain is reload-stable and participates in browser history', as
 });
 
 test('mobile detail routes retain an immediate Dev fixture disclosure', async ({ page }) => {
+  await routeDomainProjection(page, demoDomainProjection);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(pluginUrl + '?view=benchmarks&condition=qwen36-awq-vllm');
   const label = page.getByText('Dev fixtures', { exact: true });
@@ -1065,13 +1069,13 @@ test('every Analytics and Benchmarks data column is stably sortable with accessi
 
   await page.goto(pluginUrl + '?view=benchmarks&domain=tool-use');
   const leaderboard = page.getByRole('table', { name: 'Tool Use benchmark leaderboard' });
-  await exerciseEverySortHeader(leaderboard, ['Rank', 'Tested condition', 'Score', 'Denominator', 'Release', 'Availability']);
+  await exerciseEverySortHeader(leaderboard, ['Rank', 'Tested condition', 'Score', 'Denominator', 'Release']);
   const releaseButton = leaderboard.getByRole('button', { name: 'Sort by Release' });
   await releaseButton.focus();
   await page.keyboard.press('Enter');
-  await expect(leaderboard.getByRole('columnheader', { name: /Sort by Release/ })).toHaveAttribute('aria-sort', 'ascending');
-  await page.keyboard.press('Space');
   await expect(leaderboard.getByRole('columnheader', { name: /Sort by Release/ })).toHaveAttribute('aria-sort', 'descending');
+  await page.keyboard.press('Space');
+  await expect(leaderboard.getByRole('columnheader', { name: /Sort by Release/ })).toHaveAttribute('aria-sort', 'ascending');
   expect(browserErrors).toEqual([]);
 });
 

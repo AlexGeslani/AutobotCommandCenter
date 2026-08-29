@@ -185,7 +185,7 @@
 .acc-icon-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 44px; width: 44px; height: 44px; padding: 0; border: 1px solid var(--acc-presentation-border); border-radius: var(--radius); color: var(--acc-accent-primary); background: color-mix(in srgb, var(--color-background) 90%, var(--acc-accent-primary) 10%); font-size: 1.05rem; cursor: pointer; }
 .acc-icon-button[aria-current='page'] { border-color: var(--acc-accent-primary); background: color-mix(in srgb, var(--acc-accent-primary) 16%, var(--color-background)); }
 .acc-brand-lockup { display: flex; flex: 1 1 auto; align-items: center; gap: clamp(.65rem, 1.4vw, 1rem); min-width: 0; width: auto; position: relative; z-index: 1; }
-.acc-brand-lockup > div { min-width: 0; }
+.acc-brand-lockup > div { display: flex; align-items: center; gap: .55rem; min-width: 0; }
 .acc-command-mark {
   display: block; flex: 0 0 auto; width: clamp(44px, 4.6vw, 56px); height: clamp(44px, 4.6vw, 56px);
   background: var(--acc-command-mark-color); -webkit-mask-image: var(--acc-command-mark-mask); mask-image: var(--acc-command-mark-mask);

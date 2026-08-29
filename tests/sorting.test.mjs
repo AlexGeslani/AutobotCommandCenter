@@ -12,13 +12,13 @@ const EXPECTED_TABLES = {
   'benchmarks.coverage': ['condition', 'instruction', 'tools', 'agent'],
   'benchmarks.measured-suite': ['condition', 'result'],
   'benchmarks.comparison': ['condition', 'instruction', 'tools', 'agent', 'average', 'evidence'],
-  'benchmarks.leaderboard': ['rank', 'condition', 'score', 'denominator', 'release', 'availability'],
+  'benchmarks.leaderboard': ['rank', 'condition', 'score', 'denominator', 'release'],
 };
 
 describe('sortable evidence-table contract', () => {
   it('mechanically inventories every Analytics and Benchmarks data-table column', () => {
     expect(Object.fromEntries(Object.entries(SORTABLE_TABLES).map(([table, columns]) => [table, columns.map((column) => column.id)]))).toEqual(EXPECTED_TABLES);
-    expect(Object.values(SORTABLE_TABLES).flat()).toHaveLength(26);
+    expect(Object.values(SORTABLE_TABLES).flat()).toHaveLength(25);
   });
 
   it('requires one sort-key accessor for every inventoried data column', () => {

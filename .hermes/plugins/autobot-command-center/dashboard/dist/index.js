@@ -1126,8 +1126,7 @@
       column("condition", "Tested condition", "text"),
       column("score", "Score", "number"),
       column("denominator", "Denominator", "number"),
-      column("release", "Release", "text"),
-      column("availability", "Availability", "text")
+      column("release", "Release", "text")
     ])
   });
   var MISSING_LABELS = /* @__PURE__ */ new Set(["missing", "pending", "unknown"]);
@@ -2264,7 +2263,6 @@
           "div",
           { className: "acc-integration-issues__summary" },
           h("strong", null, "Integration issues"),
-          fixtures.meta.fixture ? h(Badge, { tone: "warn" }, "Dev fixtures") : null,
           h("span", null, `${integrationStatus.issues.length} need attention`)
         ),
         h(
@@ -3567,7 +3565,8 @@
             h(
               "div",
               null,
-              h("h1", null, edition.branding.title)
+              h("h1", null, edition.branding.title),
+              fixtures.meta.fixture ? h(Badge, { tone: "warn" }, "Dev fixtures") : null
             )
           ),
           h(
