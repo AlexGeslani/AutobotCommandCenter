@@ -1,74 +1,132 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
-  <title id="title">Autobot Command Center architecture</title>
-  <desc id="desc">Bounded collectors produce validated, sanitized projections. A read-only React core combines those projections with an immutable edition contract and renders both a Hermes dashboard plugin and standalone static application. Mutable runtime data remains outside Git.</desc>
+  <title id="title">Autobot Command Center Matrix architecture</title>
+  <desc id="desc">Authorized and bounded evidence sources enter strict validators. Versioned sanitized projections feed one read-only React core and two delivery surfaces. Invalid candidates fail closed and mutable runtime data remains outside Git.</desc>
   <defs>
-    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#173043" stroke-width="0.7"/></pattern>
-    <filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-    <marker id="cyan-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#22d3ee"/></marker>
-    <marker id="green-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#34d399"/></marker>
-    <marker id="violet-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#a78bfa"/></marker>
+    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M36 0H0V36" fill="none" stroke="#063b1d" stroke-width="0.7"/>
+      <circle cx="1" cy="1" r="1" fill="#0b5f2c"/>
+    </pattern>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#39ff88"/>
+    </marker>
+    <marker id="warn-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#b7ff3c"/>
+    </marker>
     <style>
-      text{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;fill:#e2e8f0}.title{font-size:30px;font-weight:800}.subtitle{font-size:13px;fill:#94a3b8}.section{font-size:12px;font-weight:800;letter-spacing:2px}.name{font-size:16px;font-weight:800}.copy{font-size:11px;fill:#cbd5e1}.tiny{font-size:10px;fill:#94a3b8}.pill{font-size:9px;font-weight:800;letter-spacing:1px}.box{fill:#0f172a;stroke-width:1.5}.cyan{stroke:#22d3ee}.green{stroke:#34d399}.violet{stroke:#a78bfa}.amber{stroke:#fbbf24}.rose{stroke:#fb7185}.slate{stroke:#64748b}.flow{fill:none;stroke-width:2}.dash{stroke-dasharray:7 6}.boundary{fill:#07111f;fill-opacity:.72;stroke-width:1.5;stroke-dasharray:9 6}.card{fill:#0b1424;stroke:#243b53;stroke-width:1}.legend{font-size:10px;fill:#cbd5e1}
+      text{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;fill:#d8ffe5}.title{font-size:31px;font-weight:800;fill:#f0fff4}.subtitle{font-size:13px;fill:#73d99a}.section{font-size:12px;font-weight:800;letter-spacing:2px;fill:#39ff88}.name{font-size:16px;font-weight:800;fill:#effff4}.copy{font-size:11px;fill:#a0e7b8}.tiny{font-size:10px;fill:#69bd87}.pill{font-size:9px;font-weight:800;letter-spacing:1px;fill:#39ff88}.box{fill:#001409;stroke:#19c965;stroke-width:1.5}.box-strong{fill:#001d0c;stroke:#39ff88;stroke-width:1.8}.box-warn{fill:#172100;stroke:#b7ff3c;stroke-width:1.6}.boundary{fill:#000b05;fill-opacity:.86;stroke:#118743;stroke-width:1.5;stroke-dasharray:9 6}.flow{fill:none;stroke:#39ff88;stroke-width:2}.flow-muted{fill:none;stroke:#15934c;stroke-width:1.8}.flow-warn{fill:none;stroke:#b7ff3c;stroke-width:2;stroke-dasharray:7 6}.card{fill:#001008;stroke:#126331;stroke-width:1}.legend{font-size:10px;fill:#a0e7b8}
     </style>
   </defs>
-  <rect width="1440" height="900" fill="#020617"/><rect width="1440" height="900" fill="url(#grid)" opacity=".7"/>
-  <circle cx="58" cy="54" r="6" fill="#34d399" filter="url(#glow)"/>
+
+  <rect width="1440" height="900" fill="#000503"/>
+  <rect width="1440" height="900" fill="url(#grid)" opacity=".78"/>
+  <circle cx="58" cy="54" r="6" fill="#39ff88" filter="url(#glow)"/>
   <text x="80" y="64" class="title">Autobot Command Center</text>
-  <text x="80" y="88" class="subtitle">Read-only evidence projection · one source · two delivery surfaces</text>
+  <text x="80" y="89" class="subtitle">Matrix architecture · read-only evidence projection · fail-closed by design</text>
 
-  <!-- arrows behind boxes -->
-  <path d="M330 232H465" class="flow cyan" marker-end="url(#cyan-arrow)"/>
-  <path d="M330 342H465" class="flow cyan" marker-end="url(#cyan-arrow)"/>
-  <path d="M330 452H465" class="flow cyan" marker-end="url(#cyan-arrow)"/>
-  <path d="M330 562H465" class="flow rose dash" marker-end="url(#cyan-arrow)"/>
-  <path d="M725 386H835" class="flow green" marker-end="url(#green-arrow)"/>
-  <path d="M1010 270V205H1130" class="flow violet" marker-end="url(#violet-arrow)"/>
-  <path d="M1010 500V565H1130" class="flow violet" marker-end="url(#violet-arrow)"/>
-  <path d="M595 680V750" class="flow green" marker-end="url(#green-arrow)"/>
-  <path d="M1010 610V750" class="flow violet" marker-end="url(#violet-arrow)"/>
+  <!-- Flows are intentionally behind the component boxes. -->
+  <path d="M324 226H442" class="flow" marker-end="url(#arrow)"/>
+  <path d="M324 348H442" class="flow" marker-end="url(#arrow)"/>
+  <path d="M324 470H442" class="flow" marker-end="url(#arrow)"/>
+  <path d="M324 592H442" class="flow-warn" marker-end="url(#warn-arrow)"/>
+  <path d="M742 396H818" class="flow" marker-end="url(#arrow)"/>
+  <path d="M1174 314H1250V232" class="flow-muted" marker-end="url(#arrow)"/>
+  <path d="M1174 490H1250V592" class="flow-muted" marker-end="url(#arrow)"/>
+  <path d="M592 654V736" class="flow-warn" marker-end="url(#warn-arrow)"/>
+  <path d="M1000 650V736" class="flow-muted" marker-end="url(#arrow)"/>
 
-  <!-- input lane -->
-  <text x="80" y="150" class="section" fill="#22d3ee">01 · BOUNDED INPUTS</text>
-  <rect x="70" y="178" width="270" height="108" rx="9" class="box cyan"/>
-  <text x="92" y="210" class="name">Provider usage</text><text x="92" y="234" class="copy">Documented quota events</text><text x="92" y="254" class="copy">Canonical windows · freshness TTL</text><text x="92" y="274" class="pill" fill="#22d3ee">NO RAW ACCOUNT PAYLOADS</text>
-  <rect x="70" y="306" width="270" height="108" rx="9" class="box cyan"/>
-  <text x="92" y="338" class="name">Web analytics</text><text x="92" y="362" class="copy">Privacy-safe edge aggregates</text><text x="92" y="382" class="copy">Checksums · period reconciliation</text><text x="92" y="402" class="pill" fill="#22d3ee">NO RAW REQUEST LOGS</text>
-  <rect x="70" y="434" width="270" height="108" rx="9" class="box cyan"/>
-  <text x="92" y="466" class="name">Portfolio + benchmarks</text><text x="92" y="490" class="copy">Allowlisted public metadata</text><text x="92" y="510" class="copy">Frozen releases · run lineage</text><text x="92" y="530" class="pill" fill="#22d3ee">EXACT EVIDENCE CONDITIONS</text>
-  <rect x="70" y="562" width="270" height="108" rx="9" class="box rose"/>
-  <text x="92" y="594" class="name">Protected knowledge</text><text x="92" y="618" class="copy">Optional server-side bridge</text><text x="92" y="638" class="copy">Bounded scope · source-linked output</text><text x="92" y="658" class="pill" fill="#fb7185">CREDENTIALS NEVER REACH BROWSER</text>
+  <text x="72" y="144" class="section">01 · AUTHORIZED SOURCES</text>
+  <rect x="64" y="166" width="270" height="108" rx="8" class="box"/>
+  <text x="86" y="198" class="name">Web analytics</text>
+  <text x="86" y="223" class="copy">Dated edge aggregates</text>
+  <text x="86" y="244" class="copy">Coverage · checksums · provenance</text>
+  <text x="86" y="263" class="pill">NO RAW REQUEST LOGS</text>
 
-  <!-- projection boundary -->
-  <rect x="455" y="160" width="280" height="520" rx="14" class="boundary green"/>
-  <text x="480" y="194" class="section" fill="#34d399">02 · PROJECTION BOUNDARY</text>
-  <rect x="480" y="216" width="230" height="126" rx="9" class="box green"/>
-  <text x="500" y="248" class="name">Strict validation</text><text x="500" y="274" class="copy">Closed schemas + allowlists</text><text x="500" y="295" class="copy">Authority · freshness · version</text><text x="500" y="322" class="pill" fill="#34d399">REJECT UNKNOWN FIELDS</text>
-  <rect x="480" y="362" width="230" height="126" rx="9" class="box green"/>
-  <text x="500" y="394" class="name">Atomic publication</text><text x="500" y="420" class="copy">Validate complete candidate</text><text x="500" y="441" class="copy">Then replace every destination</text><text x="500" y="468" class="pill" fill="#34d399">ALL OR LAST-GOOD</text>
-  <rect x="480" y="508" width="230" height="146" rx="9" class="box amber"/>
-  <text x="500" y="540" class="name">Fail-closed state</text><text x="500" y="566" class="copy">Invalid ≠ empty ≠ zero</text><text x="500" y="587" class="copy">Stale and missing stay explicit</text><text x="500" y="608" class="copy">Dependent claims are withheld</text><text x="500" y="636" class="pill" fill="#fbbf24">NO INVENTED HEALTH</text>
+  <rect x="64" y="288" width="270" height="108" rx="8" class="box"/>
+  <text x="86" y="320" class="name">Portfolio evidence</text>
+  <text x="86" y="345" class="copy">Allowlisted project metadata</text>
+  <text x="86" y="366" class="copy">Dated outcomes · limitations</text>
+  <text x="86" y="385" class="pill">BOUNDED RESUME PROJECTION</text>
 
-  <!-- core -->
-  <rect x="825" y="160" width="360" height="470" rx="14" class="boundary violet"/>
-  <text x="850" y="194" class="section" fill="#a78bfa">03 · READ-ONLY APPLICATION</text>
-  <rect x="850" y="216" width="310" height="105" rx="9" class="box amber"/>
-  <text x="872" y="248" class="name">Edition contract</text><text x="872" y="272" class="copy">Branding · module selection · order</text><text x="872" y="294" class="pill" fill="#fbbf24">IMMUTABLE JSON · NO CODE INJECTION</text>
-  <rect x="850" y="341" width="310" height="160" rx="9" class="box violet"/>
-  <text x="872" y="375" class="name">React Core</text><text x="872" y="402" class="copy">Overview · Portfolio · Analytics</text><text x="872" y="424" class="copy">Benchmarks · Search · Settings</text><text x="872" y="446" class="copy">Routing · sorting · responsive detail</text><text x="872" y="482" class="pill" fill="#a78bfa">ONE RENDERING + TRUST MODEL</text>
-  <rect x="850" y="521" width="310" height="82" rx="9" class="box slate"/>
-  <text x="872" y="553" class="name">Presentation layer</text><text x="872" y="578" class="copy">Five local themes · invariant status colors</text>
+  <rect x="64" y="410" width="270" height="108" rx="8" class="box"/>
+  <text x="86" y="442" class="name">Benchmark artifacts</text>
+  <text x="86" y="467" class="copy">Frozen releases · exact conditions</text>
+  <text x="86" y="488" class="copy">Denominators · immutable run lineage</text>
+  <text x="86" y="507" class="pill">PENDING SCORES WITHHELD</text>
 
-  <!-- output surfaces -->
-  <text x="1220" y="150" class="section" fill="#a78bfa">04 · SURFACES</text>
-  <rect x="1130" y="178" width="250" height="128" rx="9" class="box violet"/>
-  <text x="1152" y="212" class="name">Hermes plugin</text><text x="1152" y="238" class="copy">Native dashboard route</text><text x="1152" y="260" class="copy">Same React bundle + contracts</text><text x="1152" y="288" class="pill" fill="#a78bfa">EMBEDDED SURFACE</text>
-  <rect x="1130" y="542" width="250" height="128" rx="9" class="box violet"/>
-  <text x="1152" y="576" class="name">Standalone artifact</text><text x="1152" y="602" class="copy">Static, reviewable SPA</text><text x="1152" y="624" class="copy">Same React bundle + contracts</text><text x="1152" y="652" class="pill" fill="#a78bfa">PORTABLE SURFACE</text>
+  <rect x="64" y="532" width="270" height="108" rx="8" class="box-warn"/>
+  <text x="86" y="564" class="name">Protected knowledge</text>
+  <text x="86" y="589" class="copy">Optional server-side search bridge</text>
+  <text x="86" y="610" class="copy">Bounded scope · source-linked results</text>
+  <text x="86" y="629" class="pill" fill="#b7ff3c">CREDENTIALS NEVER REACH UI</text>
 
-  <!-- git/runtime split -->
-  <rect x="70" y="735" width="1310" height="112" rx="12" class="boundary slate"/>
-  <text x="94" y="766" class="section" fill="#94a3b8">GIT / RUNTIME SEPARATION</text>
-  <rect x="94" y="785" width="575" height="42" rx="7" class="card"/><circle cx="115" cy="806" r="5" fill="#34d399"/><text x="130" y="810" class="legend"><tspan font-weight="800">TRACKED:</tspan> Core · contracts · sanitized fixtures · tests · generated bundles</text>
-  <rect x="690" y="785" width="665" height="42" rx="7" class="card"/><circle cx="711" cy="806" r="5" fill="#fbbf24"/><text x="726" y="810" class="legend"><tspan font-weight="800">IGNORED RUNTIME:</tspan> current usage · real analytics · deployment bindings · credentials</text>
-  <text x="70" y="882" class="tiny">Evidence remains authoritative at its source. ACC validates and projects; it does not mutate upstream systems or become a second source of truth.</text>
+  <rect x="432" y="150" width="320" height="520" rx="14" class="boundary"/>
+  <text x="458" y="184" class="section">02 · PROJECTION AUTHORITY</text>
+  <rect x="458" y="206" width="268" height="120" rx="8" class="box-strong"/>
+  <text x="480" y="238" class="name">Closed validation</text>
+  <text x="480" y="263" class="copy">Versioned schemas · known identities</text>
+  <text x="480" y="284" class="copy">Authority · freshness · safe fields</text>
+  <text x="480" y="306" class="pill">REJECT UNKNOWN INPUT</text>
+
+  <rect x="458" y="346" width="268" height="120" rx="8" class="box-strong"/>
+  <text x="480" y="378" class="name">Atomic publication</text>
+  <text x="480" y="403" class="copy">Validate the complete candidate</text>
+  <text x="480" y="424" class="copy">Then replace every destination</text>
+  <text x="480" y="446" class="pill">ALL NEW OR LAST-GOOD</text>
+
+  <rect x="458" y="486" width="268" height="156" rx="8" class="box-warn"/>
+  <text x="480" y="518" class="name">Fail-closed state</text>
+  <text x="480" y="543" class="copy">Invalid is not empty or zero</text>
+  <text x="480" y="564" class="copy">Stale and missing remain explicit</text>
+  <text x="480" y="585" class="copy">Dependent claims are withheld</text>
+  <text x="480" y="606" class="copy">Mutable source bytes remain untracked</text>
+  <text x="480" y="629" class="pill" fill="#b7ff3c">NO INVENTED HEALTH</text>
+
+  <rect x="808" y="150" width="376" height="520" rx="14" class="boundary"/>
+  <text x="834" y="184" class="section">03 · READ-ONLY APPLICATION</text>
+  <rect x="834" y="206" width="324" height="104" rx="8" class="box"/>
+  <text x="856" y="238" class="name">Edition contract</text>
+  <text x="856" y="263" class="copy">Branding · modules · stable IDs</text>
+  <text x="856" y="286" class="pill">IMMUTABLE JSON · NO UI CODE</text>
+
+  <rect x="834" y="330" width="324" height="170" rx="8" class="box-strong"/>
+  <text x="856" y="363" class="name">React Core</text>
+  <text x="856" y="389" class="copy">Portfolio · Analytics · Benchmarks</text>
+  <text x="856" y="410" class="copy">Search · sorting · responsive detail</text>
+  <text x="856" y="431" class="copy">One routing and trust model</text>
+  <text x="856" y="452" class="copy">No upstream mutation controls</text>
+  <text x="856" y="480" class="pill">SAME CORE · SAME SEMANTICS</text>
+
+  <rect x="834" y="520" width="324" height="122" rx="8" class="box"/>
+  <text x="856" y="552" class="name">Matrix presentation</text>
+  <text x="856" y="577" class="copy">Local theme preference only</text>
+  <text x="856" y="598" class="copy">Status meaning stays invariant</text>
+  <text x="856" y="621" class="pill">EVIDENCE NEVER CHANGES WITH THEME</text>
+
+  <text x="1212" y="144" class="section">04 · SURFACES</text>
+  <rect x="1210" y="166" width="184" height="120" rx="8" class="box-strong"/>
+  <text x="1232" y="199" class="name">Hermes plugin</text>
+  <text x="1232" y="224" class="copy">Embedded dashboard</text>
+  <text x="1232" y="245" class="copy">Same validated core</text>
+  <text x="1232" y="266" class="pill">READ ONLY</text>
+
+  <rect x="1210" y="532" width="184" height="120" rx="8" class="box-strong"/>
+  <text x="1232" y="565" class="name">Standalone</text>
+  <text x="1232" y="590" class="copy">Static review SPA</text>
+  <text x="1232" y="611" class="copy">Same validated core</text>
+  <text x="1232" y="632" class="pill">PORTABLE</text>
+
+  <rect x="64" y="724" width="1330" height="116" rx="12" class="boundary"/>
+  <text x="88" y="756" class="section">GIT / RUNTIME SEPARATION</text>
+  <rect x="88" y="776" width="606" height="42" rx="7" class="card"/>
+  <circle cx="110" cy="797" r="5" fill="#39ff88"/>
+  <text x="126" y="801" class="legend">TRACKED · Core · contracts · tests · sanitized fixtures · built surfaces</text>
+  <rect x="716" y="776" width="654" height="42" rx="7" class="card"/>
+  <circle cx="738" cy="797" r="5" fill="#b7ff3c"/>
+  <text x="754" y="801" class="legend">UNTRACKED RUNTIME · Current projections · bindings · credentials · raw responses</text>
+
+  <text x="64" y="878" class="tiny">Evidence remains authoritative at its source. Autobot Command Center validates and projects; it never mutates the systems it observes.</text>
 </svg>
