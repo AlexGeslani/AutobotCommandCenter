@@ -6,14 +6,13 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/AlexGeslani/AutobotCommandCenter/raw/refs/heads/main/docs/demo/autobot-command-center-demo.mp4">
-    <img src="docs/demo/autobot-command-center-demo-preview.gif" width="800" alt="Matrix-themed Autobot Command Center walkthrough of alexgeslani.com analytics, Portfolio, and measured Benchmarks">
-  </a>
+  <img src="docs/demo/autobot-command-center-demo-preview.gif" width="800" alt="Matrix-themed Autobot Command Center walkthrough of alexgeslani.com analytics, Portfolio, and measured Benchmarks">
 </p>
 
+https://github.com/user-attachments/assets/b8c132d9-6462-4b7c-a922-8d2dfe1f1aa9
+
 <p align="center">
-  <strong>▶ <a href="https://github.com/AlexGeslani/AutobotCommandCenter/raw/refs/heads/main/docs/demo/autobot-command-center-demo.mp4">Download or play the narrated Matrix walkthrough</a></strong><br>
-  <sub>Direct authenticated repository download; no GitHub inline-preview gate.</sub>
+  <sub>Narrated Matrix walkthrough — plays inline through GitHub's authenticated video player.</sub>
 </p>
 
 > **Dated showcase snapshot — 2026-08-29.** The screenshots and walkthrough use authorized, sanitized projections of current Portfolio and Benchmark evidence plus real aggregate `alexgeslani.com` analytics through 2026-08-28. They contain no credentials, account identity, prompts, billing data, raw provider payloads, raw request logs, private hostnames, or filesystem paths. Mutable runtime JSON remains untracked.
