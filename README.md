@@ -1,122 +1,109 @@
 # Autobot Command Center
 
 <p align="center">
-  <strong>A read-only evidence dashboard for AI products, model evaluations, provider usage, and privacy-safe analytics.</strong><br>
+  <strong>A read-only evidence dashboard for portfolio work, privacy-safe web analytics, and exact-condition model evaluation.</strong><br>
   <sub>One validated projection model. Two delivery surfaces. No second source of truth.</sub>
 </p>
 
 <p align="center">
-  <a href="docs/demo/autobot-command-center-demo.mp4">
-    <img src="docs/demo/autobot-command-center-demo-preview.gif" width="800" alt="Animated preview of Autobot Command Center moving through Overview, Portfolio, Benchmarks, Search, Settings, and its visual themes">
+  <a href="https://github.com/AlexGeslani/AutobotCommandCenter/raw/refs/heads/main/docs/demo/autobot-command-center-demo.mp4">
+    <img src="docs/demo/autobot-command-center-demo-preview.gif" width="800" alt="Matrix-themed Autobot Command Center walkthrough of alexgeslani.com analytics, Portfolio, and measured Benchmarks">
   </a>
 </p>
 
 <p align="center">
-  <strong>▶ <a href="docs/demo/autobot-command-center-demo.mp4">Watch the 90-second narrated product tour</a></strong><br>
-  <sub>Narrated locally with Qwen3-TTS and the approved Prime voice profile. No hosted speech API was used.</sub>
+  <strong>▶ <a href="https://github.com/AlexGeslani/AutobotCommandCenter/raw/refs/heads/main/docs/demo/autobot-command-center-demo.mp4">Download or play the narrated Matrix walkthrough</a></strong><br>
+  <sub>Direct authenticated repository download; no GitHub inline-preview gate.</sub>
 </p>
 
-> **Showcase boundary:** every screenshot and video frame above was captured from deterministic, sanitized demonstration fixtures with the in-product **Dev fixtures** badge visible. No credentials, account identity, prompts, billing data, private traffic, raw provider payloads, private hostnames, or local filesystem paths are present.
+> **Dated showcase snapshot — 2026-08-29.** The screenshots and walkthrough use authorized, sanitized projections of current Portfolio and Benchmark evidence plus real aggregate `alexgeslani.com` analytics through 2026-08-28. They contain no credentials, account identity, prompts, billing data, raw provider payloads, raw request logs, private hostnames, or filesystem paths. Mutable runtime JSON remains untracked.
 
 ## Why I built it
 
-Operational evidence tends to fragment: quota windows live in provider interfaces, product claims live in documentation, benchmark results live in frozen artifacts, and analytics live behind a separate reporting boundary. That makes a simple question—**“What do we know right now, and how confidently do we know it?”**—surprisingly expensive to answer.
+Operational evidence tends to fragment: product outcomes live in project documentation, benchmark scores live in frozen artifacts, and analytics live behind a separate reporting boundary. That makes a basic question—**“What do we know, how recently do we know it, and what is still uncertain?”**—more expensive than it should be.
 
-Autobot Command Center turns those artifacts into a compact executive and engineering view without replacing their authoritative sources. It is intentionally read-only. Every state carries authority, freshness, validation, and explicit stale or missing behavior.
+Autobot Command Center turns those artifacts into a compact executive and engineering view without replacing their authoritative sources. It is intentionally read-only. Every projected state preserves provenance, observation time, validation, and explicit stale or missing behavior.
 
-| Evidence-first | Fail-closed | Responsive | Dual-surface |
-|---|---|---|---|
-| Claims remain attached to provenance and observation time. | Missing telemetry is never presented as zero, healthy, unlimited, or current. | Desktop matrices become focused, touch-friendly detail views on mobile. | The same React application builds as a Hermes dashboard plugin and a standalone static artifact. |
+## Resume case study
+
+This repository demonstrates my ability to:
+
+- design a **portable React dashboard core** that ships as both a Hermes plugin and a standalone static application;
+- turn heterogeneous evidence into **closed, versioned JSON contracts** instead of coupling the UI to one private setup;
+- retain real web analytics as **privacy-safe aggregates**, with coverage gaps and freshness visible rather than converted into reassuring zeros;
+- present model results as **exact tested conditions** with frozen releases, denominators, and pending-score withholding;
+- build a **fail-closed publication path** that validates complete candidates and preserves last-good state;
+- keep mutable telemetry, credentials, deployment bindings, and raw source responses outside Git.
 
 ## Architecture
 
-![Autobot Command Center architecture showing bounded inputs, strict projection validation, the read-only React core, two delivery surfaces, and the Git/runtime separation](docs/diagrams/acc-architecture.svg)
+![Matrix-themed Autobot Command Center architecture showing authorized sources, strict projection validation, fail-closed state, one read-only React core, two delivery surfaces, and tracked-versus-runtime separation](docs/diagrams/acc-architecture.svg)
 
-### Core + Edition + Projection
-
-ACC is deliberately split into three narrow layers:
+ACC is split into three narrow layers:
 
 1. **Core** owns rendering, routing, calculations, sorting, responsive behavior, and trust semantics.
-2. **Edition** is immutable JSON selecting known modules, labels, branding, stable IDs, and approved relative projection locations. It cannot define code, trust policy, arbitrary paths, or UI behavior.
+2. **Edition** is immutable JSON selecting known modules, labels, branding, stable IDs, and approved relative projection locations. It cannot define executable code, trust policy, arbitrary paths, or UI behavior.
 3. **Projection** is versioned JSON carrying sanitized facts with explicit authority and generation time.
 
-Runtime writers validate an entire candidate before atomic publication. Invalid replacements are isolated, the last-good value remains available, and the dashboard reports a stale or invalid state instead of silently appearing fresh or blank.
+Runtime writers validate an entire candidate before atomic publication. Invalid replacements are isolated, the last-good value remains available, and the dashboard reports stale, invalid, missing, or withheld states instead of silently appearing fresh or complete.
 
-## Product tour
+## Product evidence
 
-### Overview — the decision surface
+### Real alexgeslani.com analytics
 
-![Overview showing illustrative provider headroom across coding agents and search infrastructure](docs/screenshots/overview.png)
+![Matrix analytics view showing the dated alexgeslani.com aggregate snapshot, source coverage, requests, visits, transfer, cache share, and daily traffic](docs/screenshots/analytics.png)
 
-Overview leads with the things that can affect work now: validated provider headroom, integration exceptions, and compact paths into deeper evidence. It avoids turning the landing page into a wall of secondary metrics.
+The authorized 30-day projection records **36,148 edge requests**, **22,630 Cloudflare Visits**, and **114.1 MB** transferred across **20 observed calendar days**, with data through **2026-08-28**. The capture leaves source freshness and archive coverage visible so a reader can distinguish an observed value from a current claim.
 
-### Portfolio — dated capability evidence
+![Matrix analytics continuation showing the daily traffic line and country-level request aggregates](docs/screenshots/analytics-details.png)
 
-![Portfolio showing allowlisted public projects and a separate illustrative internal capability boundary](docs/screenshots/portfolio.png)
+Analytics retains aggregate daily traffic and country totals, not raw request logs, people, sessions, or inferred US states. Gaps are never plotted as zero.
 
-Portfolio combines allowlisted public repository evidence with a clearly separate view of dated internal capabilities. Historical proof remains historical proof—it is never promoted into a claim of current runtime availability.
+### Full Portfolio
 
-### Analytics — aggregates without surveillance
+![Matrix Portfolio view showing three allowlisted public GitHub projects and the beginning of five dated internal capability records](docs/screenshots/portfolio.png)
 
-![Analytics index separating illustrative web analytics, provider usage, and product reporting domains](docs/screenshots/analytics.png)
+The Portfolio joins three allowlisted public projects—**Jarvis**, **StackLogic**, and **8-Ball**—with five dated internal capability records. Public evidence and private operating capability remain visibly separate.
 
-Analytics keeps web, AI-service, and product reporting domains separate. Web reporting is designed around checksummed edge aggregates rather than raw request logs; provider usage exposes bounded quota facts without browser access to provider credentials or account identity.
+![Matrix Portfolio continuation showing all five internal products and capabilities with outcomes, state, authority, and verification dates](docs/screenshots/portfolio-details.png)
 
-A separate, explicitly non-current fixture demonstrates the richer Cloudflare report surface:
+Each capability carries a scoped outcome, operating state, evidence authority, verification date, and limitation. Historical proof stays historical; it is not promoted into an unsupported availability claim.
 
-![Illustrative Cloudflare aggregate report with a permanent non-current fixture warning](docs/screenshots/cloudflare-report.png)
+### Actual measured Benchmarks
 
-### Benchmarks — exact conditions, not universal rankings
+![Matrix Benchmarks view comparing six measured model conditions across instruction following, native tool use, and multi-turn agent work](docs/screenshots/benchmarks.png)
 
-![Condition-aware benchmark comparison using explicitly illustrative fixture scores](docs/screenshots/benchmarks.png)
+The dated benchmark projection compares **six measured conditions** across three complementary capabilities: instruction following, native tool use, and sustained multi-turn work. Every score belongs to an exact condition and frozen suite release.
 
-Benchmark scores belong to an exact model condition, benchmark release, denominator, and run lineage. Tool use, reasoning, coding, and sustained-agent evidence remain distinct. Complete and partial coverage are not cross-ranked, and ACC does not invent a universal score.
+![Matrix Benchmarks continuation showing pending-score withholding and the measured IFEval, BFCL V4 Hard-50, and tau2 Hard-24 tables](docs/screenshots/benchmarks-details.png)
 
-### Search — local first, protected only by request
+Complete and partial coverage are not cross-ranked. Pending suites remain queued or withheld rather than being treated as zero, while measured zeroes remain legitimate results.
 
-![Search showing deterministic local ACC results for a benchmark query](docs/screenshots/search.png)
-
-Typing filters the bundled ACC index without a network request. An optional protected bridge is a separate, explicit action with bounded scopes, source-linked results, no automatic retries, and credentials held outside the browser.
-
-### Settings — presentation changes, evidence does not
-
-![Settings showing the local presentation selector and detailed integration-health contract](docs/screenshots/settings.png)
-
-Settings exposes complete integration health while keeping presentation local to the device. Theme changes never alter status colors, evidence, authority, or freshness meaning.
-
-## Five presentation themes
-
-![Animated carousel cycling through Autobots, Decepticons, Matrix, Teletraan1, and Terminal Dark themes](docs/screenshots/theme-carousel.gif)
-
-**Autobots · Decepticons · Matrix · Teletraan1 · Terminal Dark**
-
-Matrix is the default for new sessions. Existing valid selections persist locally. Reduced-motion preferences are respected, and semantic good/warn/bad colors remain invariant across themes.
+## Narration transcript
 
 <details>
-<summary><strong>Prime-narrated demo transcript</strong></summary>
+<summary><strong>Low-variance Prime-clone walkthrough transcript</strong></summary>
 
-Welcome to Autobot Command Center. I built it to turn scattered operational artifacts into one clear, trustworthy picture of what our AI systems can do, how recently the evidence was observed, and where uncertainty still exists.
+Autobot Command Center brings real analytics, portfolio evidence, and model evaluations into one read-only decision surface. This walkthrough uses the Matrix theme.
 
-The dashboard is read-only by design. Every source carries authority, freshness, and validation state, while private credentials and mutable account data stay outside the tracked application.
+The dated alexgeslani.com snapshot covers thirty-six thousand, one hundred forty-eight requests and twenty-two thousand, six hundred thirty visits through August twenty-eighth, twenty twenty-six. Coverage gaps remain visible. They never become zeros.
 
-Overview gives the executive picture: provider headroom, integration exceptions, and direct paths into the evidence. Portfolio organizes public projects and dated internal capabilities without turning historical proof into a live availability claim.
+Portfolio shows three public projects and five internal capability records. Each entry keeps its source, refresh date, outcome, and limitation, so historical proof stays historical and current capability remains clearly scoped.
 
-Analytics presents privacy-safe aggregate reporting with explicit fixture boundaries. Benchmarks compare exact model conditions across frozen releases, keeping tool use, reasoning, and coding evidence separate instead of inventing one universal score.
-
-Search joins local Command Center records with an optional protected knowledge bridge. Settings exposes integration health and five presentation themes: Autobots, Decepticons, Matrix, Teletraan1, and Terminal Dark.
-
-One source builds both a Hermes dashboard plugin and a standalone static artifact. That is Autobot Command Center: evidence first, fail closed, and built to make better decisions without becoming another source of truth.
+Benchmarks compare six measured model conditions across instruction following, native tool use, and sustained multi-turn work. Frozen releases, exact denominators, and pending lanes remain visible. Scores without complete evidence are withheld rather than treated as zero. Autobot Command Center projects the evidence and fails closed. It does not become another source of truth.
 
 </details>
+
+The narration was rendered locally with `Qwen/Qwen3-TTS-12Hz-0.6B-Base` and the approved `optimus-prime` clone profile using the accepted low-variance decoding settings. It is **clone-conditioned, not instruction-conditioned**. No hosted speech API was used.
 
 ## Trust and privacy model
 
 - **No secrets or local deployment configuration belong in Git.**
-- Mutable provider usage, real web analytics, runtime projections, host bindings, environment files, keys, and certificates are Git-ignored.
-- Collectors use closed provider/window allowlists and bounded public schemas.
+- Mutable provider usage, real web analytics JSON, runtime projections, host bindings, environment files, keys, and certificates are Git-ignored.
+- The tracked media is a dated, user-authorized projection of selected Portfolio, Benchmark, and aggregate analytics evidence—not a tracked copy of mutable runtime JSON.
+- Collectors and projections use closed identity, source, and field allowlists.
 - The browser receives sanitized aggregates—not credentials, cookies, account identity, prompts, billing data, raw provider responses, or raw request logs.
-- Invalid or stale data remains visibly invalid or stale; it is never converted into reassuring defaults.
-- Fixture identity is embedded in the UI so screenshots remain honest when viewed outside this README.
+- Invalid, stale, missing, pending, and measured-zero states remain distinct.
 - Country-level analytics evidence is not used to infer people, sessions, or US states.
 
 See [SECURITY.md](SECURITY.md) for the complete reporting and deployment boundary.
@@ -126,7 +113,7 @@ See [SECURITY.md](SECURITY.md) for the complete reporting and deployment boundar
 | Target | Output | Purpose |
 |---|---|---|
 | Hermes dashboard plugin | `.hermes/plugins/autobot-command-center/dashboard/dist/index.js` | Native read-only Command Center route inside Hermes |
-| Standalone application | `standalone/public/` | Static review, testing, and portable deployment artifact |
+| Standalone application | `standalone/public/` | Static review, browser testing, and portable deployment artifact |
 
 Both targets are generated from the same source and contracts. Generated bundles are rebuilt—never hand-edited.
 
@@ -139,6 +126,7 @@ npm ci
 npm test
 npm run build
 npm run test:standalone
+npm run security:public
 ```
 
 Preview the standalone artifact:
@@ -154,23 +142,23 @@ Then open `http://127.0.0.1:9130/`.
 ```text
 src/                  React Core, runtime contracts, analytics, and trust semantics
 config/               immutable, sanitized Edition and showcase policy
-fixtures/demo/         deterministic demonstration projection
+fixtures/demo/         deterministic demonstration projection for a clean clone
 collector/             bounded provider and aggregate-analytics adapters
 bridge/                optional protected knowledge-search bridge
 standalone/            static entry point and generated artifact
 .hermes/plugins/       Hermes plugin manifest and generated dashboard bundle
 scripts/               build, publication, safety, and showcase-capture tools
 tests/                 unit, contract, accessibility, and browser acceptance tests
-docs/                  architecture diagrams, screenshots, demo video, and recovery notes
+docs/                  architecture, dated screenshots, demo video, and recovery notes
 ```
 
-## Design boundaries
+## Design boundary
 
-Autobot Command Center is read-only by design. Mutation, account switching, benchmark launch, workflow control, and arbitrary browser-configured data sources are intentionally out of scope. The dashboard projects evidence; it does not operate the systems it observes.
+Autobot Command Center projects evidence; it does not operate the systems it observes. Account switching, benchmark launch, workflow mutation, and arbitrary browser-configured data sources are intentionally out of scope.
 
 ## Status
 
-Active portfolio project. The repository includes sanitized demonstration data so a clean clone remains reviewable without private infrastructure. Real deployment projections are supplied separately and remain outside Git.
+Active private portfolio project. The repository includes sanitized demonstration data so a clean clone remains reviewable without private infrastructure. Dated authorized media may show selected real aggregate evidence, while mutable deployment projections remain outside Git.
 
 ## Trademark notice
 
@@ -180,4 +168,4 @@ The Autobot name and emblem are third-party marks, are not covered by this repos
 
 [MIT](LICENSE) © Alex Geslani. Third-party marks are excluded.
 
-<!-- Maintainers: keep shipped routes, fixture boundaries, screenshots, demo media, architecture, and README claims synchronized. -->
+<!-- Maintainers: keep shipped routes, capture provenance, screenshots, demo media, architecture, and README claims synchronized. -->
