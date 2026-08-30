@@ -20,7 +20,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",
-    "@playwright/test": "^1.54.0",
+    "@playwright/test": "^1.62.1",
     "esbuild": "^0.25.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
