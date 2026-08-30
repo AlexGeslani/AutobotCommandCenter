@@ -19,7 +19,7 @@
     "check": "npm run test && npm run build && npm run test:e2e && npm run test:standalone && npm run security:public && npm run security:media"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.10.2",
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.54.0",
     "esbuild": "^0.25.5",
     "react": "^19.1.0",
