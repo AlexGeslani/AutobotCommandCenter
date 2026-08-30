@@ -4,12 +4,12 @@
     "hiveMindClient": {
       "kind": "file",
       "required": true,
-      "default": "Projects/hive-mind/scripts/hivemind_search.py"
+      "default": "scripts/knowledge_search.py"
     },
     "hiveMindTokenFile": {
       "kind": "file",
       "required": true,
-      "default": ".hermes/secrets/hivemind-qmd-adapter-token"
+      "default": ".runtime/secrets/bridge-token"
     },
     "hiveMindTlsPinFile": {
       "kind": "file",
@@ -19,12 +19,12 @@
     "providerUsagePrivateCacheDir": {
       "kind": "directory",
       "required": false,
-      "default": ".acc-provider-usage"
+      "default": ".runtime/provider-cache"
     },
     "braveHermesEnvFile": {
       "kind": "file",
       "required": false,
-      "default": ".hermes/.env"
+      "default": ".env"
     }
   }
 }

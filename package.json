@@ -14,7 +14,9 @@
     "test:e2e": "playwright test",
     "test:standalone": "ACC_PLUGIN_PATH=/ playwright test --config=playwright.standalone.config.mjs",
     "security:public": "node scripts/check-public-safety.mjs",
-    "check": "npm run test && npm run build && npm run test:e2e && npm run test:standalone && npm run security:public"
+    "security:media": "node scripts/check-media-safety.mjs",
+    "showcase:render": "node scripts/render-showcase-media.mjs",
+    "check": "npm run test && npm run build && npm run test:e2e && npm run test:standalone && npm run security:public && npm run security:media"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",

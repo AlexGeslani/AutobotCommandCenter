@@ -13,8 +13,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -23,3 +23,7 @@ jobs:
       - run: python3 -m unittest tests/test_hivemind_bridge.py
       - run: npm run build
       - run: npm run security:public
+      - name: Install media-safety tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg tesseract-ocr libimage-exiftool-perl
+      - name: Scan committed media
+        run: ACC_MEDIA_SAFETY_REQUIRE_OCR=1 ACC_MEDIA_SAFETY_REQUIRE_EXIFTOOL=1 npm run security:media

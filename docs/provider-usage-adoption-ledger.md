@@ -34,5 +34,5 @@ The community scan is retained at:
 1. Boot out `com.example.acc-provider-usage` from the current user launchd domain.
 2. Remove `~/Library/LaunchAgents/com.example.acc-provider-usage.plist`.
 3. Restore the timestamped `~/.claude/settings.json.acc-provider-usage-backup-*` file or remove only `statusLine`.
-4. Remove `~/.acc-provider-usage/` and both public snapshot copies.
+4. Remove the configured neutral provider-cache directory and both public snapshot copies.
 5. Remove the provider-usage source/UI only through a reviewed application change.

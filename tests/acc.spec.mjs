@@ -55,6 +55,20 @@ async function routeProviderUsage(page, providers, generatedAt = '2026-07-31T23:
   }
 }
 
+function healthyProviderUsageFixture() {
+  const observedAt = new Date().toISOString();
+  const resetsAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  return {
+    observedAt,
+    providers: [
+      { provider: 'codex', product: 'Codex / ChatGPT', metricClass: 'subscription_quota', authority: 'installed Codex app-server account/rateLimits/read', collectionMode: 'local_app_server', adapterVersion: '1.0.0', sourceVersion: 'installed-app-server', observedAt, state: 'fresh', windows: [{ id: 'primary', label: 'Primary window', usedPercent: 20, resetsAt }] },
+      { provider: 'claude', product: 'Claude Code', metricClass: 'subscription_quota', authority: 'documented Claude Code status-line rate_limits event', collectionMode: 'status_line_cache', adapterVersion: '1.0.0', sourceVersion: 'claude-status-line', observedAt, state: 'fresh', windows: [{ id: 'five_hour', label: '5-hour window', usedPercent: 20, resetsAt }] },
+      { provider: 'antigravity', product: 'Antigravity CLI', metricClass: 'subscription_quota', authority: 'documented Antigravity CLI status-line quota event', collectionMode: 'status_line_cache', adapterVersion: '1.0.0', sourceVersion: 'antigravity-status-line', observedAt, state: 'fresh', windows: [{ id: 'gemini-5h', label: 'Gemini 5-hour window', usedPercent: 20, resetsAt }] },
+      { provider: 'brave-search', product: 'Brave Search API', metricClass: 'search_api_quota', authority: 'Brave Search API rate-limit response headers', collectionMode: 'direct_api_headers', adapterVersion: '1.0.0', sourceVersion: 'brave-rate-limit-headers', observedAt, state: 'fresh', windows: [{ id: 'monthly', label: 'Monthly searches', usedPercent: 20, resetsAt, limit: 2000, remaining: 1600 }], rateLimitPerSecond: 1 },
+    ],
+  };
+}
+
 async function routeDomainProjection(page, projection) {
   for (const pattern of ['**/data/domain.v1.json', '**/runtime/domain.v1.json']) {
     await page.route(pattern, async (route) => {
@@ -119,6 +133,8 @@ async function exerciseEverySortHeader(table, labels) {
 
 test('Overview prioritizes provider headroom and keeps destination summaries compact', async ({ page }) => {
   const browserErrors = captureBrowserErrors(page);
+  const providerUsage = healthyProviderUsageFixture();
+  await routeProviderUsage(page, providerUsage.providers, providerUsage.observedAt);
   await page.goto(pluginUrl);
   await expect(page.getByRole('heading', { name: 'Autobot Command Center' })).toBeVisible();
   const commandMark = page.locator('.acc-command-mark');
@@ -156,6 +172,8 @@ test('Integration Status uses a compact issue bar, keeps complete details in Set
   degradedDomain.data.sources[0].freshness = 'Stale test projection';
   degradedDomain.data.sources[0].invalidatesClaims = true;
   await routeDomainProjection(page, degradedDomain);
+  const providerUsage = healthyProviderUsageFixture();
+  await routeProviderUsage(page, providerUsage.providers, providerUsage.observedAt);
   await page.goto(pluginUrl);
 
   const issueBar = page.getByRole('status', { name: 'Integration issues' });

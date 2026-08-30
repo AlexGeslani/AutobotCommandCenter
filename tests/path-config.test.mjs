@@ -22,6 +22,10 @@ describe('typed portable ACC path configuration', () => {
       'providerUsagePrivateCacheDir',
     ]);
     expect(JSON.stringify(contract)).not.toMatch(/(?:src|dist|standalone\/public|dashboard\/dist)/);
+    expect(contract.paths.hiveMindClient.default).toBe('scripts/knowledge_search.py');
+    expect(contract.paths.hiveMindTokenFile.default).toBe('.runtime/secrets/bridge-token');
+    expect(contract.paths.providerUsagePrivateCacheDir.default).toBe('.runtime/provider-cache');
+    expect(contract.paths.braveHermesEnvFile.default).toBe('.env');
   });
 
   it('resolves an absent optional TLS pin as null', () => {
