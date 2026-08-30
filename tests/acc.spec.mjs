@@ -692,10 +692,10 @@ test('Portfolio stays on its frozen showcase projection', async ({ page }) => {
 
 });
 
-test('Voice Lab exposes the measured six-route performance visual and reliability boundary', async ({ page }) => {
+test('Voice Lab exposes the measured six-route comparison and reliability boundary without a private static matrix', async ({ page }) => {
   await page.goto(pluginUrl + '?view=portfolio&product=voice-lab');
   await expect(page.getByRole('heading', { name: 'Voice runtime comparison', exact: true })).toBeVisible();
-  await expect(page.locator('img.acc-voice-visual')).toHaveAttribute('src', /^data:image\/png;base64,/);
+  await expect(page.locator('img.acc-voice-visual')).toHaveCount(0);
   await expect(page.locator('[data-voice-route]')).toHaveCount(6);
   await expect(page.getByText('1 timeout', { exact: true })).toBeVisible();
   await expect(page.getByText(/same sentence.*three warm end-to-end requests/i)).toBeVisible();

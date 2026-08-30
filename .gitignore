@@ -7,6 +7,7 @@ artifacts/
 .DS_Store
 .env
 .env.*
+.public-safety.private.json
 *.key
 *.pem
 secrets/

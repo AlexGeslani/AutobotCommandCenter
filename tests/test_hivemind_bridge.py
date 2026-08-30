@@ -113,7 +113,7 @@ class HiveMindBridgeRequestTests(unittest.TestCase):
                 return {"results": []}
 
             setattr(search_client, "search", search)
-            origin = "https://acc-dev.cybertr0n.com"
+            origin = "https://acc-dev.example.invalid"
             server = bridge.BridgeServer(
                 ("127.0.0.1", 0),
                 search_client=search_client,
@@ -121,7 +121,7 @@ class HiveMindBridgeRequestTests(unittest.TestCase):
                 tls_pin_file=paths["hiveMindTlsPinFile"],
                 allowed_origins={origin},
                 approved_collections=("wiki-hermes",),
-                base_url="https://qmd.cybertr0n.com",
+                base_url="https://knowledge.example.invalid",
             )
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()

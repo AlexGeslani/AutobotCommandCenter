@@ -8,39 +8,51 @@ const execFileAsync = promisify(execFile);
 const excludedDirectories = new Set(['.git', 'node_modules', 'artifacts', 'test-results', 'playwright-report', '.ops']);
 const excludedFiles = new Set([
   '.git',
+  '.public-safety.private.json',
   'standalone/public/data/provider-usage.v1.json',
   '.hermes/plugins/autobot-command-center/dashboard/dist/data/provider-usage.v1.json',
 ]);
-// Owner-authorized private UI label; only these presentation artifacts may contain it.
-const authorizedUiLabel = ['Tele', 'traan1'].join('');
-const authorizedUiLabelFiles = new Set([
-  'src/theme.mjs',
-  'README.md',
-  'scripts/capture-showcase-media.mjs',
-  '.hermes/plugins/autobot-command-center/dashboard/dist/index.js',
-  'standalone/public/app.js',
-]);
-const privateInfrastructureIdentifiers = [
-  ['The', 'Ark', 'Lab'].join(''),
-  ['The', 'Ark'].join(' '),
-  ['The', 'Ark', 'Lab'].join(' '),
-  ['Tele', 'traan'].join(''),
-  ['Vector', 'Sigma'].join(' '),
-  ['Vector', 'Sigma'].join('-'),
-  ['qmd', 'lan'].join('.'),
-];
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const privateInfrastructurePattern = new RegExp(privateInfrastructureIdentifiers.map(escapeRegExp).join('|'), 'i');
+
+function parsePrivateLiterals(raw, source) {
+  const value = JSON.parse(raw);
+  const literals = Array.isArray(value) ? value : value?.literals;
+  if (!Array.isArray(literals) || literals.some((item) => typeof item !== 'string' || item.length < 3)) {
+    throw new TypeError(`${source} must contain an array of non-empty string literals`);
+  }
+  return literals;
+}
+
+async function loadPrivateLiterals() {
+  const literals = [];
+  const path = resolve(root, '.public-safety.private.json');
+  try {
+    literals.push(...parsePrivateLiterals(await readFile(path, 'utf8'), '.public-safety.private.json'));
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  if (process.env.ACC_PUBLIC_SAFETY_PRIVATE_LITERALS_JSON) {
+    literals.push(...parsePrivateLiterals(process.env.ACC_PUBLIC_SAFETY_PRIVATE_LITERALS_JSON, 'ACC_PUBLIC_SAFETY_PRIVATE_LITERALS_JSON'));
+  }
+  return [...new Set(literals)];
+}
+
 const rules = [
   ['private IPv4 address', /(?<!\d)(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(?!\d)/],
   ['macOS user path', /\/Users\/[^/\s"']+/],
   ['private LAN hostname', /\b[a-z0-9.-]+\.lan\b/i],
-  ['private infrastructure name', privateInfrastructurePattern],
-  ['private key', /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/],
+  ['private key', /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/],
   ['GitHub token', /\bgh[opsu]_[A-Za-z0-9]{20,}\b/],
   ['OpenAI-style secret', /\bsk-[A-Za-z0-9_-]{20,}\b/],
+  ['AWS access key', /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/],
+  ['Google API key', /\bAIza[0-9A-Za-z_-]{30,}\b/],
   ['Slack token', /\bxox[baprs]-[A-Za-z0-9-]{12,}\b/],
+  ['credentialed URL', /\b(?:https?|postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^\s/:@]{1,80}:[^\s/@]{3,200}@/i],
 ];
+const privateLiterals = await loadPrivateLiterals();
+if (privateLiterals.length) {
+  rules.push(['private infrastructure literal', new RegExp(privateLiterals.map(escapeRegExp).join('|'), 'i')]);
+}
 
 async function filesUnder(directory) {
   const results = [];
@@ -73,10 +85,7 @@ for (const path of candidateFiles) {
     throw error;
   }
   if (bytes.includes(0)) continue;
-  const rawText = bytes.toString('utf8');
-  const text = authorizedUiLabelFiles.has(name)
-    ? rawText.replaceAll(authorizedUiLabel, '').replaceAll(authorizedUiLabel.toLowerCase(), '')
-    : rawText;
+  const text = bytes.toString('utf8');
   for (const [label, pattern] of rules) {
     if (pattern.test(text)) findings.push(`${name}: ${label}`);
   }
