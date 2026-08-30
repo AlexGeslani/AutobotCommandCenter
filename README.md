@@ -157,7 +157,7 @@ Autobot Command Center projects evidence; it does not operate the systems it obs
 
 ## Status
 
-Active private portfolio project. The repository includes sanitized demonstration data so a clean clone remains reviewable without private infrastructure. Dated authorized media may show selected real aggregate evidence, while mutable deployment projections remain outside Git.
+Public portfolio showcase. The repository includes sanitized demonstration data so a clean clone remains reviewable without private infrastructure. Dated authorized media may show selected real aggregate evidence, while mutable deployment projections remain outside Git.
 
 ## Trademark notice
 

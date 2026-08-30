@@ -1,64 +1,45 @@
 import { describe, expect, it } from 'vitest';
 import { execFile } from 'node:child_process';
-import { readFile, rm, writeFile } from 'node:fs/promises';
+import { rm, writeFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
+const cwd = new URL('..', import.meta.url);
 
-const authorizedUiLabel = ['Tele', 'traan1'].join('');
-const authorizedUiLabelPaths = new Set([
-  'src/theme.mjs',
-  '.hermes/plugins/autobot-command-center/dashboard/dist/index.js',
-  'standalone/public/app.js',
-]);
-
-const candidatePaths = [
-  'src/plugin.mjs',
-  'src/model.mjs',
-  '.hermes/plugins/autobot-command-center/dashboard/dist/index.js',
-  'standalone/public/app.js',
-  'scripts/check-public-safety.mjs',
-];
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function privateInfrastructurePattern() {
-  const denied = [
-    ['The', 'Ark', 'Lab'].join(''),
-    ['The', 'Ark'].join(' '),
-    ['The', 'Ark', 'Lab'].join(' '),
-    ['Tele', 'traan'].join(''),
-    ['Vector', 'Sigma'].join(' '),
-    ['Vector', 'Sigma'].join('-'),
-    ['qmd', 'lan'].join('.'),
-  ];
-  return new RegExp(denied.map(escapeRegExp).join('|'), 'i');
+async function withAdversarialFixture(content, run) {
+  const fixture = new URL('./.public-safety-adversarial.tmp', import.meta.url);
+  await writeFile(fixture, content, 'utf8');
+  try {
+    await run();
+  } finally {
+    await rm(fixture, { force: true });
+  }
 }
 
 describe('public candidate source safety', () => {
-  it('keeps private infrastructure identifiers out of source, generated artifacts, and the scanner itself', async () => {
-    const pattern = privateInfrastructurePattern();
-    const findings = [];
-    for (const path of candidatePaths) {
-      const rawText = await readFile(new URL(`../${path}`, import.meta.url), 'utf8');
-      const text = authorizedUiLabelPaths.has(path) ? rawText.replaceAll(authorizedUiLabel, '') : rawText;
-      if (pattern.test(text)) findings.push(path);
-    }
-    expect(findings).toEqual([]);
+  it('rejects private literals supplied outside the tracked repository', async () => {
+    const literal = 'synthetic-internal-label';
+    await withAdversarialFixture(literal, async () => {
+      await expect(execFileAsync('node', ['scripts/check-public-safety.mjs'], {
+        cwd,
+        env: {
+          ...process.env,
+          ACC_PUBLIC_SAFETY_PRIVATE_LITERALS_JSON: JSON.stringify({ literals: [literal] }),
+        },
+      })).rejects.toMatchObject({
+        code: 1,
+        stderr: expect.stringContaining('tests/.public-safety-adversarial.tmp: private infrastructure literal'),
+      });
+    });
   });
 
-  it('still rejects the authorized UI label outside its exact presentation paths', async () => {
-    const fixture = new URL('./.public-safety-adversarial.tmp', import.meta.url);
-    await writeFile(fixture, authorizedUiLabel, 'utf8');
-    try {
-      await expect(execFileAsync('node', ['scripts/check-public-safety.mjs'], { cwd: new URL('..', import.meta.url) })).rejects.toMatchObject({
+  it('rejects private LAN hostnames without a private literal file', async () => {
+    const privateHost = ['knowledge', 'lan'].join('.');
+    await withAdversarialFixture(`https://${privateHost}/search`, async () => {
+      await expect(execFileAsync('node', ['scripts/check-public-safety.mjs'], { cwd })).rejects.toMatchObject({
         code: 1,
-        stderr: expect.stringContaining('tests/.public-safety-adversarial.tmp: private infrastructure name'),
+        stderr: expect.stringContaining('tests/.public-safety-adversarial.tmp: private LAN hostname'),
       });
-    } finally {
-      await rm(fixture, { force: true });
-    }
+    });
   });
 });

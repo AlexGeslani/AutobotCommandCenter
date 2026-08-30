@@ -1,6 +1,5 @@
 import commandCenterMarkMaskUrl from '../standalone/autobot-mark-mask.png';
 import decepticonMarkMaskUrl from '../standalone/decepticon-mark-mask.png';
-import voicePerformanceUrl from '../standalone/voice-performance-comparison.png';
 import { loadProviderUsageSnapshot, providerUsageFallback } from './provider-usage/client.mjs';
 import { loadRuntimeConfiguration } from './runtime/client.mjs';
 import { createAnalyticsView } from './analytics/view.mjs';
@@ -332,10 +331,6 @@ export async function registerAutobotCommandCenter() {
         h(Badge, { tone: 'good' }, `Measured ${snapshot.observedAt}`),
       ),
       h('p', { className: 'acc-voice-method' }, snapshot.method),
-      h('img', {
-        className: 'acc-voice-visual', src: voicePerformanceUrl,
-        alt: 'Prime voice performance matrix comparing first-byte latency, completion time, real-time factor, reliability, and role across six routes.',
-      }),
       h('div', { className: 'acc-voice-desktop' }, h('table', null,
         h('thead', null, h('tr', null, ['Rank', 'Host / engine', 'First byte', 'Complete', 'RTF', 'Reliability', 'Position'].map((label) => h('th', { key: label, scope: 'col' }, label)))),
         h('tbody', null, snapshot.routes.map((route, index) => h('tr', { key: route.id, 'data-voice-route': route.id },
