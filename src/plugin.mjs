@@ -358,8 +358,12 @@ export async function registerAutobotCommandCenter() {
   function ProviderUsageWindow({ window, provider }) {
     const availablePercent = Math.round(100 - window.usedPercent);
     const capacityUnit = provider === 'elevenlabs' ? 'credits' : 'searches';
-    const countText = Number.isInteger(window.remaining) && Number.isInteger(window.limit)
-      ? `${window.remaining.toLocaleString()} of ${window.limit.toLocaleString()} ${capacityUnit} available`
+    const hasExactCapacity = Number.isInteger(window.remaining) && Number.isInteger(window.limit);
+    const used = hasExactCapacity ? Math.max(0, window.limit - window.remaining) : null;
+    const countText = hasExactCapacity
+      ? provider === 'elevenlabs'
+        ? `${window.remaining.toLocaleString()} credits available · ${used.toLocaleString()} used of ${window.limit.toLocaleString()}`
+        : `${window.remaining.toLocaleString()} of ${window.limit.toLocaleString()} ${capacityUnit} available`
       : null;
     const availabilityText = countText || `${availablePercent}% available`;
     const resetText = new Date(window.resetsAt).toLocaleString();
