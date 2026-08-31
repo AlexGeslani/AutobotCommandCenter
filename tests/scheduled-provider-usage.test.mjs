@@ -18,7 +18,18 @@ describe('scheduled provider usage refreshes', () => {
     expect(plist).toContain('__OUTPUT_PATHS__');
     expect(plist).toContain('<key>ACC_BRAVE_HERMES_ENV_FILE</key>');
     expect(plist).toContain('__BRAVE_HERMES_ENV_FILE__');
+    expect(plist).toContain('<key>ACC_BRAVE_PAID_OVERAGE_ENABLED</key>');
+    expect(plist).toContain('__BRAVE_PAID_OVERAGE_ENABLED__');
+    expect(plist).toContain('<key>ACC_ELEVENLABS_ENV_FILE</key>');
+    expect(plist).toContain('__ELEVENLABS_ENV_FILE__');
     expect(plist).toContain('<key>StartInterval</key>\n  <integer>60</integer>');
     expect(plist).not.toMatch(/\/Users\/|192\.168\.|\.lan\b/);
+  });
+
+  it('collects Brave and ElevenLabs through the same unified scheduler entry point', () => {
+    const runSource = readFileSync(new URL('../collector/run.mjs', import.meta.url), 'utf8');
+    expect(runSource).toContain('createBraveSearchAdapter');
+    expect(runSource).toContain('createElevenLabsAdapter');
+    expect(runSource.match(/collectProviderUsage\(\{ adapters:/g)).toHaveLength(1);
   });
 });

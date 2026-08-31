@@ -11,11 +11,19 @@
   var PROVIDER_USAGE_MAX_AGE_MS = 15 * 60 * 1e3;
   var CLAUDE_USAGE_VALIDITY_MS = 12 * 60 * 60 * 1e3;
   var STATES = /* @__PURE__ */ new Set(["fresh", "stale", "expired", "inactive", "not_yet_observed", "unsupported", "unknown", "error", "auth_error", "not_configured"]);
-  var PROVIDER_FIELDS = /* @__PURE__ */ new Set(["provider", "product", "metricClass", "authority", "collectionMode", "adapterVersion", "sourceVersion", "observedAt", "state", "windows", "resetCredits", "rateLimitPerSecond"]);
+  var PROVIDER_FIELDS = /* @__PURE__ */ new Set(["provider", "product", "metricClass", "authority", "collectionMode", "adapterVersion", "sourceVersion", "observedAt", "state", "windows", "resetCredits", "rateLimitPerSecond", "billingPolicy"]);
   var WINDOW_FIELDS = /* @__PURE__ */ new Set(["id", "label", "usedPercent", "resetsAt", "resetKind", "limit", "remaining"]);
   var RESET_KINDS = /* @__PURE__ */ new Set(["provider_reported", "estimated_window_end"]);
   var RESET_CREDIT_FIELDS = /* @__PURE__ */ new Set(["availableCount", "credits"]);
   var RESET_CREDIT_ITEM_FIELDS = /* @__PURE__ */ new Set(["expiresAt"]);
+  var BILLING_POLICY_FIELDS = /* @__PURE__ */ new Set(["status", "monthlyCreditUsd", "usdPerThousandRequests", "creditApplication", "authority"]);
+  var BRAVE_BILLING_POLICY = Object.freeze({
+    status: "owner_confirmed_enabled",
+    monthlyCreditUsd: 5,
+    usdPerThousandRequests: 5,
+    creditApplication: "automatic",
+    authority: "Owner-confirmed paid access + Brave public pricing"
+  });
   var PROVIDER_CONTRACTS = {
     codex: {
       product: "Codex / ChatGPT",
@@ -58,6 +66,15 @@
       sourceVersions: /* @__PURE__ */ new Set(["brave-rate-limit-headers", "not_configured", "unavailable"]),
       windows: { monthly: "Monthly searches" },
       maxAgeMs: 24 * 60 * 60 * 1e3
+    },
+    elevenlabs: {
+      product: "ElevenLabs",
+      metricClass: "media_api_quota",
+      authority: "ElevenLabs GET /v1/user/subscription",
+      collectionMode: "direct_api",
+      sourceVersions: /* @__PURE__ */ new Set(["elevenlabs-subscription-api", "not_configured", "unavailable"]),
+      windows: { monthly: "Monthly credits" },
+      maxAgeMs: 60 * 60 * 1e3
     }
   };
   function assertPlainObject(value, name) {
@@ -86,10 +103,10 @@
     }
     const hasCounts = value.limit !== void 0 || value.remaining !== void 0;
     if (hasCounts) {
-      if (provider !== "brave-search") throw new TypeError("request counts are only allowlisted for Brave Search");
-      if (!Number.isInteger(value.limit) || value.limit <= 0 || !Number.isInteger(value.remaining) || value.remaining < 0 || value.remaining > value.limit) throw new TypeError("Brave request counts are invalid");
+      if (!["brave-search", "elevenlabs"].includes(provider)) throw new TypeError("capacity counts are only allowlisted for Brave Search and ElevenLabs");
+      if (!Number.isInteger(value.limit) || value.limit <= 0 || !Number.isInteger(value.remaining) || value.remaining < 0 || value.remaining > value.limit) throw new TypeError("provider capacity counts are invalid");
       const expectedUsedPercent = (value.limit - value.remaining) / value.limit * 100;
-      if (Math.abs(expectedUsedPercent - value.usedPercent) > 1e-4) throw new TypeError("Brave request count and percent disagree");
+      if (Math.abs(expectedUsedPercent - value.usedPercent) > 1e-4) throw new TypeError("provider capacity count and percent disagree");
     }
     return {
       id: value.id,
@@ -113,6 +130,14 @@
     });
     return { availableCount: value.availableCount, credits };
   }
+  function projectBillingPolicy(value, provider) {
+    if (provider !== "brave-search") throw new TypeError("billingPolicy is only allowlisted for Brave Search");
+    assertAllowedKeys(value, BILLING_POLICY_FIELDS, "billingPolicy");
+    for (const [key, expected] of Object.entries(BRAVE_BILLING_POLICY)) {
+      if (value[key] !== expected) throw new TypeError(`billingPolicy.${key} must be canonical`);
+    }
+    return { ...BRAVE_BILLING_POLICY };
+  }
   function projectProvider(value) {
     assertAllowedKeys(value, PROVIDER_FIELDS, "provider");
     const contract = PROVIDER_CONTRACTS[value.provider];
@@ -128,6 +153,7 @@
     if (!Array.isArray(value.windows)) throw new TypeError("provider.windows must be an array");
     const windows = value.windows.map((window2) => projectWindow(window2, contract, value.provider));
     const resetCredits = value.resetCredits === void 0 ? null : projectResetCredits(value.resetCredits, value.provider);
+    const billingPolicy = value.billingPolicy === void 0 ? null : projectBillingPolicy(value.billingPolicy, value.provider);
     const rateLimitPerSecond = value.rateLimitPerSecond;
     if (rateLimitPerSecond !== void 0 && (value.provider !== "brave-search" || !Number.isInteger(rateLimitPerSecond) || rateLimitPerSecond <= 0)) throw new TypeError("rateLimitPerSecond is only allowlisted for Brave Search");
     if (value.state === "unsupported" && windows.length) throw new TypeError("unsupported providers must not publish windows");
@@ -143,7 +169,8 @@
       state: value.state,
       windows,
       ...resetCredits ? { resetCredits } : {},
-      ...rateLimitPerSecond !== void 0 ? { rateLimitPerSecond } : {}
+      ...rateLimitPerSecond !== void 0 ? { rateLimitPerSecond } : {},
+      ...billingPolicy ? { billingPolicy } : {}
     };
   }
   function deriveProviderUsageState(record, now = (/* @__PURE__ */ new Date()).toISOString()) {
@@ -203,7 +230,8 @@
         { provider: "codex", product: "Codex / ChatGPT", metricClass: "subscription_quota", authority: "No validated snapshot", collectionMode: "snapshot", adapterVersion: "n/a", sourceVersion: "n/a", observedAt: null, state: "not_yet_observed", windows: [] },
         { provider: "claude", product: "Claude Code", metricClass: "subscription_quota", authority: "No validated snapshot", collectionMode: "snapshot", adapterVersion: "n/a", sourceVersion: "n/a", observedAt: null, state: "not_yet_observed", windows: [] },
         { provider: "antigravity", product: "Antigravity CLI", metricClass: "subscription_quota", authority: "No supported machine-readable consumer-quota API", collectionMode: "capability_probe", adapterVersion: "n/a", sourceVersion: "n/a", observedAt: null, state: "unsupported", windows: [] },
-        { provider: "brave-search", product: "Brave Search API", metricClass: "search_api_quota", authority: "No validated snapshot", collectionMode: "snapshot", adapterVersion: "n/a", sourceVersion: "n/a", observedAt: null, state: "not_yet_observed", rateLimitPerSecond: 1, windows: [] }
+        { provider: "brave-search", product: "Brave Search API", metricClass: "search_api_quota", authority: "No validated snapshot", collectionMode: "snapshot", adapterVersion: "n/a", sourceVersion: "n/a", observedAt: null, state: "not_yet_observed", rateLimitPerSecond: 1, windows: [] },
+        { provider: "elevenlabs", product: "ElevenLabs", metricClass: "media_api_quota", authority: "No validated snapshot", collectionMode: "snapshot", adapterVersion: "n/a", sourceVersion: "n/a", observedAt: null, state: "not_yet_observed", windows: [] }
       ]
     };
   }
@@ -2843,9 +2871,10 @@
         h("div", { className: "acc-prototype-note acc-voice-warning" }, snapshot.reliabilityNote)
       );
     }
-    function ProviderUsageWindow({ window: window2 }) {
+    function ProviderUsageWindow({ window: window2, provider }) {
       const availablePercent = Math.round(100 - window2.usedPercent);
-      const countText = Number.isInteger(window2.remaining) && Number.isInteger(window2.limit) ? `${window2.remaining.toLocaleString()} of ${window2.limit.toLocaleString()} searches available` : null;
+      const capacityUnit = provider === "elevenlabs" ? "credits" : "searches";
+      const countText = Number.isInteger(window2.remaining) && Number.isInteger(window2.limit) ? `${window2.remaining.toLocaleString()} of ${window2.limit.toLocaleString()} ${capacityUnit} available` : null;
       const availabilityText = countText || `${availablePercent}% available`;
       const resetText = new Date(window2.resetsAt).toLocaleString();
       const resetLabel = window2.resetKind === "estimated_window_end" ? `Estimated reset by ${resetText}` : `Resets ${resetText}`;
@@ -2889,6 +2918,27 @@
         )))
       );
     }
+    function BraveBillingCoverage({ billingPolicy }) {
+      if (!billingPolicy) return null;
+      return h(
+        "section",
+        { className: "acc-brave-billing", role: "region", "aria-label": "Brave billing coverage" },
+        h(
+          "div",
+          { className: "acc-brave-billing__head" },
+          h("h4", null, "Billing safety net"),
+          h("span", null, "Paid access enabled")
+        ),
+        h(
+          "div",
+          { className: "acc-brave-billing__terms" },
+          h("div", null, h("strong", null, `$${billingPolicy.monthlyCreditUsd} monthly credit`), h("small", null, "Applied automatically")),
+          h("div", null, h("strong", null, `$${billingPolicy.usdPerThousandRequests} per 1,000 searches after credits`), h("small", null, "Metered usage"))
+        ),
+        h("p", null, "Operational request headroom still comes from the API headers above."),
+        h("small", null, billingPolicy.authority)
+      );
+    }
     function ProviderUsageSync({ record }) {
       if (record.observedAt && ["fresh", "stale", "expired"].includes(record.state)) {
         return h("small", { className: "acc-provider-sync" }, `Last observed ${new Date(record.observedAt).toLocaleString()}`);
@@ -2902,7 +2952,7 @@
       const records = snapshot?.providers || providerUsageFallback().providers;
       const groups = [
         { id: "frontier", label: "Frontier subscriptions", records: records.filter((record) => record.metricClass === "subscription_quota") },
-        { id: "search", label: "Search infrastructure", records: records.filter((record) => record.metricClass === "search_api_quota") }
+        { id: "services", label: "Provider APIs", records: records.filter((record) => ["search_api_quota", "media_api_quota"].includes(record.metricClass)) }
       ].filter((group) => group.records.length);
       const renderCard = (record) => h(
         "article",
@@ -2911,12 +2961,14 @@
         h("small", null, record.authority),
         record.provider === "claude" ? h("small", { className: "acc-provider-activity-note" }, "Genuine activity updates private evidence immediately; the public snapshot advances on the scheduled collector. Guarded /usage refresh also runs when a reported window resets or after 12 hours.") : null,
         record.provider === "brave-search" ? h("small", { className: "acc-provider-activity-note" }, `${record.rateLimitPerSecond} request/second \xB7 Quota refresh uses one successful search and runs at most daily.`) : null,
+        record.provider === "elevenlabs" ? h("small", { className: "acc-provider-activity-note" }, "Monthly capacity refresh uses the read-only subscription API at most hourly.") : null,
         record.provider === "antigravity" && record.state === "inactive" ? h("p", { className: "acc-provider-empty" }, "Waiting for active trusted session") : null,
         ["error", "auth_error"].includes(record.state) && record.windows.length ? h("p", { className: "acc-provider-empty" }, "Latest refresh failed \u2014 retained quota is last-good only, not current headroom.") : null,
         record.state === "inactive" && record.windows.length ? h("p", { className: "acc-provider-empty" }, "Last-good quota only \u2014 current headroom is not claimed.") : null,
         record.state === "expired" ? h("p", { className: "acc-provider-empty" }, "Expired \u2014 reported reset time has passed; showing the last known observation.") : null,
-        record.windows.length ? h("dl", { className: "acc-provider-windows" }, record.windows.map((window2) => h(ProviderUsageWindow, { key: window2.id, window: window2 }))) : h("p", { className: "acc-provider-empty" }, record.state === "unsupported" ? "Unsupported \u2014 no supported API" : record.state === "not_configured" ? "Not configured \u2014 awaiting a validated observation" : record.state === "error" || record.state === "auth_error" ? "Unavailable \u2014 provider observation failed; no usage is shown" : record.state === "stale" ? "Stale \u2014 collector observation exceeded its freshness window" : "Unknown \u2014 no validated observation"),
+        record.windows.length ? h("dl", { className: "acc-provider-windows" }, record.windows.map((window2) => h(ProviderUsageWindow, { key: window2.id, window: window2, provider: record.provider }))) : h("p", { className: "acc-provider-empty" }, record.state === "unsupported" ? "Unsupported \u2014 no supported API" : record.state === "not_configured" ? "Not configured \u2014 awaiting a validated observation" : record.state === "error" || record.state === "auth_error" ? "Unavailable \u2014 provider observation failed; no usage is shown" : record.state === "stale" ? "Stale \u2014 collector observation exceeded its freshness window" : "Unknown \u2014 no validated observation"),
         record.provider === "codex" ? h(CodexResetCredits, { resetCredits: record.resetCredits }) : null,
+        record.provider === "brave-search" ? h(BraveBillingCoverage, { billingPolicy: record.billingPolicy }) : null,
         h("small", { className: "acc-provider-meta" }, record.collectionMode)
       );
       return h(
@@ -2935,11 +2987,11 @@
             "div",
             { className: "acc-provider-group__head" },
             h("h3", { id: `acc-provider-group-${group.id}` }, group.label),
-            h("small", null, group.id === "frontier" ? "Model and coding-agent plan windows" : "Independent API request quota")
+            h("small", null, group.id === "frontier" ? "Model and coding-agent plan windows" : "Independent provider credit and request capacity")
           ),
           h("div", { className: "acc-provider-grid" }, group.records.map(renderCard))
         )),
-        h("p", { className: "acc-prototype-note" }, snapshot?.generatedAt ? `Sanitized snapshot generated ${new Date(snapshot.generatedAt).toLocaleString()}. No billing, prompts, account identity, or local activity is included.` : "No validated snapshot loaded.")
+        h("p", { className: "acc-prototype-note" }, snapshot?.generatedAt ? `Sanitized snapshot generated ${new Date(snapshot.generatedAt).toLocaleString()}. No spend, payment method, prompts, account identity, or local activity is included.` : "No validated snapshot loaded.")
       );
     }
     function Overview({ go, providerUsage, integrationStatus }) {

@@ -72,7 +72,7 @@ run('ffmpeg', [
   '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-ac', '1',
   '-movflags', '+faststart',
   '-metadata', 'title=Autobot Command Center',
-  '-metadata', 'comment=Actual-application public showcase; locally generated narration; sanitized dated projection.',
+  '-metadata', 'comment=Actual-application public showcase; original synthetic narration; sanitized dated projection.',
   '-t', String(FILM_DURATION_SECONDS), outputVideo,
 ]);
 

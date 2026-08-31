@@ -16,6 +16,7 @@ describe('typed portable ACC path configuration', () => {
     expect(contract.schemaVersion).toBe(ACC_PATH_SCHEMA_VERSION);
     expect(Object.keys(contract.paths).sort()).toEqual([
       'braveHermesEnvFile',
+      'elevenLabsEnvFile',
       'hiveMindClient',
       'hiveMindTlsPinFile',
       'hiveMindTokenFile',
@@ -26,6 +27,7 @@ describe('typed portable ACC path configuration', () => {
     expect(contract.paths.hiveMindTokenFile.default).toBe('.runtime/secrets/bridge-token');
     expect(contract.paths.providerUsagePrivateCacheDir.default).toBe('.runtime/provider-cache');
     expect(contract.paths.braveHermesEnvFile.default).toBe('.env');
+    expect(contract.paths.elevenLabsEnvFile.default).toBe('.runtime/secrets/provider-usage.env');
   });
 
   it('resolves an absent optional TLS pin as null', () => {

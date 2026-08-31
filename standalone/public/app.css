@@ -806,7 +806,7 @@ body {
 .acc-provider-group__head h3 { margin: 0; font-size: .9rem; }
 .acc-provider-group__head small { color: var(--color-muted-foreground); font-size: .7rem; text-align: right; }
 .acc-provider-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
-.acc-provider-group--search .acc-provider-grid { grid-template-columns: minmax(0, 28rem); }
+.acc-provider-group--services .acc-provider-grid { grid-template-columns: repeat(2, minmax(0, 28rem)); }
 .acc-provider-card { display: grid; align-content: start; gap: .65rem; min-width: 0; padding: 1rem; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--acc-panel); }
 .acc-provider-card__head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
 .acc-provider-sync { color: var(--color-muted-foreground); font-size: .68rem; text-align: right; white-space: nowrap; }
@@ -829,8 +829,17 @@ body {
 .acc-codex-resets li strong { font-size: .74rem; }
 .acc-codex-resets li small { margin-top: .15rem; color: var(--color-muted-foreground); font-size: .7rem; }
 .acc-codex-resets__status { background: transparent; border: 1px solid color-mix(in srgb, var(--acc-green) 45%, var(--color-border)); }
+.acc-brave-billing { display: grid; gap: .55rem; padding: .7rem; border: 1px solid color-mix(in srgb, var(--acc-green) 42%, var(--color-border)); border-radius: calc(var(--radius) - .15rem); background: color-mix(in srgb, var(--acc-green) 7%, var(--acc-panel)); }
+.acc-brave-billing__head, .acc-brave-billing__terms { display: flex; align-items: center; justify-content: space-between; gap: .65rem; }
+.acc-brave-billing h4, .acc-brave-billing p { margin: 0; }
+.acc-brave-billing h4 { font-size: .78rem; }
+.acc-brave-billing__head > span { border-radius: 999px; background: color-mix(in srgb, var(--acc-green) 22%, transparent); color: var(--acc-green); font-size: .67rem; font-weight: 800; padding: .22rem .45rem; white-space: nowrap; }
+.acc-brave-billing__terms > div { display: grid; gap: .12rem; }
+.acc-brave-billing__terms > div:last-child { text-align: right; }
+.acc-brave-billing strong { font-size: .72rem; }
+.acc-brave-billing small, .acc-brave-billing p { color: var(--color-muted-foreground); font-size: .67rem; line-height: 1.4; }
 .acc-provider-empty { margin: 0; color: var(--color-muted-foreground); font-size: .85rem; }
-@media (max-width: 680px) { .acc-provider-grid { grid-template-columns: 1fr; } }
+@media (max-width: 680px) { .acc-provider-grid { grid-template-columns: 1fr; } .acc-brave-billing__terms { align-items: flex-start; flex-direction: column; } .acc-brave-billing__terms > div:last-child { text-align: left; } }
 
 /* Analytics domain */
 .acc-analytics { --acc-analytics-panel: color-mix(in srgb, var(--acc-panel) 94%, var(--acc-cyan)); }

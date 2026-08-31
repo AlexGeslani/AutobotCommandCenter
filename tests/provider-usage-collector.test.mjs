@@ -62,4 +62,16 @@ describe('provider usage collector', () => {
     expect(snapshot.providers.find((provider) => provider.provider === 'codex')?.state).toBe('fresh');
     expect(snapshot.providers.find((provider) => provider.provider === 'brave-search')).toMatchObject({ metricClass: 'search_api_quota', state: 'error', windows: [] });
   });
+
+  it('fails ElevenLabs independently without blanking Brave Search', async () => {
+    const snapshot = await collectProviderUsage({
+      now: '2026-08-30T12:00:00.000Z',
+      adapters: [
+        { id: 'brave-search', collect: async () => ({ provider: 'brave-search', product: 'Brave Search API', metricClass: 'search_api_quota', authority: 'Brave Search API rate-limit response headers', collectionMode: 'direct_api_headers', adapterVersion: '1.0.0', sourceVersion: 'brave-rate-limit-headers', observedAt: '2026-08-30T11:59:00.000Z', state: 'fresh', rateLimitPerSecond: 1, windows: [{ id: 'monthly', label: 'Monthly searches', usedPercent: 10, limit: 2000, remaining: 1800, resetsAt: '2026-09-01T00:00:00.000Z' }] }) },
+        { id: 'elevenlabs', collect: async () => { throw new Error('ElevenLabs unavailable'); } },
+      ],
+    });
+    expect(snapshot.providers.find((provider) => provider.provider === 'brave-search')?.state).toBe('fresh');
+    expect(snapshot.providers.find((provider) => provider.provider === 'elevenlabs')).toMatchObject({ metricClass: 'media_api_quota', state: 'error', windows: [] });
+  });
 });
