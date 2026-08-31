@@ -5,6 +5,7 @@ import { createCodexAdapter } from './adapters/codex-app-server.mjs';
 import { createClaudeAdapter } from './adapters/claude-statusline.mjs';
 import { createAntigravityAdapter } from './adapters/antigravity-statusline.mjs';
 import { createBraveSearchAdapter } from './adapters/brave-search.mjs';
+import { createElevenLabsAdapter } from './adapters/elevenlabs.mjs';
 import { writeAtomicJson } from './lib/atomic-json.mjs';
 import { loadAccPathConfig, pathInPrivateCache } from '../src/path-config.mjs';
 
@@ -21,6 +22,10 @@ const snapshot = await collectProviderUsage({ adapters: [
   createBraveSearchAdapter({
     cachePath: pathInPrivateCache('brave-search.json', paths),
     envPath: paths.braveHermesEnvFile,
+  }),
+  createElevenLabsAdapter({
+    cachePath: pathInPrivateCache('elevenlabs.json', paths),
+    envPath: paths.elevenLabsEnvFile,
   }),
 ] });
 await Promise.all(outputs.map((output) => writeAtomicJson(output, snapshot)));

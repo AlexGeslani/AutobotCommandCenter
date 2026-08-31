@@ -3,11 +3,16 @@ export const PROVIDER_USAGE_MAX_AGE_MS = 15 * 60 * 1000;
 export const CLAUDE_USAGE_VALIDITY_MS = 12 * 60 * 60 * 1000;
 
 const STATES = new Set(['fresh', 'stale', 'expired', 'inactive', 'not_yet_observed', 'unsupported', 'unknown', 'error', 'auth_error', 'not_configured']);
-const PROVIDER_FIELDS = new Set(['provider', 'product', 'metricClass', 'authority', 'collectionMode', 'adapterVersion', 'sourceVersion', 'observedAt', 'state', 'windows', 'resetCredits', 'rateLimitPerSecond']);
+const PROVIDER_FIELDS = new Set(['provider', 'product', 'metricClass', 'authority', 'collectionMode', 'adapterVersion', 'sourceVersion', 'observedAt', 'state', 'windows', 'resetCredits', 'rateLimitPerSecond', 'billingPolicy']);
 const WINDOW_FIELDS = new Set(['id', 'label', 'usedPercent', 'resetsAt', 'resetKind', 'limit', 'remaining']);
 const RESET_KINDS = new Set(['provider_reported', 'estimated_window_end']);
 const RESET_CREDIT_FIELDS = new Set(['availableCount', 'credits']);
 const RESET_CREDIT_ITEM_FIELDS = new Set(['expiresAt']);
+const BILLING_POLICY_FIELDS = new Set(['status', 'monthlyCreditUsd', 'usdPerThousandRequests', 'creditApplication', 'authority']);
+const BRAVE_BILLING_POLICY = Object.freeze({
+  status: 'owner_confirmed_enabled', monthlyCreditUsd: 5, usdPerThousandRequests: 5,
+  creditApplication: 'automatic', authority: 'Owner-confirmed paid access + Brave public pricing',
+});
 
 const PROVIDER_CONTRACTS = {
   codex: {
@@ -52,6 +57,15 @@ const PROVIDER_CONTRACTS = {
     windows: { monthly: 'Monthly searches' },
     maxAgeMs: 24 * 60 * 60 * 1000,
   },
+  elevenlabs: {
+    product: 'ElevenLabs',
+    metricClass: 'media_api_quota',
+    authority: 'ElevenLabs GET /v1/user/subscription',
+    collectionMode: 'direct_api',
+    sourceVersions: new Set(['elevenlabs-subscription-api', 'not_configured', 'unavailable']),
+    windows: { monthly: 'Monthly credits' },
+    maxAgeMs: 60 * 60 * 1000,
+  },
 };
 
 function assertPlainObject(value, name) {
@@ -83,10 +97,10 @@ function projectWindow(value, contract, provider) {
   }
   const hasCounts = value.limit !== undefined || value.remaining !== undefined;
   if (hasCounts) {
-    if (provider !== 'brave-search') throw new TypeError('request counts are only allowlisted for Brave Search');
-    if (!Number.isInteger(value.limit) || value.limit <= 0 || !Number.isInteger(value.remaining) || value.remaining < 0 || value.remaining > value.limit) throw new TypeError('Brave request counts are invalid');
+    if (!['brave-search', 'elevenlabs'].includes(provider)) throw new TypeError('capacity counts are only allowlisted for Brave Search and ElevenLabs');
+    if (!Number.isInteger(value.limit) || value.limit <= 0 || !Number.isInteger(value.remaining) || value.remaining < 0 || value.remaining > value.limit) throw new TypeError('provider capacity counts are invalid');
     const expectedUsedPercent = ((value.limit - value.remaining) / value.limit) * 100;
-    if (Math.abs(expectedUsedPercent - value.usedPercent) > 0.0001) throw new TypeError('Brave request count and percent disagree');
+    if (Math.abs(expectedUsedPercent - value.usedPercent) > 0.0001) throw new TypeError('provider capacity count and percent disagree');
   }
   return {
     id: value.id, label: value.label, usedPercent: value.usedPercent, resetsAt: value.resetsAt,
@@ -109,6 +123,15 @@ function projectResetCredits(value, provider) {
   return { availableCount: value.availableCount, credits };
 }
 
+function projectBillingPolicy(value, provider) {
+  if (provider !== 'brave-search') throw new TypeError('billingPolicy is only allowlisted for Brave Search');
+  assertAllowedKeys(value, BILLING_POLICY_FIELDS, 'billingPolicy');
+  for (const [key, expected] of Object.entries(BRAVE_BILLING_POLICY)) {
+    if (value[key] !== expected) throw new TypeError(`billingPolicy.${key} must be canonical`);
+  }
+  return { ...BRAVE_BILLING_POLICY };
+}
+
 function projectProvider(value) {
   assertAllowedKeys(value, PROVIDER_FIELDS, 'provider');
   const contract = PROVIDER_CONTRACTS[value.provider];
@@ -124,6 +147,7 @@ function projectProvider(value) {
   if (!Array.isArray(value.windows)) throw new TypeError('provider.windows must be an array');
   const windows = value.windows.map((window) => projectWindow(window, contract, value.provider));
   const resetCredits = value.resetCredits === undefined ? null : projectResetCredits(value.resetCredits, value.provider);
+  const billingPolicy = value.billingPolicy === undefined ? null : projectBillingPolicy(value.billingPolicy, value.provider);
   const rateLimitPerSecond = value.rateLimitPerSecond;
   if (rateLimitPerSecond !== undefined && (value.provider !== 'brave-search' || !Number.isInteger(rateLimitPerSecond) || rateLimitPerSecond <= 0)) throw new TypeError('rateLimitPerSecond is only allowlisted for Brave Search');
   if (value.state === 'unsupported' && windows.length) throw new TypeError('unsupported providers must not publish windows');
@@ -132,6 +156,7 @@ function projectProvider(value) {
     adapterVersion: value.adapterVersion, sourceVersion: value.sourceVersion, observedAt: value.observedAt, state: value.state, windows,
     ...(resetCredits ? { resetCredits } : {}),
     ...(rateLimitPerSecond !== undefined ? { rateLimitPerSecond } : {}),
+    ...(billingPolicy ? { billingPolicy } : {}),
   };
 }
 

@@ -21,6 +21,10 @@
     <string>__OUTPUT_PATHS__</string>
     <key>ACC_BRAVE_HERMES_ENV_FILE</key>
     <string>__BRAVE_HERMES_ENV_FILE__</string>
+    <key>ACC_BRAVE_PAID_OVERAGE_ENABLED</key>
+    <string>__BRAVE_PAID_OVERAGE_ENABLED__</string>
+    <key>ACC_ELEVENLABS_ENV_FILE</key>
+    <string>__ELEVENLABS_ENV_FILE__</string>
     <key>HOME</key>
     <string>__HOME__</string>
     <key>PATH</key>

@@ -18,6 +18,7 @@ export function providerUsageFallback() {
       { provider: 'claude', product: 'Claude Code', metricClass: 'subscription_quota', authority: 'No validated snapshot', collectionMode: 'snapshot', adapterVersion: 'n/a', sourceVersion: 'n/a', observedAt: null, state: 'not_yet_observed', windows: [] },
       { provider: 'antigravity', product: 'Antigravity CLI', metricClass: 'subscription_quota', authority: 'No supported machine-readable consumer-quota API', collectionMode: 'capability_probe', adapterVersion: 'n/a', sourceVersion: 'n/a', observedAt: null, state: 'unsupported', windows: [] },
       { provider: 'brave-search', product: 'Brave Search API', metricClass: 'search_api_quota', authority: 'No validated snapshot', collectionMode: 'snapshot', adapterVersion: 'n/a', sourceVersion: 'n/a', observedAt: null, state: 'not_yet_observed', rateLimitPerSecond: 1, windows: [] },
+      { provider: 'elevenlabs', product: 'ElevenLabs', metricClass: 'media_api_quota', authority: 'No validated snapshot', collectionMode: 'snapshot', adapterVersion: 'n/a', sourceVersion: 'n/a', observedAt: null, state: 'not_yet_observed', windows: [] },
     ],
   };
 }

@@ -25,6 +25,11 @@
       "kind": "file",
       "required": false,
       "default": ".env"
+    },
+    "elevenLabsEnvFile": {
+      "kind": "file",
+      "required": false,
+      "default": ".runtime/secrets/provider-usage.env"
     }
   }
 }

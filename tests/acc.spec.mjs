@@ -1244,7 +1244,7 @@ test('provider quota windows render accessible progress bars with reset informat
   await expect(claude).toContainText(/% available/i);
 });
 
-test('Brave Search is separated from frontier subscriptions and shows exact request headroom', async ({ page }) => {
+test('Brave Search and ElevenLabs render side by side with exact provider capacity', async ({ page }) => {
   await routeProviderUsage(page, [{
     provider: 'brave-search',
     product: 'Brave Search API',
@@ -1257,14 +1257,43 @@ test('Brave Search is separated from frontier subscriptions and shows exact requ
     state: 'fresh',
     windows: [{ id: 'monthly', label: 'Monthly searches', usedPercent: 7.9, resetsAt: '2026-08-31T23:59:59.000Z', limit: 2000, remaining: 1842 }],
     rateLimitPerSecond: 1,
+    billingPolicy: {
+      status: 'owner_confirmed_enabled', monthlyCreditUsd: 5, usdPerThousandRequests: 5,
+      creditApplication: 'automatic', authority: 'Owner-confirmed paid access + Brave public pricing',
+    },
+  }, {
+    provider: 'elevenlabs',
+    product: 'ElevenLabs',
+    metricClass: 'media_api_quota',
+    authority: 'ElevenLabs GET /v1/user/subscription',
+    collectionMode: 'direct_api',
+    adapterVersion: '1.0.0',
+    sourceVersion: 'elevenlabs-subscription-api',
+    observedAt: '2026-08-30T12:00:00.000Z',
+    state: 'fresh',
+    windows: [{ id: 'monthly', label: 'Monthly credits', usedPercent: 24, resetsAt: '2026-09-01T00:00:00.000Z', limit: 100000, remaining: 76000 }],
   }]);
   await page.goto(pluginUrl + '?view=usage');
-  await expect(page.getByRole('heading', { name: 'Search infrastructure' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Provider APIs' })).toBeVisible();
   const brave = page.locator('[data-provider="brave-search"]');
+  const elevenlabs = page.locator('[data-provider="elevenlabs"]');
   await expect(brave).toContainText('1,842 of 2,000 searches available');
   await expect(brave).toContainText('1 request/second');
   await expect(brave).toContainText('Quota refresh uses one successful search and runs at most daily.');
+  await expect(brave.getByRole('region', { name: 'Brave billing coverage' })).toContainText('Paid access enabled');
+  await expect(brave).toContainText('$5 monthly credit');
+  await expect(brave).toContainText('$5 per 1,000 searches after credits');
+  await expect(brave).toContainText('Operational request headroom still comes from the API headers above.');
   await expect(brave.getByRole('progressbar')).toHaveAttribute('aria-valuetext', '1,842 of 2,000 searches available');
+  await expect(elevenlabs).toContainText('76,000 of 100,000 credits available');
+  await expect(elevenlabs).toContainText('Monthly credits');
+  await expect(elevenlabs.getByText(/^Resets /)).toBeVisible();
+  await expect(elevenlabs.getByRole('progressbar')).toHaveAttribute('aria-valuetext', '76,000 of 100,000 credits available');
+  const braveBox = await brave.boundingBox();
+  const elevenlabsBox = await elevenlabs.boundingBox();
+  expect(braveBox).not.toBeNull();
+  expect(elevenlabsBox).not.toBeNull();
+  expect(elevenlabsBox.x).toBeGreaterThan(braveBox.x);
 });
 
 test('expired Claude observations show last-known quota figures with a warning', async ({ page }) => {

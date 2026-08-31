@@ -5,6 +5,7 @@ const FALLBACKS = {
   claude: { provider: 'claude', product: 'Claude Code', authority: 'documented Claude Code status-line rate_limits event', collectionMode: 'status_line_cache' },
   antigravity: { provider: 'antigravity', product: 'Antigravity CLI', authority: 'documented Antigravity CLI status-line quota event', collectionMode: 'status_line_cache' },
   'brave-search': { provider: 'brave-search', product: 'Brave Search API', metricClass: 'search_api_quota', authority: 'Brave Search API rate-limit response headers', collectionMode: 'direct_api_headers', rateLimitPerSecond: 1 },
+  elevenlabs: { provider: 'elevenlabs', product: 'ElevenLabs', metricClass: 'media_api_quota', authority: 'ElevenLabs GET /v1/user/subscription', collectionMode: 'direct_api' },
 };
 
 function fallbackFor(id, now) {
