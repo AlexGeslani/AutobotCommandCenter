@@ -9,7 +9,7 @@
   <img src="docs/demo/autobot-command-center-demo-preview.gif" width="800" alt="Matrix-themed Autobot Command Center showcase moving through Portfolio, Model Observatory, privacy-safe Analytics, and evidence provenance">
 </p>
 
-https://github.com/user-attachments/assets/e490cafd-1197-4654-950e-cedfa9a6bd9a
+https://github.com/user-attachments/assets/8cbc2e31-90fd-4c6f-8372-cb9b6e650629
 
 <p align="center">
   <sub>68-second actual-application showcase with an original cinematic robotic-command voice.</sub>
