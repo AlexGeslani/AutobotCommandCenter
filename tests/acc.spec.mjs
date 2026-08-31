@@ -1285,10 +1285,10 @@ test('Brave Search and ElevenLabs render side by side with exact provider capaci
   await expect(brave).toContainText('$5 per 1,000 searches after credits');
   await expect(brave).toContainText('Operational request headroom still comes from the API headers above.');
   await expect(brave.getByRole('progressbar')).toHaveAttribute('aria-valuetext', '1,842 of 2,000 searches available');
-  await expect(elevenlabs).toContainText('76,000 of 100,000 credits available');
+  await expect(elevenlabs).toContainText('76,000 credits available · 24,000 used of 100,000');
   await expect(elevenlabs).toContainText('Monthly credits');
   await expect(elevenlabs.getByText(/^Resets /)).toBeVisible();
-  await expect(elevenlabs.getByRole('progressbar')).toHaveAttribute('aria-valuetext', '76,000 of 100,000 credits available');
+  await expect(elevenlabs.getByRole('progressbar')).toHaveAttribute('aria-valuetext', '76,000 credits available · 24,000 used of 100,000');
   const braveBox = await brave.boundingBox();
   const elevenlabsBox = await elevenlabs.boundingBox();
   expect(braveBox).not.toBeNull();
