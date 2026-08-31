@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "github-analytics-collector-v1",
+  "owner": "AlexGeslani",
+  "repositories": [
+    { "id": 1336106340, "name": "AutobotCommandCenter" },
+    { "id": 1329519850, "name": "Jarvis" },
+    { "id": 1151917882, "name": "StackLogic" },
+    { "id": 1318800339, "name": "8-Ball" }
+  ],
+  "localRoot": "/srv/github-analytics/archive",
+  "stateRoot": "/var/lib/github-analytics",
+  "remoteRoot": "/analytics/github",
+  "credentialFile": "/etc/github-analytics/github.env",
+  "sftpWrapper": "/usr/local/libexec/github-analytics-sftp",
+  "uploadEnabled": true
+}

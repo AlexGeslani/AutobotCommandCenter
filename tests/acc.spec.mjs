@@ -330,9 +330,10 @@ test('Analytics exposes scalable domains and a truthful KFC real-data route', as
   await page.goto(pluginUrl + '?view=analytics');
   await expect(page.getByRole('heading', { name: 'Analytics', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Web properties' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Code & repositories' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'AI services' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Products & agents' })).toBeVisible();
-  await expect(page.getByText('Not connected', { exact: true })).toHaveCount(1);
+  const productsDomain = page.locator('section.acc-analytics-domain').filter({ has: page.getByRole('heading', { name: 'Products & agents' }) });
+  await expect(productsDomain.getByText('Not connected', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open alexgeslani.com analytics' })).toBeVisible();
   await page.getByRole('button', { name: 'Open Kung Fu Clan analytics' }).click();
   await expect(page).toHaveURL(/view=analytics.*domain=web.*subject=kungfuclan\.com.*range=30d/);
@@ -377,6 +378,34 @@ test('Analytics exposes the alexgeslani.com real-data route', async ({ page }) =
   await page.goto(pluginUrl + '?view=analytics&domain=web&subject=alexgeslani.com&range=30d');
   await expect(page.getByRole('heading', { name: 'alexgeslani.com', exact: true })).toBeVisible();
   await expect(page.getByText('ILLUSTRATIVE FIXTURE', { exact: false })).toHaveCount(0);
+});
+
+test('a malformed GitHub projection is isolated from both website analytics subjects', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page);
+  const edition = structuredClone(demoEdition);
+  edition.analytics.web = [
+    { id: 'kungfuclan.com', label: 'Kung Fu Clan', description: 'Retained web traffic', projection: 'runtime/analytics/web/kungfuclan.com.v2.json' },
+    { id: 'alexgeslani.com', label: 'alexgeslani.com', description: 'Retained web traffic', projection: 'runtime/analytics/web/alexgeslani.com.v2.json' },
+  ];
+  edition.analytics.github = {
+    id: 'github-portfolio',
+    label: 'GitHub Portfolio',
+    description: 'Retained repository traffic',
+    projection: 'runtime/analytics/github/github-portfolio.v1.json',
+  };
+  for (const pattern of ['**/data/edition.v1.json', '**/runtime/edition.v1.json']) {
+    await page.route(pattern, (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(edition) }));
+  }
+  await page.route('**/runtime/analytics/github/github-portfolio.v1.json', (route) => route.fulfill({ contentType: 'application/json', body: '{"invalid":true}' }));
+  await routeWebAnalytics(page);
+
+  await page.goto(pluginUrl + '?view=analytics&domain=code&subject=github-portfolio');
+  await expect(page.getByRole('heading', { name: 'GitHub Portfolio analytics unavailable' })).toBeVisible();
+  await page.getByRole('button', { name: '← Analytics', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Open alexgeslani.com analytics' })).toBeVisible();
+  await page.getByRole('button', { name: 'Open Kung Fu Clan analytics' }).click();
+  await expect(page.getByRole('heading', { name: 'Kung Fu Clan', exact: true })).toBeVisible();
+  expect(browserErrors).toEqual([]);
 });
 
 test('illustrative analytics stays on its separate identity with a permanent warning', async ({ page }) => {

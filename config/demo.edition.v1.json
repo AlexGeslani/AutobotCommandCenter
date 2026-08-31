@@ -18,6 +18,7 @@
   },
   "analytics": {
     "web": [],
+    "github": null,
     "providerUsage": {
       "id": "provider-usage",
       "label": "Provider Usage",

@@ -1,4 +1,4 @@
-import { DEMO_DOMAIN_PROJECTION, DEMO_EDITION, parseRuntimeJson, validateDomainProjection, validateEdition } from './contracts.mjs';
+import { DEMO_DOMAIN_PROJECTION, DEMO_EDITION, parseRuntimeJson, validateDomainProjection, validateEditionWithWarnings } from './contracts.mjs';
 
 function origin() {
   return globalThis.location?.origin || 'http://localhost';
@@ -34,9 +34,12 @@ export function createRuntimeLoader({ fetcher = globalThis.fetch } = {}) {
   return async function load(basePath = '/') {
     let editionHealth;
     try {
-      edition = await fetchValidated(fetcher, basePath, 'runtime/edition.v1.json', validateEdition, 'edition');
+      const candidate = await fetchValidated(fetcher, basePath, 'runtime/edition.v1.json', validateEditionWithWarnings, 'edition');
+      edition = candidate.edition;
       editionReady = true;
-      editionHealth = { state: 'ready', stale: false, valid: true, error: null };
+      editionHealth = candidate.warnings.length
+        ? { state: 'ready_with_warnings', stale: false, valid: true, error: candidate.warnings.join('; '), warnings: candidate.warnings }
+        : { state: 'ready', stale: false, valid: true, error: null, warnings: [] };
     } catch (error) {
       editionHealth = degradedState(error, editionReady);
     }

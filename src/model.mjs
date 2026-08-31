@@ -248,16 +248,17 @@ export function getIntegrationStatus({ providerUsage = null, providerUsageHealth
   const runtimeIntegrations = ['edition', 'domain'].map((key) => {
     const health = runtimeHealth?.[key] || null;
     const ready = health?.state === 'ready' && health.valid === true && health.stale === false;
+    const partial = health?.state === 'ready_with_warnings' && health.valid === true && health.stale === false;
     return {
       id: `runtime:${key}`,
       label: key === 'edition' ? 'ACC Edition projection' : 'ACC Domain projection',
       category: 'Runtime projection',
-      status: ready ? 'healthy' : health ? 'invalid' : 'unknown',
+      status: ready ? 'healthy' : partial ? 'degraded' : health ? 'invalid' : 'unknown',
       reachability: runtimeReachability(health),
       configuration: 'Not applicable',
-      freshness: ready ? 'Current validated load' : health?.state === 'stale_invalid' ? 'Stale last-good projection' : 'Bundled demonstration fallback',
-      validation: ready ? 'Validated' : health ? 'Invalid' : 'Not evaluated',
-      claimImpact: ready ? 'No dependent claims withheld' : 'Projection claims fall back to stale or demonstration data',
+      freshness: ready ? 'Current validated load' : partial ? 'Current validated load with isolated subject warnings' : health?.state === 'stale_invalid' ? 'Stale last-good projection' : 'Bundled demonstration fallback',
+      validation: ready ? 'Validated' : partial ? `Partially validated — ${health.warnings?.length || 0} subject warning(s)` : health ? 'Invalid' : 'Not evaluated',
+      claimImpact: ready ? 'No dependent claims withheld' : partial ? 'Only invalid or unsupported subjects withheld; valid peers remain available' : 'Projection claims fall back to stale or demonstration data',
       observedAt: key === 'domain' ? fixtures.meta?.generatedAt || null : null,
       authority: key === 'edition' ? 'ACC Edition contract' : 'ACC Domain projection contract',
     };
@@ -361,6 +362,14 @@ export function getLocalAccSearchRecords() {
       keywords: ['web property analytics validated projection traffic coverage'],
       route: { view: 'analytics', domain: 'web', subject: subject.id, range: '30d' },
     })),
+    ...(edition.analytics.github ? [{
+      id: `analytics:${edition.analytics.github.id}`,
+      kind: 'analytics',
+      title: edition.analytics.github.label,
+      summary: edition.analytics.github.description,
+      keywords: ['GitHub portfolio repositories traffic views clones retained rolling observation'],
+      route: { view: 'analytics', domain: 'code', subject: edition.analytics.github.id },
+    }] : []),
     {
       id: `analytics:${edition.analytics.providerUsage.id}`,
       kind: 'analytics',
@@ -398,7 +407,7 @@ export function getOverviewProjection() {
   };
 }
 
-const ROUTE_KEYS = ['view', 'q', 'domain', 'subject', 'range', 'mode', 'product', 'condition', 'result', 'release', 'run', 'evaluation'];
+const ROUTE_KEYS = ['view', 'q', 'domain', 'subject', 'range', 'repository', 'mode', 'product', 'condition', 'result', 'release', 'run', 'evaluation'];
 
 export function buildAccUrl(state = {}, basePath = '/autobot-command-center') {
   const normalizedBase = basePath === '/' ? '' : String(basePath).replace(/\/$/, '');

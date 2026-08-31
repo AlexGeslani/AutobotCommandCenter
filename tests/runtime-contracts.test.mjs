@@ -26,6 +26,42 @@ describe('Core + Edition + Projection runtime contract', () => {
     expect(() => validateEdition({ ...DEMO_EDITION, projections: { ...DEMO_EDITION.projections, domain: 'https://example.invalid/data.json' } })).toThrow(/safe relative/i);
   });
 
+  it('ignores an additive future analytics source without hiding known subjects', async () => {
+    const futureEdition = structuredClone(DEMO_EDITION);
+    futureEdition.analytics.web = [{ id: 'alexgeslani.com', label: 'alexgeslani.com', description: 'Web analytics', projection: 'runtime/analytics/web/alexgeslani.com.v2.json' }];
+    futureEdition.analytics.gitlab = { executable: '<script>alert(1)</script>' };
+    const loader = createRuntimeLoader({ fetcher: async (url) => url.pathname.endsWith('edition.v1.json') ? jsonResponse(futureEdition) : jsonResponse(DEMO_DOMAIN_PROJECTION) });
+    const runtime = await loader('/');
+    expect(runtime.edition.analytics.web.map(({ id }) => id)).toEqual(['alexgeslani.com']);
+    expect(runtime.edition.analytics.gitlab).toBeUndefined();
+    expect(runtime.health.edition).toMatchObject({ state: 'ready_with_warnings', valid: true, stale: false });
+    expect(runtime.health.edition.warnings[0]).toMatch(/analytics\.gitlab.*unsupported/i);
+  });
+
+  it('withholds only an invalid GitHub subject while preserving valid website subjects', async () => {
+    const mixedEdition = structuredClone(DEMO_EDITION);
+    mixedEdition.analytics.web = [{ id: 'kungfuclan.com', label: 'Kung Fu Clan', description: 'Web analytics', projection: 'runtime/analytics/web/kungfuclan.com.v2.json' }];
+    mixedEdition.analytics.github = { id: 'github-portfolio', label: 'GitHub Portfolio', description: 'Repositories', projection: '../private.json' };
+    const loader = createRuntimeLoader({ fetcher: async (url) => url.pathname.endsWith('edition.v1.json') ? jsonResponse(mixedEdition) : jsonResponse(DEMO_DOMAIN_PROJECTION) });
+    const runtime = await loader('/');
+    expect(runtime.edition.analytics.web.map(({ id }) => id)).toEqual(['kungfuclan.com']);
+    expect(runtime.edition.analytics.github).toBeNull();
+    expect(runtime.health.edition).toMatchObject({ state: 'ready_with_warnings', valid: true, stale: false });
+    expect(runtime.health.edition.warnings[0]).toMatch(/analytics\.github/i);
+  });
+
+  it('withholds one malformed website subject without hiding valid peers', async () => {
+    const mixedEdition = structuredClone(DEMO_EDITION);
+    mixedEdition.analytics.web = [
+      { id: 'alexgeslani.com', label: 'alexgeslani.com', description: 'Web analytics', projection: 'runtime/analytics/web/alexgeslani.com.v2.json' },
+      { id: 'broken.example', label: 'Broken', description: 'Bad path', projection: '../private.json' },
+    ];
+    const loader = createRuntimeLoader({ fetcher: async (url) => url.pathname.endsWith('edition.v1.json') ? jsonResponse(mixedEdition) : jsonResponse(DEMO_DOMAIN_PROJECTION) });
+    const runtime = await loader('/');
+    expect(runtime.edition.analytics.web.map(({ id }) => id)).toEqual(['alexgeslani.com']);
+    expect(runtime.health.edition.warnings[0]).toMatch(/analytics\.web\[1\]/i);
+  });
+
   it('rejects relationship drift before projections reach selectors', () => {
     const broken = structuredClone(DEMO_DOMAIN_PROJECTION);
     broken.data.results[0].conditionId = 'unknown-condition';

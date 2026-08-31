@@ -884,6 +884,15 @@
 .acc-analytics-bar i { display: block; height: 100%; min-width: 2px; border-radius: inherit; background: linear-gradient(90deg, var(--acc-green), var(--acc-cyan)); }
 .acc-analytics-method { display: grid; gap: .8rem; padding: 1rem; border: 1px solid var(--color-border); border-radius: var(--radius); background: color-mix(in srgb, var(--color-background) 45%, transparent); }
 .acc-analytics-method .acc-detail-grid > section { background: var(--acc-analytics-panel); }
+.acc-github-caveat { border-left: 3px solid var(--acc-amber); }
+.acc-github-caveat p, .acc-github-window-note { margin: .45rem 0 0; color: var(--color-muted-foreground); font-size: .76rem; line-height: 1.55; }
+.acc-github-repository-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+.acc-github-repository { display: grid; gap: .32rem; min-width: 0; min-height: 44px; padding: .8rem; border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-foreground); background: color-mix(in srgb, var(--color-background) 58%, transparent); text-align: left; cursor: pointer; }
+.acc-github-repository:hover, .acc-github-repository:focus-visible, .acc-github-repository.is-active { border-color: var(--acc-cyan); background: color-mix(in srgb, var(--acc-cyan) 8%, var(--color-background)); }
+.acc-github-repository strong { overflow-wrap: anywhere; }
+.acc-github-repository span, .acc-github-repository small { color: var(--color-muted-foreground); font-size: .7rem; line-height: 1.45; }
+.acc-github-window-summary { margin-top: .4rem; }
+.acc-analytics-panel a { color: var(--acc-cyan); }
 
 @media (max-width: 900px) {
   .acc-analytics-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -893,7 +902,7 @@
 }
 
 @media (max-width: 640px) {
-  .acc-analytics-source-grid, .acc-analytics-summary, .acc-analytics-trust, .acc-analytics-compact-breakdowns { grid-template-columns: 1fr; }
+  .acc-analytics-source-grid, .acc-analytics-summary, .acc-analytics-trust, .acc-analytics-compact-breakdowns, .acc-github-repository-grid { grid-template-columns: 1fr; }
   .acc-analytics-domain__head, .acc-analytics-source-card__head, .acc-analytics-panel__head, .acc-analytics-hero { align-items: flex-start; flex-direction: column; }
   .acc-analytics-toolbar { align-items: stretch; }
   .acc-analytics-toolbar .acc-field { min-width: 100%; }

@@ -82,42 +82,88 @@ function assertTextTree(value, name = 'projection') {
   }
 }
 
-export function validateEdition(value) {
-  assertObject(value, 'edition', EDITION_FIELDS);
+function validateWebAnalyticsSubject(subject, name) {
+  assertObject(subject, name, new Set(['id', 'label', 'description', 'projection']));
+  return {
+    id: assertId(subject.id, `${name}.id`),
+    label: assertString(subject.label, `${name}.label`, { max: 96 }),
+    description: assertString(subject.description, `${name}.description`, { max: 1024 }),
+    projection: assertRelativeProjectionPath(subject.projection, `${name}.projection`),
+  };
+}
+
+function validateGitHubAnalyticsSubject(subject) {
+  const name = 'edition.analytics.github';
+  assertObject(subject, name, new Set(['id', 'label', 'description', 'projection']));
+  if (subject.id !== 'github-portfolio') throw new TypeError('GitHub analytics adapter id is fixed');
+  return {
+    id: subject.id,
+    label: assertString(subject.label, `${name}.label`, { max: 96 }),
+    description: assertString(subject.description, `${name}.description`, { max: 1024 }),
+    projection: assertRelativeProjectionPath(subject.projection, `${name}.projection`),
+  };
+}
+
+export function validateEditionWithWarnings(value) {
+  assertObject(value, 'edition');
+  const warnings = Object.keys(value).filter((key) => !EDITION_FIELDS.has(key)).map((key) => `edition.${key} is unsupported and was ignored`);
   if (value.schemaVersion !== ACC_EDITION_SCHEMA_VERSION) throw new TypeError(`edition must use ${ACC_EDITION_SCHEMA_VERSION}`);
-  assertId(value.id, 'edition.id');
+  const id = assertId(value.id, 'edition.id');
   assertObject(value.branding, 'edition.branding', new Set(['title', 'defaultTheme']));
-  assertString(value.branding.title, 'edition.branding.title', { max: 96 });
-  if (!KNOWN_THEMES.has(value.branding.defaultTheme)) throw new TypeError('edition.branding.defaultTheme is unsupported');
-  const modules = assertArray(value.modules, 'edition.modules', KNOWN_MODULES.size);
-  const moduleIds = new Set();
-  modules.forEach((module, index) => {
+  const branding = {
+    title: assertString(value.branding.title, 'edition.branding.title', { max: 96 }),
+    defaultTheme: value.branding.defaultTheme,
+  };
+  if (!KNOWN_THEMES.has(branding.defaultTheme)) throw new TypeError('edition.branding.defaultTheme is unsupported');
+  const modules = assertArray(value.modules, 'edition.modules', KNOWN_MODULES.size).map((module, index) => {
     assertObject(module, `edition.modules[${index}]`, new Set(['id', 'label']));
-    if (!KNOWN_MODULES.has(module.id) || moduleIds.has(module.id)) throw new TypeError('edition modules must be unique known modules');
-    moduleIds.add(module.id);
-    assertString(module.label, `edition.modules[${index}].label`, { max: 48 });
+    if (!KNOWN_MODULES.has(module.id)) throw new TypeError('edition modules must be unique known modules');
+    return { id: module.id, label: assertString(module.label, `edition.modules[${index}].label`, { max: 48 }) };
   });
+  const moduleIds = new Set(modules.map(({ id: moduleId }) => moduleId));
+  if (moduleIds.size !== modules.length) throw new TypeError('edition modules must be unique known modules');
   if (!moduleIds.has('overview')) throw new TypeError('edition must enable overview');
   assertObject(value.projections, 'edition.projections', new Set(['domain', 'providerUsage']));
-  assertRelativeProjectionPath(value.projections.domain, 'edition.projections.domain');
-  assertRelativeProjectionPath(value.projections.providerUsage, 'edition.projections.providerUsage');
-  assertObject(value.analytics, 'edition.analytics', new Set(['web', 'providerUsage']));
+  const projections = {
+    domain: assertRelativeProjectionPath(value.projections.domain, 'edition.projections.domain'),
+    providerUsage: assertRelativeProjectionPath(value.projections.providerUsage, 'edition.projections.providerUsage'),
+  };
+  const sourceAnalytics = assertObject(value.analytics, 'edition.analytics');
+  for (const key of Object.keys(sourceAnalytics)) {
+    if (!['web', 'github', 'providerUsage'].includes(key)) warnings.push(`edition.analytics.${key} is unsupported and was ignored`);
+  }
+  const web = [];
   const webIds = new Set();
-  assertArray(value.analytics.web, 'edition.analytics.web', 50).forEach((subject, index) => {
-    assertObject(subject, `edition.analytics.web[${index}]`, new Set(['id', 'label', 'description', 'projection']));
-    const id = assertId(subject.id, `edition.analytics.web[${index}].id`);
-    if (webIds.has(id)) throw new TypeError('analytics subject ids must be unique');
-    webIds.add(id);
-    assertString(subject.label, `edition.analytics.web[${index}].label`, { max: 96 });
-    assertString(subject.description, `edition.analytics.web[${index}].description`, { max: 1024 });
-    assertRelativeProjectionPath(subject.projection, `edition.analytics.web[${index}].projection`);
+  assertArray(sourceAnalytics.web, 'edition.analytics.web', 50).forEach((subject, index) => {
+    const name = `edition.analytics.web[${index}]`;
+    try {
+      const projected = validateWebAnalyticsSubject(subject, name);
+      if (webIds.has(projected.id)) throw new TypeError('analytics subject ids must be unique');
+      webIds.add(projected.id);
+      web.push(projected);
+    } catch (error) {
+      warnings.push(`${name} was withheld: ${error.message}`);
+    }
   });
-  assertObject(value.analytics.providerUsage, 'edition.analytics.providerUsage', new Set(['id', 'label', 'description']));
-  if (value.analytics.providerUsage.id !== 'provider-usage') throw new TypeError('provider usage adapter id is fixed');
-  assertString(value.analytics.providerUsage.label, 'edition.analytics.providerUsage.label', { max: 96 });
-  assertString(value.analytics.providerUsage.description, 'edition.analytics.providerUsage.description', { max: 1024 });
-  assertTextTree(value, 'edition');
-  return structuredClone(value);
+  let github = null;
+  if (sourceAnalytics.github !== null && sourceAnalytics.github !== undefined) {
+    try { github = validateGitHubAnalyticsSubject(sourceAnalytics.github); }
+    catch (error) { warnings.push(`edition.analytics.github was withheld: ${error.message}`); }
+  }
+  assertObject(sourceAnalytics.providerUsage, 'edition.analytics.providerUsage', new Set(['id', 'label', 'description']));
+  if (sourceAnalytics.providerUsage.id !== 'provider-usage') throw new TypeError('provider usage adapter id is fixed');
+  const providerUsage = {
+    id: sourceAnalytics.providerUsage.id,
+    label: assertString(sourceAnalytics.providerUsage.label, 'edition.analytics.providerUsage.label', { max: 96 }),
+    description: assertString(sourceAnalytics.providerUsage.description, 'edition.analytics.providerUsage.description', { max: 1024 }),
+  };
+  const edition = { schemaVersion: value.schemaVersion, id, branding, modules, projections, analytics: { web, github, providerUsage } };
+  assertTextTree(edition, 'edition');
+  return { edition, warnings };
+}
+
+export function validateEdition(value) {
+  return validateEditionWithWarnings(value).edition;
 }
 
 function validateScore(score, name) {
