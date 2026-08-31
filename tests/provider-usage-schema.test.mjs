@@ -114,10 +114,29 @@ describe('public provider usage snapshot', () => {
       adapterVersion: '1.0.0', sourceVersion: 'brave-rate-limit-headers',
       observedAt: '2026-07-27T11:59:00.000Z', state: 'fresh', rateLimitPerSecond: 1,
       windows: [{ id: 'monthly', label: 'Monthly searches', usedPercent: 7.9, limit: 2000, remaining: 1842, resetsAt: '2026-08-01T14:00:00.000Z' }],
+      billingPolicy: {
+        status: 'owner_confirmed_enabled', monthlyCreditUsd: 5, usdPerThousandRequests: 5,
+        creditApplication: 'automatic', authority: 'Owner-confirmed paid access + Brave public pricing',
+      },
     };
     expect(buildProviderUsageSnapshot({ generatedAt, providers: [brave] }).providers[0]).toEqual(brave);
     expect(() => buildProviderUsageSnapshot({ generatedAt, providers: [{ ...brave, metricClass: 'subscription_quota' }] })).toThrow(/metricClass/i);
     expect(() => buildProviderUsageSnapshot({ generatedAt, providers: [{ ...brave, windows: [{ ...brave.windows[0], remaining: 1841 }] }] })).toThrow(/count|percent/i);
     expect(() => buildProviderUsageSnapshot({ generatedAt, providers: [{ ...codex, windows: [{ ...codex.windows[0], limit: 2000, remaining: 1842 }] }] })).toThrow(/Brave|allowlisted/i);
+    expect(() => buildProviderUsageSnapshot({ generatedAt, providers: [{ ...brave, billingPolicy: { ...brave.billingPolicy, monthlyCreditUsd: 500 } }] })).toThrow(/billing/i);
+    expect(() => buildProviderUsageSnapshot({ generatedAt, providers: [{ ...codex, billingPolicy: brave.billingPolicy }] })).toThrow(/billing/i);
+  });
+
+  it('allows only canonical ElevenLabs monthly credit capacity', () => {
+    const elevenlabs = {
+      provider: 'elevenlabs', product: 'ElevenLabs', metricClass: 'media_api_quota',
+      authority: 'ElevenLabs GET /v1/user/subscription', collectionMode: 'direct_api',
+      adapterVersion: '1.0.0', sourceVersion: 'elevenlabs-subscription-api',
+      observedAt: '2026-08-30T12:00:00.000Z', state: 'fresh',
+      windows: [{ id: 'monthly', label: 'Monthly credits', usedPercent: 24, limit: 100000, remaining: 76000, resetsAt: '2026-09-01T00:00:00.000Z' }],
+    };
+    expect(buildProviderUsageSnapshot({ generatedAt: '2026-08-30T12:01:00.000Z', providers: [elevenlabs] }).providers[0]).toEqual(elevenlabs);
+    expect(() => buildProviderUsageSnapshot({ generatedAt, providers: [{ ...elevenlabs, windows: [{ ...elevenlabs.windows[0], remaining: 75999 }] }] })).toThrow(/count|percent/i);
+    expect(() => buildProviderUsageSnapshot({ generatedAt, providers: [{ ...elevenlabs, billingPolicy: { status: 'owner_confirmed_enabled' } }] })).toThrow(/billing/i);
   });
 });

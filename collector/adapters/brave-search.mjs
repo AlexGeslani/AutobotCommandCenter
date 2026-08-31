@@ -5,6 +5,13 @@ import { DEFAULT_ACC_PATHS, pathInPrivateCache } from '../../src/path-config.mjs
 
 export const BRAVE_CACHE_PATH = pathInPrivateCache('brave-search.json', DEFAULT_ACC_PATHS);
 export const BRAVE_REFRESH_AFTER_MS = 23 * 60 * 60 * 1000;
+export const BRAVE_OWNER_CONFIRMED_BILLING_POLICY = Object.freeze({
+  status: 'owner_confirmed_enabled',
+  monthlyCreditUsd: 5,
+  usdPerThousandRequests: 5,
+  creditApplication: 'automatic',
+  authority: 'Owner-confirmed paid access + Brave public pricing',
+});
 
 function csvIntegers(headers, name) {
   const value = headers.get(name);
@@ -93,22 +100,27 @@ function notConfigured(now) {
   };
 }
 
+function withBillingPolicy(record, paidOverageEnabled) {
+  return paidOverageEnabled ? { ...record, billingPolicy: { ...BRAVE_OWNER_CONFIRMED_BILLING_POLICY } } : record;
+}
+
 export function createBraveSearchAdapter({
   apiKey = null,
   cachePath = BRAVE_CACHE_PATH,
   envPath = DEFAULT_ACC_PATHS.braveHermesEnvFile,
   refreshAfterMs = BRAVE_REFRESH_AFTER_MS,
   fetchImpl = globalThis.fetch,
+  paidOverageEnabled = process.env.ACC_BRAVE_PAID_OVERAGE_ENABLED === '1',
 } = {}) {
   return {
     id: 'brave-search',
     async collect({ now }) {
       const cached = await readCache(cachePath);
       const cacheAge = cached?.observedAt ? Date.parse(now) - Date.parse(cached.observedAt) : Number.POSITIVE_INFINITY;
-      if (cached && Number.isFinite(cacheAge) && cacheAge >= 0 && cacheAge < refreshAfterMs) return cached;
+      if (cached && Number.isFinite(cacheAge) && cacheAge >= 0 && cacheAge < refreshAfterMs) return withBillingPolicy(cached, paidOverageEnabled);
 
       const credential = apiKey || await readConfiguredApiKey(envPath);
-      if (!credential) return cached || notConfigured(now);
+      if (!credential) return withBillingPolicy(cached || notConfigured(now), paidOverageEnabled);
       try {
         const url = new URL('https://api.search.brave.com/res/v1/web/search');
         url.searchParams.set('q', 'Brave Search API');
@@ -126,9 +138,9 @@ export function createBraveSearchAdapter({
         await response.body?.cancel?.();
         await mkdir(dirname(cachePath), { recursive: true, mode: 0o700 });
         await writeAtomicJson(cachePath, record, { mode: 0o600 });
-        return record;
+        return withBillingPolicy(record, paidOverageEnabled);
       } catch (error) {
-        if (cached) return cached;
+        if (cached) return withBillingPolicy(cached, paidOverageEnabled);
         throw error;
       }
     },

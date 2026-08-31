@@ -355,10 +355,11 @@ export async function registerAutobotCommandCenter() {
     );
   }
 
-  function ProviderUsageWindow({ window }) {
+  function ProviderUsageWindow({ window, provider }) {
     const availablePercent = Math.round(100 - window.usedPercent);
+    const capacityUnit = provider === 'elevenlabs' ? 'credits' : 'searches';
     const countText = Number.isInteger(window.remaining) && Number.isInteger(window.limit)
-      ? `${window.remaining.toLocaleString()} of ${window.limit.toLocaleString()} searches available`
+      ? `${window.remaining.toLocaleString()} of ${window.limit.toLocaleString()} ${capacityUnit} available`
       : null;
     const availabilityText = countText || `${availablePercent}% available`;
     const resetText = new Date(window.resetsAt).toLocaleString();
@@ -395,6 +396,22 @@ export async function registerAutobotCommandCenter() {
     );
   }
 
+  function BraveBillingCoverage({ billingPolicy }) {
+    if (!billingPolicy) return null;
+    return h('section', { className: 'acc-brave-billing', role: 'region', 'aria-label': 'Brave billing coverage' },
+      h('div', { className: 'acc-brave-billing__head' },
+        h('h4', null, 'Billing safety net'),
+        h('span', null, 'Paid access enabled'),
+      ),
+      h('div', { className: 'acc-brave-billing__terms' },
+        h('div', null, h('strong', null, `$${billingPolicy.monthlyCreditUsd} monthly credit`), h('small', null, 'Applied automatically')),
+        h('div', null, h('strong', null, `$${billingPolicy.usdPerThousandRequests} per 1,000 searches after credits`), h('small', null, 'Metered usage')),
+      ),
+      h('p', null, 'Operational request headroom still comes from the API headers above.'),
+      h('small', null, billingPolicy.authority),
+    );
+  }
+
   function ProviderUsageSync({ record }) {
     if (record.observedAt && ['fresh', 'stale', 'expired'].includes(record.state)) {
       return h('small', { className: 'acc-provider-sync' }, `Last observed ${new Date(record.observedAt).toLocaleString()}`);
@@ -409,21 +426,23 @@ export async function registerAutobotCommandCenter() {
     const records = snapshot?.providers || providerUsageFallback().providers;
     const groups = [
       { id: 'frontier', label: 'Frontier subscriptions', records: records.filter((record) => record.metricClass === 'subscription_quota') },
-      { id: 'search', label: 'Search infrastructure', records: records.filter((record) => record.metricClass === 'search_api_quota') },
+      { id: 'services', label: 'Provider APIs', records: records.filter((record) => ['search_api_quota', 'media_api_quota'].includes(record.metricClass)) },
     ].filter((group) => group.records.length);
     const renderCard = (record) => h('article', { key: record.provider, className: 'acc-provider-card', 'data-provider': record.provider },
       h('div', { className: 'acc-provider-card__head' }, h('strong', null, record.product), h(ProviderUsageSync, { record })),
       h('small', null, record.authority),
       record.provider === 'claude' ? h('small', { className: 'acc-provider-activity-note' }, 'Genuine activity updates private evidence immediately; the public snapshot advances on the scheduled collector. Guarded /usage refresh also runs when a reported window resets or after 12 hours.') : null,
       record.provider === 'brave-search' ? h('small', { className: 'acc-provider-activity-note' }, `${record.rateLimitPerSecond} request/second · Quota refresh uses one successful search and runs at most daily.`) : null,
+      record.provider === 'elevenlabs' ? h('small', { className: 'acc-provider-activity-note' }, 'Monthly capacity refresh uses the read-only subscription API at most hourly.') : null,
       record.provider === 'antigravity' && record.state === 'inactive' ? h('p', { className: 'acc-provider-empty' }, 'Waiting for active trusted session') : null,
       ['error', 'auth_error'].includes(record.state) && record.windows.length ? h('p', { className: 'acc-provider-empty' }, 'Latest refresh failed — retained quota is last-good only, not current headroom.') : null,
       record.state === 'inactive' && record.windows.length ? h('p', { className: 'acc-provider-empty' }, 'Last-good quota only — current headroom is not claimed.') : null,
       record.state === 'expired' ? h('p', { className: 'acc-provider-empty' }, 'Expired — reported reset time has passed; showing the last known observation.') : null,
       record.windows.length
-        ? h('dl', { className: 'acc-provider-windows' }, record.windows.map((window) => h(ProviderUsageWindow, { key: window.id, window })))
+        ? h('dl', { className: 'acc-provider-windows' }, record.windows.map((window) => h(ProviderUsageWindow, { key: window.id, window, provider: record.provider })))
         : h('p', { className: 'acc-provider-empty' }, record.state === 'unsupported' ? 'Unsupported — no supported API' : record.state === 'not_configured' ? 'Not configured — awaiting a validated observation' : record.state === 'error' || record.state === 'auth_error' ? 'Unavailable — provider observation failed; no usage is shown' : record.state === 'stale' ? 'Stale — collector observation exceeded its freshness window' : 'Unknown — no validated observation'),
       record.provider === 'codex' ? h(CodexResetCredits, { resetCredits: record.resetCredits }) : null,
+      record.provider === 'brave-search' ? h(BraveBillingCoverage, { billingPolicy: record.billingPolicy }) : null,
       h('small', { className: 'acc-provider-meta' }, record.collectionMode),
     );
     return h('section', { className: cx('acc-section', 'acc-provider-usage'), 'aria-labelledby': 'acc-provider-usage-title' },
@@ -435,11 +454,11 @@ export async function registerAutobotCommandCenter() {
       groups.map((group) => h('section', { key: group.id, className: cx('acc-provider-group', `acc-provider-group--${group.id}`), 'aria-labelledby': `acc-provider-group-${group.id}` },
         h('div', { className: 'acc-provider-group__head' },
           h('h3', { id: `acc-provider-group-${group.id}` }, group.label),
-          h('small', null, group.id === 'frontier' ? 'Model and coding-agent plan windows' : 'Independent API request quota'),
+          h('small', null, group.id === 'frontier' ? 'Model and coding-agent plan windows' : 'Independent provider credit and request capacity'),
         ),
         h('div', { className: 'acc-provider-grid' }, group.records.map(renderCard)),
       )),
-      h('p', { className: 'acc-prototype-note' }, snapshot?.generatedAt ? `Sanitized snapshot generated ${new Date(snapshot.generatedAt).toLocaleString()}. No billing, prompts, account identity, or local activity is included.` : 'No validated snapshot loaded.'),
+      h('p', { className: 'acc-prototype-note' }, snapshot?.generatedAt ? `Sanitized snapshot generated ${new Date(snapshot.generatedAt).toLocaleString()}. No spend, payment method, prompts, account identity, or local activity is included.` : 'No validated snapshot loaded.'),
     );
   }
 

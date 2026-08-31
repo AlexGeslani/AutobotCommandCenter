@@ -4,7 +4,8 @@ import { normalizeClaudeStatusLine } from '../collector/adapters/claude-statusli
 import { summarizeAntigravityStatusLine } from '../collector/adapters/antigravity-statusline-gate.mjs';
 import { normalizeAntigravityStatusLine } from '../collector/adapters/antigravity-statusline.mjs';
 import { createBraveSearchAdapter, normalizeBraveRateLimitHeaders } from '../collector/adapters/brave-search.mjs';
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { createElevenLabsAdapter, normalizeElevenLabsSubscription } from '../collector/adapters/elevenlabs.mjs';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -142,5 +143,107 @@ describe('Brave Search API boundary', () => {
     expect(first).toEqual(second);
     expect(requests).toBe(1);
     expect(JSON.parse(await readFile(cachePath, 'utf8'))).toEqual(first);
+  });
+
+  it('adds owner-confirmed paid coverage without storing billing policy in the private API cache', async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), 'acc-brave-paid-'));
+    const cachePath = join(cacheDir, 'brave-search.json');
+    const adapter = createBraveSearchAdapter({
+      apiKey: 'test-key', cachePath, paidOverageEnabled: true,
+      fetchImpl: async () => ({ ok: true, headers, body: { cancel() {} } }),
+    });
+    const record = await adapter.collect({ now: '2026-08-11T22:44:29.000Z' });
+    expect(record.billingPolicy).toEqual({
+      status: 'owner_confirmed_enabled',
+      monthlyCreditUsd: 5,
+      usdPerThousandRequests: 5,
+      creditApplication: 'automatic',
+      authority: 'Owner-confirmed paid access + Brave public pricing',
+    });
+    expect(JSON.parse(await readFile(cachePath, 'utf8'))).not.toHaveProperty('billingPolicy');
+  });
+});
+
+describe('ElevenLabs subscription boundary', () => {
+  const subscription = {
+    character_count: 24000,
+    character_limit: 100000,
+    next_character_count_reset_unix: 1788220800,
+    tier: 'must-not-persist',
+    current_overage: { amount: 'must-not-persist' },
+  };
+
+  it('projects only monthly credit capacity, remaining credits, and the provider reset', () => {
+    const record = normalizeElevenLabsSubscription(subscription, '2026-08-30T12:00:00.000Z');
+    expect(record).toEqual({
+      provider: 'elevenlabs',
+      product: 'ElevenLabs',
+      metricClass: 'media_api_quota',
+      authority: 'ElevenLabs GET /v1/user/subscription',
+      collectionMode: 'direct_api',
+      adapterVersion: '1.0.0',
+      sourceVersion: 'elevenlabs-subscription-api',
+      observedAt: '2026-08-30T12:00:00.000Z',
+      state: 'fresh',
+      windows: [{
+        id: 'monthly', label: 'Monthly credits', usedPercent: 24,
+        limit: 100000, remaining: 76000, resetsAt: '2026-09-01T00:00:00.000Z',
+      }],
+    });
+    expect(JSON.stringify(record)).not.toContain('must-not-persist');
+  });
+
+  it('reads only the dedicated ACC usage credential and ignores the unrelated TTS credential', async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), 'acc-elevenlabs-credential-'));
+    const envPath = join(cacheDir, 'provider-usage.env');
+    const previousAcc = process.env.ACC_ELEVENLABS_API_KEY;
+    const previousTts = process.env.ELEVENLABS_API_KEY;
+    delete process.env.ACC_ELEVENLABS_API_KEY;
+    process.env.ELEVENLABS_API_KEY = 'unrelated-tts-credential';
+    await writeFile(envPath, 'ACC_ELEVENLABS_API_KEY=dedicated-usage-credential\n', { mode: 0o600 });
+    let receivedCredential = null;
+    try {
+      const record = await createElevenLabsAdapter({
+        envPath,
+        cachePath: join(cacheDir, 'elevenlabs.json'),
+        fetchImpl: async (_url, options) => {
+          receivedCredential = options.headers['xi-api-key'];
+          return { ok: true, status: 200, json: async () => subscription };
+        },
+      }).collect({ now: '2026-08-30T12:00:00.000Z' });
+      expect(receivedCredential).toBe('dedicated-usage-credential');
+      expect(record.state).toBe('fresh');
+    } finally {
+      if (previousAcc == null) delete process.env.ACC_ELEVENLABS_API_KEY;
+      else process.env.ACC_ELEVENLABS_API_KEY = previousAcc;
+      if (previousTts == null) delete process.env.ELEVENLABS_API_KEY;
+      else process.env.ELEVENLABS_API_KEY = previousTts;
+    }
+  });
+
+  it('reuses a private observation for an hour instead of polling every scheduler tick', async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), 'acc-elevenlabs-'));
+    const cachePath = join(cacheDir, 'elevenlabs.json');
+    let requests = 0;
+    const adapter = createElevenLabsAdapter({
+      apiKey: 'test-key', cachePath,
+      fetchImpl: async () => { requests += 1; return { ok: true, status: 200, json: async () => subscription }; },
+    });
+    const first = await adapter.collect({ now: '2026-08-30T12:00:00.000Z' });
+    const second = await adapter.collect({ now: '2026-08-30T12:30:00.000Z' });
+    expect(second).toEqual(first);
+    expect(requests).toBe(1);
+    const cached = JSON.parse(await readFile(cachePath, 'utf8'));
+    expect(cached.record).toEqual(first);
+    expect(cached).not.toHaveProperty('tier');
+  });
+
+  it('fails closed when the configured API key lacks subscription-read permission', async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), 'acc-elevenlabs-auth-'));
+    const record = await createElevenLabsAdapter({
+      apiKey: 'restricted-test-key', cachePath: join(cacheDir, 'elevenlabs.json'),
+      fetchImpl: async () => ({ ok: false, status: 401 }),
+    }).collect({ now: '2026-08-30T12:00:00.000Z' });
+    expect(record).toMatchObject({ provider: 'elevenlabs', state: 'auth_error', windows: [] });
   });
 });
