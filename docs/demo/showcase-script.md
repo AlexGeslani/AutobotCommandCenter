@@ -6,7 +6,7 @@
 
 **Visual source:** the actual standalone ACC application rendered with an authorized sanitized snapshot
 
-**Sound:** original locally generated narration plus restrained synthesized interface tones; no copyrighted music or character audio
+**Sound:** original synthetic narration plus restrained synthesized interface tones; no copyrighted music or character audio
 
 ## Timeline
 
@@ -22,12 +22,12 @@
 
 ## Voice direction
 
-Original, non-imitative cinematic robotic-command delivery: deep, calm, warm, authoritative, deliberate, and slightly synthetic. The narration is generated locally with Qwen3-TTS and receives only bounded level/timing treatment for the film. No hosted speech API or source voice material is published.
+Original, non-imitative cinematic robotic-command delivery: deep, calm, warm, authoritative, deliberate, and slightly synthetic. The narration is generated with ElevenLabs using Alex Geslani's custom voice and receives only bounded level/timing treatment for the film. No source voice material is published.
 
 ## Capture integrity
 
 - The presentation layer adds only title cards, section labels, highlights, and camera-like pacing.
 - Product screens are rendered by the real ACC application; no product behavior is fabricated in post-production.
 - Inputs are deterministic sanitized fixtures or owner-authorized safe aggregates copied to ignored local scratch.
-- Mutable runtime projections and local narration source artifacts are not committed.
+- Mutable runtime projections and narration source artifacts are not committed.
 - Public release requires `npm run security:media` and the human checks in [`docs/PUBLIC_MEDIA_CHECKLIST.md`](../PUBLIC_MEDIA_CHECKLIST.md).

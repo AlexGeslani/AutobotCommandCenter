@@ -12,7 +12,7 @@
 https://github.com/user-attachments/assets/e490cafd-1197-4654-950e-cedfa9a6bd9a
 
 <p align="center">
-  <sub>68-second actual-application showcase with locally generated cinematic robotic-command narration.</sub>
+  <sub>68-second actual-application showcase with an original cinematic robotic-command voice.</sub>
 </p>
 
 > **Dated showcase snapshot — 2026-08-30.** The screenshots and film use an authorized, sanitized projection of Portfolio and Benchmark evidence plus aggregate `alexgeslani.com` analytics through 2026-08-28. The release process scans committed media and requires human review, but those checks are defense in depth—not proof that OCR can find every visual disclosure. Mutable runtime JSON remains untracked.
@@ -148,7 +148,7 @@ This is how I'm building my own AI operating system.
 
 </details>
 
-Narration was generated locally with Qwen3-TTS using a custom cinematic robotic-command voice. No hosted speech API was required. The direction is original and non-imitative: deep, calm, warm, authoritative, deliberate, and slightly synthetic.
+Narration was generated with ElevenLabs using Alex Geslani's custom original cinematic robotic-command voice. The direction is non-imitative: deep, calm, warm, authoritative, deliberate, and slightly synthetic.
 
 ## Two build targets
 
