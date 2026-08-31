@@ -2387,7 +2387,9 @@
     function ProviderUsageWindow({ window: window2, provider }) {
       const availablePercent = Math.round(100 - window2.usedPercent);
       const capacityUnit = provider === "elevenlabs" ? "credits" : "searches";
-      const countText = Number.isInteger(window2.remaining) && Number.isInteger(window2.limit) ? `${window2.remaining.toLocaleString()} of ${window2.limit.toLocaleString()} ${capacityUnit} available` : null;
+      const hasExactCapacity = Number.isInteger(window2.remaining) && Number.isInteger(window2.limit);
+      const used = hasExactCapacity ? Math.max(0, window2.limit - window2.remaining) : null;
+      const countText = hasExactCapacity ? provider === "elevenlabs" ? `${window2.remaining.toLocaleString()} credits available \xB7 ${used.toLocaleString()} used of ${window2.limit.toLocaleString()}` : `${window2.remaining.toLocaleString()} of ${window2.limit.toLocaleString()} ${capacityUnit} available` : null;
       const availabilityText = countText || `${availablePercent}% available`;
       const resetText = new Date(window2.resetsAt).toLocaleString();
       const resetLabel = window2.resetKind === "estimated_window_end" ? `Estimated reset by ${resetText}` : `Resets ${resetText}`;
