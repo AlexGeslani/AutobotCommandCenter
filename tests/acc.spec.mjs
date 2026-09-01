@@ -9,6 +9,7 @@ const searchUrl = pathSearchMode ? '/search' : `${pluginUrl}?view=search`;
 const searchDeepLink = (query = '') => `${searchUrl}${query ? `${searchUrl.includes('?') ? '&' : '?'}q=${encodeURIComponent(query).replaceAll('%20', '+')}` : ''}`;
 const showcaseBuild = process.env.ACC_ANALYTICS_SHOWCASE === '1';
 const showcaseProjection = JSON.parse(await readFile(new URL('./fixtures/analytics/kungfuclan-demo.v2.json', import.meta.url), 'utf8'));
+const githubProjection = JSON.parse(await readFile(new URL('./fixtures/analytics/github-portfolio.v1.json', import.meta.url), 'utf8'));
 const demoDomainProjection = JSON.parse(await readFile(new URL('../fixtures/demo/domain.v1.json', import.meta.url), 'utf8'));
 const demoEdition = JSON.parse(await readFile(new URL('../config/demo.edition.v1.json', import.meta.url), 'utf8'));
 const projectPortfolio = JSON.parse(await readFile(new URL('./fixtures/portfolio/projects.v1.json', import.meta.url), 'utf8'));
@@ -43,6 +44,20 @@ async function routeWebAnalytics(page) {
       await route.fulfill({ contentType: 'application/json', body: JSON.stringify(alexProjection) });
     });
   }
+}
+
+async function routeGitHubAnalytics(page) {
+  const edition = structuredClone(demoEdition);
+  edition.analytics.github = {
+    id: 'github-portfolio',
+    label: 'GitHub Portfolio',
+    description: 'Retained repository traffic',
+    projection: 'runtime/analytics/github/github-portfolio.v1.json',
+  };
+  for (const pattern of ['**/data/edition.v1.json', '**/runtime/edition.v1.json']) {
+    await page.route(pattern, (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(edition) }));
+  }
+  await page.route('**/runtime/analytics/github/github-portfolio.v1.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(githubProjection) }));
 }
 
 async function routeProviderUsage(page, providers, generatedAt = '2026-07-31T23:30:00.000Z') {
@@ -433,6 +448,36 @@ test('Analytics exposes the alexgeslani.com real-data route', async ({ page }) =
   await page.goto(pluginUrl + '?view=analytics&domain=web&subject=alexgeslani.com&range=30d');
   await expect(page.getByRole('heading', { name: 'alexgeslani.com', exact: true })).toBeVisible();
   await expect(page.getByText('ILLUSTRATIVE FIXTURE', { exact: false })).toHaveCount(0);
+});
+
+test('GitHub analytics turns retained observations into truthful responsive trends', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page);
+  await routeGitHubAnalytics(page);
+  await page.goto(pluginUrl + '?view=analytics&domain=code&subject=github-portfolio&range=14d');
+
+  await expect(page.getByRole('heading', { name: 'Repository attention over time' })).toBeVisible();
+  await expect(page.locator('[data-github-trend="views"]')).toHaveCount(1);
+  await expect(page.locator('[data-github-trend="clones"]')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: '14 days' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: '30 days' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '30 days' })).toHaveAttribute('title', /Needs 14 more complete UTC days/);
+  await expect(page.getByText(/earliest comparison 2026-09-12/i).first()).toBeVisible();
+  await expect(page.getByText(/conversion rate|campaign attribution confirmed/i)).toHaveCount(0);
+
+  await page.getByText('Exact selected-range values and gap states', { exact: true }).click();
+  await expect(page.getByRole('table', { name: 'Portfolio exact GitHub trend values' }).locator('tbody tr')).toHaveCount(14);
+
+  const beta = page.getByRole('button', { name: /beta.*views.*full clones/i });
+  await beta.click();
+  await expect(page).toHaveURL(/repository=202.*range=14d|range=14d.*repository=202/);
+  await expect(beta).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('[data-github-trend="views"]')).toHaveAttribute('aria-label', /^beta daily views/i);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('heading', { name: 'Repository attention over time' })).toBeVisible();
+  expect(await page.locator('.acc-github-trend-grid').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  expect(browserErrors).toEqual([]);
 });
 
 test('a malformed GitHub projection is isolated from both website analytics subjects', async ({ page }) => {

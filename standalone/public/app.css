@@ -926,6 +926,22 @@ body {
 .acc-analytics-method .acc-detail-grid > section { background: var(--acc-analytics-panel); }
 .acc-github-caveat { border-left: 3px solid var(--acc-amber); }
 .acc-github-caveat p, .acc-github-window-note { margin: .45rem 0 0; color: var(--color-muted-foreground); font-size: .76rem; line-height: 1.55; }
+.acc-github-trends { display: grid; gap: .9rem; }
+.acc-github-answer { display: grid; grid-template-columns: minmax(14rem, .7fr) minmax(0, 1.3fr); align-items: center; gap: 1rem; padding: 1rem; border: 1px solid var(--color-border); border-left: 3px solid var(--acc-green); border-radius: var(--radius); background: color-mix(in srgb, var(--acc-green) 6%, var(--acc-analytics-panel)); }
+.acc-github-answer p { margin: 0; color: var(--color-muted-foreground); font-size: .8rem; line-height: 1.6; }
+.acc-github-answer h2 { margin: .12rem 0 0; }
+.acc-github-range-toolbar { align-items: center; }
+.acc-github-range-toolbar .acc-metric-tabs { margin-left: 0; }
+.acc-github-range-toolbar .acc-tab-button:disabled { cursor: not-allowed; opacity: .42; }
+.acc-github-range-note { flex: 1 1 26rem; margin: 0; color: var(--color-muted-foreground); font-size: .7rem; line-height: 1.5; text-align: right; }
+.acc-github-trend-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
+.acc-github-chart-frame { min-width: 0; overflow-x: auto; }
+.acc-github-trend-chart { display: block; width: 100%; min-height: 180px; }
+.acc-github-trend-bar { fill: var(--acc-cyan); stroke: color-mix(in srgb, var(--acc-cyan) 72%, white); stroke-width: 1; }
+.acc-github-trend-bar.is-provisional { fill: color-mix(in srgb, var(--acc-cyan) 48%, transparent); stroke-dasharray: 3 2; }
+.acc-github-trend-gap { stroke: var(--acc-amber); stroke-dasharray: 4 4; stroke-width: 2; }
+.acc-github-chart-note { margin: .65rem 0 0; color: var(--color-muted-foreground); font-size: .68rem; line-height: 1.45; }
+.acc-github-trend-values { margin: 0; }
 .acc-github-repository-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
 .acc-github-repository { display: grid; gap: .32rem; min-width: 0; min-height: 44px; padding: .8rem; border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-foreground); background: color-mix(in srgb, var(--color-background) 58%, transparent); text-align: left; cursor: pointer; }
 .acc-github-repository:hover, .acc-github-repository:focus-visible, .acc-github-repository.is-active { border-color: var(--acc-cyan); background: color-mix(in srgb, var(--acc-cyan) 8%, var(--color-background)); }
@@ -942,11 +958,12 @@ body {
 }
 
 @media (max-width: 640px) {
-  .acc-analytics-source-grid, .acc-analytics-summary, .acc-analytics-trust, .acc-analytics-compact-breakdowns, .acc-github-repository-grid { grid-template-columns: 1fr; }
+  .acc-analytics-source-grid, .acc-analytics-summary, .acc-analytics-trust, .acc-analytics-compact-breakdowns, .acc-github-repository-grid, .acc-github-trend-grid, .acc-github-answer { grid-template-columns: 1fr; }
   .acc-analytics-domain__head, .acc-analytics-source-card__head, .acc-analytics-panel__head, .acc-analytics-hero { align-items: flex-start; flex-direction: column; }
   .acc-analytics-toolbar { align-items: stretch; }
   .acc-analytics-toolbar .acc-field { min-width: 100%; }
   .acc-analytics-toolbar .acc-metric-tabs { margin-left: 0; }
+  .acc-github-range-note { text-align: left; }
   .acc-analytics-trust > div, .acc-analytics-trust > div:nth-child(2) { border-right: 0; border-bottom: 1px solid var(--color-border); }
   .acc-analytics-trust > div:last-child { border-bottom: 0; }
   .acc-traffic-chart { min-height: 140px; }
