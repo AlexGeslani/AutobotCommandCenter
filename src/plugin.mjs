@@ -1,7 +1,7 @@
 import commandCenterMarkMaskUrl from '../standalone/autobot-mark-mask.png';
 import decepticonMarkMaskUrl from '../standalone/decepticon-mark-mask.png';
 import { loadProviderUsageSnapshot, providerUsageFallback } from './provider-usage/client.mjs';
-import { loadRuntimeConfiguration } from './runtime/client.mjs';
+import { loadRuntimeConfiguration, runtimeProjectionUrl } from './runtime/client.mjs';
 import { createAnalyticsView } from './analytics/view.mjs';
 import { createSortingSupport, defineSortColumns } from './sorting.mjs';
 import {
@@ -9,6 +9,7 @@ import {
   edition,
   applyEdition,
   applyDomainProjection,
+  applyProjectPortfolio,
   RELEASES,
   fixtures,
   getCondition,
@@ -22,6 +23,7 @@ import {
   getRunLineage,
 
   getShowcasePortfolio,
+  getProjectPortfolio,
   getIntegrationStatus,
   getOverviewProjection,
   filterLocalAcc,
@@ -42,6 +44,7 @@ export async function registerAutobotCommandCenter() {
   const runtime = await loadRuntimeConfiguration(basePath);
   applyEdition(runtime.edition);
   applyDomainProjection(runtime.domain);
+  applyProjectPortfolio(runtime.portfolio);
   window.__ACC_RUNTIME_HEALTH__ = runtime.health;
 
   const SDK = window.__HERMES_PLUGIN_SDK__;
@@ -514,7 +517,7 @@ export async function registerAutobotCommandCenter() {
     );
   }
 
-  function Portfolio({ route, go }) {
+  function LegacyPortfolio({ route, go }) {
     const portfolio = getShowcasePortfolio();
     const product = route.product ? portfolio.internalProducts.find((item) => item.id === route.product) : null;
     if (product) {
@@ -585,6 +588,103 @@ export async function registerAutobotCommandCenter() {
         ),
       ),
     );
+  }
+
+  function projectEvidenceHref(href) {
+    return href.startsWith('https://') ? href : runtimeProjectionUrl(basePath, href);
+  }
+
+  function ProjectDocument({ role, document }) {
+    const label = role[0].toUpperCase() + role.slice(1);
+    const content = document.href
+      ? h('a', { href: projectEvidenceHref(document.href), rel: 'noreferrer', className: 'acc-project-doc__link' }, document.label)
+      : h('span', { className: 'acc-project-doc__missing' }, document.label);
+    return h('div', { className: cx('acc-project-doc', document.status === 'missing' && 'is-missing') },
+      h('span', null, label), content, h('small', null, document.note || document.status),
+    );
+  }
+
+  function ProjectCard({ project, go, compact = false }) {
+    return h('article', { className: cx('acc-project-card', compact && 'is-focus'), 'data-project': project.slug },
+      h('div', { className: 'acc-object-card__top' },
+        h(Badge, { tone: project.portfolioState === 'active' || project.portfolioState === 'operational' ? 'good' : undefined }, project.portfolioState),
+        h(StatusBadge, { state: project.health }),
+      ),
+      h('button', { type: 'button', className: 'acc-project-card__open', onClick: () => go({ view: 'portfolio', project: project.slug }) },
+        h('h3', null, project.name),
+        h('p', null, `${project.deliveryModel} · ${project.phase}`),
+      ),
+      h('div', { className: 'acc-callout' }, h('span', null, 'Next gate'), h('strong', null, project.nextGate)),
+      compact ? null : h('div', { className: 'acc-project-docs', 'aria-label': `${project.name} governance documents` },
+        ...Object.entries(project.documents).map(([role, document]) => h(ProjectDocument, { key: role, role, document })),
+      ),
+      h('div', { className: 'acc-card-links' },
+        project.repositoryUrl ? h('a', { className: 'acc-card-link', href: project.repositoryUrl, rel: 'noreferrer' }, 'Repository') : h('span', { className: 'acc-project-no-link' }, 'Repository not mapped'),
+      ),
+      h('small', null, project.lastReviewedAt ? `Owner-reviewed ${project.lastReviewedAt.slice(0, 10)}` : 'Owner review missing'),
+    );
+  }
+
+  function ProjectDetail({ project, go }) {
+    return h('div', { className: 'acc-view' },
+      h('button', { type: 'button', className: 'acc-back', onClick: () => go({ view: 'portfolio' }) }, '← Portfolio'),
+      h('article', { className: 'acc-detail acc-project-detail' },
+        h('div', { className: 'acc-detail__hero' },
+          h('div', null, h('p', { className: 'acc-eyebrow' }, `${project.deliveryModel} · ${project.phase}`), h('h2', null, project.name), h('p', { className: 'acc-lede' }, project.description)),
+          h('div', { className: 'acc-project-detail__badges' }, h(Badge, { tone: project.portfolioState === 'active' ? 'good' : undefined }, project.portfolioState), h(StatusBadge, { state: project.health })),
+        ),
+        h('div', { className: 'acc-callout' }, h('span', null, 'Landed / intended outcome'), h('strong', null, project.outcome)),
+        h('div', { className: 'acc-callout' }, h('span', null, 'Next decision gate'), h('strong', null, project.nextGate)),
+        h('section', { className: 'acc-project-detail__section' }, h('h3', null, 'Governance documents'),
+          h('div', { className: 'acc-project-docs' }, ...Object.entries(project.documents).map(([role, document]) => h(ProjectDocument, { key: role, role, document }))),
+        ),
+        project.lifecycle.length ? h('section', { className: 'acc-project-detail__section' }, h('h3', null, 'Lifecycle gates'),
+          h('ol', { className: 'acc-project-lifecycle' }, project.lifecycle.map((gate) => h('li', { key: gate.id, className: `is-${gate.state}` }, h('strong', null, gate.label), h('span', null, gate.state)))),
+        ) : null,
+        project.sessionRefs.length ? h('section', { className: 'acc-project-detail__section' }, h('h3', null, 'Tracked sessions'),
+          h('ul', { className: 'acc-project-reference-list' }, project.sessionRefs.map((session) => h('li', { key: session.ref }, h('strong', null, session.label), h('code', null, session.ref)))),
+        ) : null,
+        project.relatedSkills.length ? h('section', { className: 'acc-project-detail__section' }, h('h3', null, 'Related operating skills'),
+          h('div', { className: 'acc-chip-list' }, project.relatedSkills.map((skill) => h(Badge, { key: skill }, skill))),
+        ) : null,
+        h('div', { className: 'acc-card-links' }, project.repositoryUrl ? h('a', { className: 'acc-card-link', href: project.repositoryUrl, rel: 'noreferrer' }, 'Repository') : null),
+      ),
+    );
+  }
+
+  function ProjectPortfolio({ route, go, portfolio }) {
+    const selected = route.project ? portfolio.projects.find(({ slug }) => slug === route.project) : null;
+    if (selected) return h(ProjectDetail, { project: selected, go });
+    const activeProjects = portfolio.projects.filter(({ portfolioState }) => portfolioState === 'active');
+    return h('div', { className: 'acc-view' },
+      h(SectionHeading, {
+        eyebrow: 'Hermes Projects alignment',
+        title: 'Portfolio',
+        help: 'Hermes projects.db defines membership. Validated project manifests add lifecycle, next gates, and document pointers. ACC is a read-only projection.',
+      }),
+      h('div', { className: 'acc-registry-summary', 'aria-label': 'Project portfolio summary' },
+        h('div', null, h('strong', null, portfolio.summary.total), h('span', null, 'Registered projects')),
+        h('div', null, h('strong', null, `${portfolio.summary.active} / ${portfolio.policy.activeLimit}`), h('span', null, 'Active WIP')),
+        h('div', null, h('strong', null, portfolio.summary.operational), h('span', null, 'Operational')),
+        h('div', null, h('strong', null, portfolio.summary.missingDocuments), h('span', null, 'Missing documents')),
+      ),
+      h('section', { className: 'acc-portfolio-group acc-focus-board', 'aria-labelledby': 'acc-focus-title' },
+        h('div', { className: 'acc-section-heading' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'One in, one out'), h('h3', { id: 'acc-focus-title' }, `Current focus · ${activeProjects.length}/${portfolio.policy.activeLimit}`)), h('small', null, portfolio.policy.rule)),
+        h('div', { className: 'acc-project-focus-grid' }, activeProjects.map((project) => h(ProjectCard, { key: project.id, project, go, compact: true }))),
+      ),
+      h('section', { className: 'acc-portfolio-group', 'aria-labelledby': 'acc-project-catalog-title' },
+        h('div', { className: 'acc-section-heading' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Authoritative private catalog'), h('h3', { id: 'acc-project-catalog-title' }, 'All Hermes Projects')), h('small', null, `Projection refreshed ${portfolio.generatedAt}`)),
+        h('div', { className: 'acc-project-grid' }, portfolio.projects.map((project) => h(ProjectCard, { key: project.id, project, go }))),
+      ),
+    );
+  }
+
+  function Portfolio({ route, go }) {
+    const portfolio = getProjectPortfolio();
+    if (route.product) return h(LegacyPortfolio, { route, go });
+    return portfolio.projects.length
+      ? h(ProjectPortfolio, { route, go, portfolio })
+      : h(LegacyPortfolio, { route, go });
   }
 
   function MetricTabs({ active, onSelect }) {

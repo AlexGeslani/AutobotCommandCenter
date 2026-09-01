@@ -672,9 +672,10 @@
       assertString2(module.label, `edition.modules[${index}].label`, { max: 48 });
     });
     if (!moduleIds.has("overview")) throw new TypeError("edition must enable overview");
-    assertObject2(value.projections, "edition.projections", /* @__PURE__ */ new Set(["domain", "providerUsage"]));
+    assertObject2(value.projections, "edition.projections", /* @__PURE__ */ new Set(["domain", "providerUsage", "portfolio"]));
     assertRelativeProjectionPath(value.projections.domain, "edition.projections.domain");
     assertRelativeProjectionPath(value.projections.providerUsage, "edition.projections.providerUsage");
+    if (value.projections.portfolio !== void 0) assertRelativeProjectionPath(value.projections.portfolio, "edition.projections.portfolio");
     assertObject2(value.analytics, "edition.analytics", /* @__PURE__ */ new Set(["web", "providerUsage"]));
     const webIds = /* @__PURE__ */ new Set();
     assertArray2(value.analytics.web, "edition.analytics.web", 50).forEach((subject, index) => {
@@ -758,9 +759,9 @@
       for (const [scoreId, score] of Object.entries(profile.scores)) validateScore(score, `benchmarkComparison[${index}].scores.${scoreId}`);
     });
     data.evaluations.forEach((evaluation, index) => {
-      assertArray2(evaluation.affectedObjects, `evaluations[${index}].affectedObjects`, 100).forEach((object) => {
-        if (object.type === "product" && !productIds.has(object.id)) throw new TypeError(`evaluations[${index}] references an unknown product`);
-        if (object.type === "condition" && !conditionIds.has(object.id)) throw new TypeError(`evaluations[${index}] references an unknown condition`);
+      assertArray2(evaluation.affectedObjects, `evaluations[${index}].affectedObjects`, 100).forEach((object2) => {
+        if (object2.type === "product" && !productIds.has(object2.id)) throw new TypeError(`evaluations[${index}] references an unknown product`);
+        if (object2.type === "condition" && !conditionIds.has(object2.id)) throw new TypeError(`evaluations[${index}] references an unknown condition`);
       });
     });
     const showcase = validateShowcaseProjection(value.showcase);
@@ -770,11 +771,11 @@
     assertTextTree(projected, "domain projection");
     return projected;
   }
-  function parseRuntimeJson(text, validator, name = "runtime projection") {
-    if (typeof text !== "string" || new TextEncoder().encode(text).byteLength > ACC_RUNTIME_MAX_BYTES) throw new TypeError(`${name} exceeds the runtime size limit`);
+  function parseRuntimeJson(text2, validator, name = "runtime projection") {
+    if (typeof text2 !== "string" || new TextEncoder().encode(text2).byteLength > ACC_RUNTIME_MAX_BYTES) throw new TypeError(`${name} exceeds the runtime size limit`);
     let value;
     try {
-      value = JSON.parse(text);
+      value = JSON.parse(text2);
     } catch {
       throw new TypeError(`${name} is not valid JSON`);
     }
@@ -782,6 +783,174 @@
   }
   var DEMO_EDITION = validateEdition(demo_edition_v1_default);
   var DEMO_DOMAIN_PROJECTION = validateDomainProjection(domain_v1_default);
+
+  // src/portfolio/schema.mjs
+  var TOP_FIELDS = /* @__PURE__ */ new Set(["schemaVersion", "generatedAt", "source", "policy", "summary", "projects"]);
+  var SOURCE_FIELDS = /* @__PURE__ */ new Set(["authority", "profile", "registryProjectCount", "annotatedProjectCount"]);
+  var POLICY_FIELDS = /* @__PURE__ */ new Set(["activeLimit", "rule"]);
+  var SUMMARY_FIELDS = /* @__PURE__ */ new Set(["total", "active", "operational", "missingDocuments", "unclassified"]);
+  var PROJECT_FIELDS = /* @__PURE__ */ new Set([
+    "id",
+    "slug",
+    "name",
+    "description",
+    "outcome",
+    "portfolioState",
+    "health",
+    "focusRank",
+    "deliveryModel",
+    "phase",
+    "nextGate",
+    "lastReviewedAt",
+    "visibility",
+    "repositoryUrl",
+    "archived",
+    "documents",
+    "lifecycle",
+    "sessionRefs",
+    "relatedSkills"
+  ]);
+  var DOCUMENT_FIELDS = /* @__PURE__ */ new Set(["status", "label", "href", "note"]);
+  var LIFECYCLE_FIELDS = /* @__PURE__ */ new Set(["id", "label", "state"]);
+  var SESSION_FIELDS = /* @__PURE__ */ new Set(["label", "ref"]);
+  var STATES2 = /* @__PURE__ */ new Set(["active", "operational", "candidate", "paused", "complete", "archived", "unclassified"]);
+  var HEALTH = /* @__PURE__ */ new Set(["on_track", "at_risk", "blocked", "unknown"]);
+  var DOCUMENT_STATES = /* @__PURE__ */ new Set(["approved", "ratified", "mapped", "draft", "historical", "missing"]);
+  var LIFECYCLE_STATES = /* @__PURE__ */ new Set(["complete", "current", "next", "future"]);
+  var SLUG = /^[a-z0-9][a-z0-9-_]{0,63}$/;
+  var ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+  var SESSION_REF = /^@session:[a-z0-9_-]+\/[A-Za-z0-9_-]+$/;
+  function object(value, label, allowed) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError(`${label} must be an object`);
+    for (const key of Object.keys(value)) if (!allowed.has(key)) throw new TypeError(`${label} has unknown field ${key}`);
+    return value;
+  }
+  function text(value, label, max = 4096) {
+    if (typeof value !== "string" || !value.trim() || value.length > max || value.includes("\0")) throw new TypeError(`${label} must be a bounded non-empty string`);
+    return value;
+  }
+  function timestamp(value, label, nullable = false) {
+    if (nullable && value === null) return null;
+    text(value, label, 64);
+    if (Number.isNaN(Date.parse(value)) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) throw new TypeError(`${label} must be a canonical UTC timestamp`);
+    return value;
+  }
+  function integer(value, label, { min = 0, max = Number.MAX_SAFE_INTEGER, nullable = false } = {}) {
+    if (nullable && value === null) return null;
+    if (!Number.isSafeInteger(value) || value < min || value > max) throw new TypeError(`${label} must be an integer from ${min} to ${max}`);
+    return value;
+  }
+  function array(value, label, max = 100) {
+    if (!Array.isArray(value) || value.length > max) throw new TypeError(`${label} must be a bounded array`);
+    return value;
+  }
+  function safeHref(value, label) {
+    text(value, label, 1024);
+    if (/^(?:runtime|data)\/[A-Za-z0-9._/-]+\.html$/.test(value) && !value.split("/").includes("..")) return value;
+    let parsed;
+    try {
+      parsed = new URL(value);
+    } catch {
+      throw new TypeError(`${label} must be a safe relative or credential-free HTTPS URL`);
+    }
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password) throw new TypeError(`${label} must be a safe relative or credential-free HTTPS URL`);
+    return value;
+  }
+  function validateDocument(value, label) {
+    object(value, label, DOCUMENT_FIELDS);
+    if (!DOCUMENT_STATES.has(value.status)) throw new TypeError(`${label}.status is unsupported`);
+    text(value.label, `${label}.label`, 160);
+    if (value.href !== void 0) safeHref(value.href, `${label}.href`);
+    if (value.note !== void 0) text(value.note, `${label}.note`, 1024);
+    if (value.status === "missing" && value.href !== void 0) throw new TypeError(`${label} cannot link a missing document`);
+    if (value.status !== "missing" && value.href === void 0) throw new TypeError(`${label} must link mapped document evidence`);
+    return value;
+  }
+  function validateProject(value, index, activeLimit) {
+    const label = `project portfolio.projects[${index}]`;
+    object(value, label, PROJECT_FIELDS);
+    text(value.id, `${label}.id`, 128);
+    if (!ID.test(value.id)) throw new TypeError(`${label}.id has an invalid format`);
+    text(value.slug, `${label}.slug`, 64);
+    if (!SLUG.test(value.slug)) throw new TypeError(`${label}.slug has an invalid format`);
+    text(value.name, `${label}.name`, 160);
+    text(value.description, `${label}.description`, 2048);
+    text(value.outcome, `${label}.outcome`, 2048);
+    if (!STATES2.has(value.portfolioState)) throw new TypeError(`${label}.portfolioState is unsupported`);
+    if (!HEALTH.has(value.health)) throw new TypeError(`${label}.health is unsupported`);
+    integer(value.focusRank, `${label}.focusRank`, { min: 1, max: activeLimit, nullable: true });
+    if (value.portfolioState === "active" !== (value.focusRank !== null)) throw new TypeError(`${label}.focusRank must exist exactly for active projects`);
+    text(value.deliveryModel, `${label}.deliveryModel`, 96);
+    text(value.phase, `${label}.phase`, 160);
+    text(value.nextGate, `${label}.nextGate`, 2048);
+    timestamp(value.lastReviewedAt, `${label}.lastReviewedAt`, true);
+    if (!["private", "public"].includes(value.visibility)) throw new TypeError(`${label}.visibility is unsupported`);
+    if (!(value.repositoryUrl === null || typeof value.repositoryUrl === "string")) throw new TypeError(`${label}.repositoryUrl must be null or HTTPS`);
+    if (value.repositoryUrl !== null) safeHref(value.repositoryUrl, `${label}.repositoryUrl`);
+    if (typeof value.archived !== "boolean") throw new TypeError(`${label}.archived must be boolean`);
+    if (value.archived !== (value.portfolioState === "archived")) throw new TypeError(`${label}.archived must agree with portfolioState`);
+    object(value.documents, `${label}.documents`, /* @__PURE__ */ new Set(["vision", "charter", "architecture"]));
+    for (const role of ["vision", "charter", "architecture"]) validateDocument(value.documents[role], `${label}.documents.${role}`);
+    const lifecycleIds = /* @__PURE__ */ new Set();
+    array(value.lifecycle, `${label}.lifecycle`, 20).forEach((gate, gateIndex) => {
+      const gateLabel = `${label}.lifecycle[${gateIndex}]`;
+      object(gate, gateLabel, LIFECYCLE_FIELDS);
+      text(gate.id, `${gateLabel}.id`, 64);
+      if (!SLUG.test(gate.id) || lifecycleIds.has(gate.id)) throw new TypeError(`${gateLabel}.id must be a unique slug`);
+      lifecycleIds.add(gate.id);
+      text(gate.label, `${gateLabel}.label`, 160);
+      if (!LIFECYCLE_STATES.has(gate.state)) throw new TypeError(`${gateLabel}.state is unsupported`);
+    });
+    if (value.lifecycle.filter(({ state }) => state === "current").length > 1) throw new TypeError(`${label}.lifecycle can have at most one current gate`);
+    array(value.sessionRefs, `${label}.sessionRefs`, 20).forEach((session, sessionIndex) => {
+      const sessionLabel = `${label}.sessionRefs[${sessionIndex}]`;
+      object(session, sessionLabel, SESSION_FIELDS);
+      text(session.label, `${sessionLabel}.label`, 160);
+      if (!SESSION_REF.test(session.ref)) throw new TypeError(`${sessionLabel}.ref is not a Hermes session reference`);
+    });
+    array(value.relatedSkills, `${label}.relatedSkills`, 30).forEach((skill, skillIndex) => text(skill, `${label}.relatedSkills[${skillIndex}]`, 160));
+    return value;
+  }
+  function validateProjectPortfolio(value) {
+    object(value, "project portfolio", TOP_FIELDS);
+    if (value.schemaVersion !== "acc-project-portfolio-v1") throw new TypeError("project portfolio schema is unsupported");
+    timestamp(value.generatedAt, "project portfolio.generatedAt");
+    object(value.source, "project portfolio.source", SOURCE_FIELDS);
+    if (value.source.authority !== "Hermes projects.db joined to validated project manifests") throw new TypeError("project portfolio source authority is unsupported");
+    text(value.source.profile, "project portfolio.source.profile", 64);
+    integer(value.source.registryProjectCount, "project portfolio.source.registryProjectCount", { max: 500 });
+    integer(value.source.annotatedProjectCount, "project portfolio.source.annotatedProjectCount", { max: 500 });
+    object(value.policy, "project portfolio.policy", POLICY_FIELDS);
+    const activeLimit = integer(value.policy.activeLimit, "project portfolio.policy.activeLimit", { min: 1, max: 12 });
+    text(value.policy.rule, "project portfolio.policy.rule", 512);
+    object(value.summary, "project portfolio.summary", SUMMARY_FIELDS);
+    const projects = array(value.projects, "project portfolio.projects", 500).map((project, index) => validateProject(project, index, activeLimit));
+    if (value.source.registryProjectCount !== projects.length) throw new TypeError("registry project count must equal projected project count");
+    if (value.source.annotatedProjectCount > projects.length) throw new TypeError("annotated project count cannot exceed registry project count");
+    if (new Set(projects.map(({ id }) => id)).size !== projects.length || new Set(projects.map(({ slug }) => slug)).size !== projects.length) throw new TypeError("project ids and slugs must be unique");
+    const active2 = projects.filter(({ portfolioState }) => portfolioState === "active");
+    if (active2.length > activeLimit) throw new TypeError(`active project limit ${activeLimit} exceeded`);
+    const ranks = active2.map(({ focusRank }) => focusRank).sort((a, b) => a - b);
+    if (new Set(ranks).size !== ranks.length || ranks.some((rank, index) => rank !== index + 1)) throw new TypeError("active focus ranks must be unique and contiguous from 1");
+    const projected = structuredClone(value);
+    projected.projects = projects;
+    projected.summary = {
+      total: projects.length,
+      active: active2.length,
+      operational: projects.filter(({ portfolioState }) => portfolioState === "operational").length,
+      missingDocuments: projects.reduce((count, project) => count + Object.values(project.documents).filter(({ status }) => status === "missing").length, 0),
+      unclassified: projects.filter(({ portfolioState }) => portfolioState === "unclassified").length
+    };
+    return projected;
+  }
+  var EMPTY_PROJECT_PORTFOLIO = Object.freeze({
+    schemaVersion: "acc-project-portfolio-v1",
+    generatedAt: "2026-01-01T00:00:00.000Z",
+    source: { authority: "Hermes projects.db joined to validated project manifests", profile: "demo", registryProjectCount: 0, annotatedProjectCount: 0 },
+    policy: { activeLimit: 3, rule: "One project enters Active only when another leaves Active." },
+    summary: { total: 0, active: 0, operational: 0, missingDocuments: 0, unclassified: 0 },
+    projects: []
+  });
 
   // src/runtime/client.mjs
   function origin() {
@@ -808,8 +977,10 @@
     if (typeof fetcher !== "function") throw new TypeError("runtime loader requires fetch");
     let edition2 = DEMO_EDITION;
     let domain = DEMO_DOMAIN_PROJECTION;
+    let portfolio = EMPTY_PROJECT_PORTFOLIO;
     let editionReady = false;
     let domainReady = false;
+    let portfolioReady = false;
     return async function load(basePath = "/") {
       let editionHealth;
       try {
@@ -827,12 +998,27 @@
       } catch (error) {
         domainHealth = degradedState(error, domainReady);
       }
+      let portfolioHealth = { state: "not_configured", stale: false, valid: true, error: null };
+      if (edition2.projections.portfolio) {
+        try {
+          portfolio = await fetchValidated(fetcher, basePath, edition2.projections.portfolio, validateProjectPortfolio, "project portfolio");
+          portfolioReady = true;
+          portfolioHealth = { state: "ready", stale: false, valid: true, error: null };
+        } catch (error) {
+          portfolioHealth = degradedState(error, portfolioReady);
+        }
+      } else if (editionHealth.valid) {
+        portfolio = EMPTY_PROJECT_PORTFOLIO;
+        portfolioReady = false;
+      }
       return {
         edition: structuredClone(edition2),
         domain: structuredClone(domain),
+        portfolio: structuredClone(portfolio),
         health: {
           edition: editionHealth,
           domain: domainHealth,
+          portfolio: portfolioHealth,
           state: editionHealth.valid && domainHealth.valid ? "ready" : "degraded"
         }
       };
@@ -840,14 +1026,17 @@
   }
   var defaultLoader = createRuntimeLoader();
   var loadRuntimeConfiguration = (basePath = "/") => defaultLoader(basePath);
+  function runtimeProjectionUrl(basePath, relativePath) {
+    return projectionUrl(basePath, relativePath).href;
+  }
 
   // src/analytics/schema.mjs
   var PUBLIC_WEB_ANALYTICS_SCHEMA_VERSION = "web-analytics-projection-v2";
   var WEB_ANALYTICS_MAX_BYTES = 256 * 1024;
   var WEB_ANALYTICS_FIXTURE_NOTICE = "ILLUSTRATIVE FIXTURE \u2014 NOT CURRENT ANALYTICS";
-  var TOP_FIELDS = /* @__PURE__ */ new Set(["schemaVersion", "dataKind", "generatedAt", "subject", "source", "versions", "coverage", "ranges", "notice"]);
+  var TOP_FIELDS2 = /* @__PURE__ */ new Set(["schemaVersion", "dataKind", "generatedAt", "subject", "source", "versions", "coverage", "ranges", "notice"]);
   var SUBJECT_FIELDS = /* @__PURE__ */ new Set(["id", "label", "domain"]);
-  var SOURCE_FIELDS = /* @__PURE__ */ new Set(["authority", "fidelity"]);
+  var SOURCE_FIELDS2 = /* @__PURE__ */ new Set(["authority", "fidelity"]);
   var VERSION_FIELDS = /* @__PURE__ */ new Set(["archiveSchema", "query", "metricRegistry", "compiler"]);
   var COVERAGE_FIELDS = /* @__PURE__ */ new Set(["archiveStart", "expectedThrough", "dataThrough", "freshness", "acceptedPeriods", "rejectedPeriods", "missingPeriods", "outsideArchivePeriods", "inputSha256s"]);
   var RANGE_FIELDS = /* @__PURE__ */ new Set(["id", "startDate", "endDate", "daysCalendar", "daysObserved", "daysMissing", "daysOutsideArchive", "totals", "daily", "countries", "statusClasses", "cacheStatuses"]);
@@ -1014,7 +1203,7 @@
     return { archiveStart, expectedThrough, dataThrough, freshness: value.freshness, acceptedPeriods, rejectedPeriods, missingPeriods, outsideArchivePeriods, inputSha256s: [...value.inputSha256s] };
   }
   function projectWebAnalyticsProjection(value) {
-    assertAllowedKeys2(value, TOP_FIELDS, "projection");
+    assertAllowedKeys2(value, TOP_FIELDS2, "projection");
     if (value.schemaVersion !== PUBLIC_WEB_ANALYTICS_SCHEMA_VERSION) throw new TypeError("projection schema version is unsupported");
     if (!DATA_KINDS.has(value.dataKind)) throw new TypeError("projection data kind is unsupported");
     const generatedAt = assertTimestamp3(value.generatedAt, "generatedAt");
@@ -1027,7 +1216,7 @@
     } else if (value.notice !== void 0) {
       throw new TypeError("real projections cannot carry fixture notice state");
     }
-    assertAllowedKeys2(value.source, SOURCE_FIELDS, "source");
+    assertAllowedKeys2(value.source, SOURCE_FIELDS2, "source");
     if (value.source.authority !== "Cloudflare edge aggregate analytics" || value.source.fidelity !== "aggregate_not_raw_request_logs") throw new TypeError("source metadata is not canonical");
     const source = { authority: value.source.authority, fidelity: value.source.fidelity };
     assertAllowedKeys2(value.versions, VERSION_FIELDS, "versions");
@@ -1056,13 +1245,13 @@
     const expectedThrough = new Date(currentUtcDay - 864e5).toISOString().slice(0, 10);
     return { ...coverage, expectedThrough, freshness: coverage.dataThrough === expectedThrough ? "fresh" : "stale" };
   }
-  function parseWebAnalyticsText(text) {
-    if (typeof text !== "string") throw new TypeError("analytics payload must be text");
-    const bytes = new TextEncoder().encode(text).byteLength;
+  function parseWebAnalyticsText(text2) {
+    if (typeof text2 !== "string") throw new TypeError("analytics payload must be text");
+    const bytes = new TextEncoder().encode(text2).byteLength;
     if (bytes > WEB_ANALYTICS_MAX_BYTES) throw new TypeError("analytics payload exceeds the public size limit");
     let value;
     try {
-      value = JSON.parse(text);
+      value = JSON.parse(text2);
     } catch {
       throw new TypeError("analytics payload is not valid JSON");
     }
@@ -1643,6 +1832,7 @@
   }
   var active = bindProjection(DEMO_DOMAIN_PROJECTION);
   var showcaseProjection = active.showcase;
+  var projectPortfolio = structuredClone(EMPTY_PROJECT_PORTFOLIO);
   var edition = structuredClone(DEMO_EDITION);
   var NAV_ITEMS = structuredClone(DEMO_EDITION.modules);
   var fixtures = active.data;
@@ -1658,6 +1848,13 @@
     RELEASES = structuredClone(fixtures.benchmarkReleases);
     showcaseProjection = active.showcase;
     return fixtures;
+  }
+  function applyProjectPortfolio(value) {
+    projectPortfolio = validateProjectPortfolio(value);
+    return structuredClone(projectPortfolio);
+  }
+  function getProjectPortfolio() {
+    return structuredClone(projectPortfolio);
   }
   function getCondition(id) {
     return fixtures.conditions.find((condition) => condition.id === id) || null;
@@ -1788,11 +1985,11 @@
     };
   }
   function getObjectTestingRecords(type, id) {
-    return fixtures.evaluations.filter((evaluation) => evaluation.affectedObjects.some((object) => object.type === type && object.id === id)).sort((a, b) => a.title.localeCompare(b.title));
+    return fixtures.evaluations.filter((evaluation) => evaluation.affectedObjects.some((object2) => object2.type === type && object2.id === id)).sort((a, b) => a.title.localeCompare(b.title));
   }
   function getEvaluationOwnerRoute(evaluationId) {
     const evaluation = fixtures.evaluations.find((item) => item.id === evaluationId);
-    const owner = evaluation?.affectedObjects.find((object) => object.type === "product");
+    const owner = evaluation?.affectedObjects.find((object2) => object2.type === "product");
     if (owner?.type === "product") return { view: "portfolio", product: owner.id };
     return { view: "overview" };
   }
@@ -1967,7 +2164,7 @@
       destinations: NAV_ITEMS.filter((item) => Object.hasOwn(summaries, item.id)).map((item) => ({ ...item, summary: summaries[item.id] }))
     };
   }
-  var ROUTE_KEYS = ["view", "q", "domain", "subject", "range", "mode", "product", "condition", "result", "release", "run", "evaluation"];
+  var ROUTE_KEYS = ["view", "q", "domain", "subject", "range", "mode", "product", "project", "condition", "result", "release", "run", "evaluation"];
   function buildAccUrl(state = {}, basePath = "/autobot-command-center") {
     const normalizedBase = basePath === "/" ? "" : String(basePath).replace(/\/$/, "");
     const standaloneSearch = state.view === "search" && !normalizedBase;
@@ -2062,6 +2259,7 @@
     const runtime = await loadRuntimeConfiguration(basePath);
     applyEdition(runtime.edition);
     applyDomainProjection(runtime.domain);
+    applyProjectPortfolio(runtime.portfolio);
     window.__ACC_RUNTIME_HEALTH__ = runtime.health;
     const SDK = window.__HERMES_PLUGIN_SDK__;
     if (!SDK || !window.__HERMES_PLUGINS__) {
@@ -2572,7 +2770,7 @@
         )
       );
     }
-    function Portfolio({ route, go }) {
+    function LegacyPortfolio({ route, go }) {
       const portfolio = getShowcasePortfolio();
       const product = route.product ? portfolio.internalProducts.find((item) => item.id === route.product) : null;
       if (product) {
@@ -2669,6 +2867,133 @@
           )
         )
       );
+    }
+    function projectEvidenceHref(href) {
+      return href.startsWith("https://") ? href : runtimeProjectionUrl(basePath, href);
+    }
+    function ProjectDocument({ role, document }) {
+      const label = role[0].toUpperCase() + role.slice(1);
+      const content = document.href ? h("a", { href: projectEvidenceHref(document.href), rel: "noreferrer", className: "acc-project-doc__link" }, document.label) : h("span", { className: "acc-project-doc__missing" }, document.label);
+      return h(
+        "div",
+        { className: cx("acc-project-doc", document.status === "missing" && "is-missing") },
+        h("span", null, label),
+        content,
+        h("small", null, document.note || document.status)
+      );
+    }
+    function ProjectCard({ project, go, compact = false }) {
+      return h(
+        "article",
+        { className: cx("acc-project-card", compact && "is-focus"), "data-project": project.slug },
+        h(
+          "div",
+          { className: "acc-object-card__top" },
+          h(Badge, { tone: project.portfolioState === "active" || project.portfolioState === "operational" ? "good" : void 0 }, project.portfolioState),
+          h(StatusBadge, { state: project.health })
+        ),
+        h(
+          "button",
+          { type: "button", className: "acc-project-card__open", onClick: () => go({ view: "portfolio", project: project.slug }) },
+          h("h3", null, project.name),
+          h("p", null, `${project.deliveryModel} \xB7 ${project.phase}`)
+        ),
+        h("div", { className: "acc-callout" }, h("span", null, "Next gate"), h("strong", null, project.nextGate)),
+        compact ? null : h(
+          "div",
+          { className: "acc-project-docs", "aria-label": `${project.name} governance documents` },
+          ...Object.entries(project.documents).map(([role, document]) => h(ProjectDocument, { key: role, role, document }))
+        ),
+        h(
+          "div",
+          { className: "acc-card-links" },
+          project.repositoryUrl ? h("a", { className: "acc-card-link", href: project.repositoryUrl, rel: "noreferrer" }, "Repository") : h("span", { className: "acc-project-no-link" }, "Repository not mapped")
+        ),
+        h("small", null, project.lastReviewedAt ? `Owner-reviewed ${project.lastReviewedAt.slice(0, 10)}` : "Owner review missing")
+      );
+    }
+    function ProjectDetail({ project, go }) {
+      return h(
+        "div",
+        { className: "acc-view" },
+        h("button", { type: "button", className: "acc-back", onClick: () => go({ view: "portfolio" }) }, "\u2190 Portfolio"),
+        h(
+          "article",
+          { className: "acc-detail acc-project-detail" },
+          h(
+            "div",
+            { className: "acc-detail__hero" },
+            h("div", null, h("p", { className: "acc-eyebrow" }, `${project.deliveryModel} \xB7 ${project.phase}`), h("h2", null, project.name), h("p", { className: "acc-lede" }, project.description)),
+            h("div", { className: "acc-project-detail__badges" }, h(Badge, { tone: project.portfolioState === "active" ? "good" : void 0 }, project.portfolioState), h(StatusBadge, { state: project.health }))
+          ),
+          h("div", { className: "acc-callout" }, h("span", null, "Landed / intended outcome"), h("strong", null, project.outcome)),
+          h("div", { className: "acc-callout" }, h("span", null, "Next decision gate"), h("strong", null, project.nextGate)),
+          h(
+            "section",
+            { className: "acc-project-detail__section" },
+            h("h3", null, "Governance documents"),
+            h("div", { className: "acc-project-docs" }, ...Object.entries(project.documents).map(([role, document]) => h(ProjectDocument, { key: role, role, document })))
+          ),
+          project.lifecycle.length ? h(
+            "section",
+            { className: "acc-project-detail__section" },
+            h("h3", null, "Lifecycle gates"),
+            h("ol", { className: "acc-project-lifecycle" }, project.lifecycle.map((gate) => h("li", { key: gate.id, className: `is-${gate.state}` }, h("strong", null, gate.label), h("span", null, gate.state))))
+          ) : null,
+          project.sessionRefs.length ? h(
+            "section",
+            { className: "acc-project-detail__section" },
+            h("h3", null, "Tracked sessions"),
+            h("ul", { className: "acc-project-reference-list" }, project.sessionRefs.map((session) => h("li", { key: session.ref }, h("strong", null, session.label), h("code", null, session.ref))))
+          ) : null,
+          project.relatedSkills.length ? h(
+            "section",
+            { className: "acc-project-detail__section" },
+            h("h3", null, "Related operating skills"),
+            h("div", { className: "acc-chip-list" }, project.relatedSkills.map((skill) => h(Badge, { key: skill }, skill)))
+          ) : null,
+          h("div", { className: "acc-card-links" }, project.repositoryUrl ? h("a", { className: "acc-card-link", href: project.repositoryUrl, rel: "noreferrer" }, "Repository") : null)
+        )
+      );
+    }
+    function ProjectPortfolio({ route, go, portfolio }) {
+      const selected = route.project ? portfolio.projects.find(({ slug }) => slug === route.project) : null;
+      if (selected) return h(ProjectDetail, { project: selected, go });
+      const activeProjects = portfolio.projects.filter(({ portfolioState }) => portfolioState === "active");
+      return h(
+        "div",
+        { className: "acc-view" },
+        h(SectionHeading, {
+          eyebrow: "Hermes Projects alignment",
+          title: "Portfolio",
+          help: "Hermes projects.db defines membership. Validated project manifests add lifecycle, next gates, and document pointers. ACC is a read-only projection."
+        }),
+        h(
+          "div",
+          { className: "acc-registry-summary", "aria-label": "Project portfolio summary" },
+          h("div", null, h("strong", null, portfolio.summary.total), h("span", null, "Registered projects")),
+          h("div", null, h("strong", null, `${portfolio.summary.active} / ${portfolio.policy.activeLimit}`), h("span", null, "Active WIP")),
+          h("div", null, h("strong", null, portfolio.summary.operational), h("span", null, "Operational")),
+          h("div", null, h("strong", null, portfolio.summary.missingDocuments), h("span", null, "Missing documents"))
+        ),
+        h(
+          "section",
+          { className: "acc-portfolio-group acc-focus-board", "aria-labelledby": "acc-focus-title" },
+          h("div", { className: "acc-section-heading" }, h("div", null, h("p", { className: "acc-eyebrow" }, "One in, one out"), h("h3", { id: "acc-focus-title" }, `Current focus \xB7 ${activeProjects.length}/${portfolio.policy.activeLimit}`)), h("small", null, portfolio.policy.rule)),
+          h("div", { className: "acc-project-focus-grid" }, activeProjects.map((project) => h(ProjectCard, { key: project.id, project, go, compact: true })))
+        ),
+        h(
+          "section",
+          { className: "acc-portfolio-group", "aria-labelledby": "acc-project-catalog-title" },
+          h("div", { className: "acc-section-heading" }, h("div", null, h("p", { className: "acc-eyebrow" }, "Authoritative private catalog"), h("h3", { id: "acc-project-catalog-title" }, "All Hermes Projects")), h("small", null, `Projection refreshed ${portfolio.generatedAt}`)),
+          h("div", { className: "acc-project-grid" }, portfolio.projects.map((project) => h(ProjectCard, { key: project.id, project, go })))
+        )
+      );
+    }
+    function Portfolio({ route, go }) {
+      const portfolio = getProjectPortfolio();
+      if (route.product) return h(LegacyPortfolio, { route, go });
+      return portfolio.projects.length ? h(ProjectPortfolio, { route, go, portfolio }) : h(LegacyPortfolio, { route, go });
     }
     function MetricTabs({ active: active2, onSelect }) {
       const labels = { rollup: "Capability rollup", "tool-use": "Tool Use", reasoning: "GPQA Diamond", coding: "Coding" };

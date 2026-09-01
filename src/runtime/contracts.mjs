@@ -98,9 +98,10 @@ export function validateEdition(value) {
     assertString(module.label, `edition.modules[${index}].label`, { max: 48 });
   });
   if (!moduleIds.has('overview')) throw new TypeError('edition must enable overview');
-  assertObject(value.projections, 'edition.projections', new Set(['domain', 'providerUsage']));
+  assertObject(value.projections, 'edition.projections', new Set(['domain', 'providerUsage', 'portfolio']));
   assertRelativeProjectionPath(value.projections.domain, 'edition.projections.domain');
   assertRelativeProjectionPath(value.projections.providerUsage, 'edition.projections.providerUsage');
+  if (value.projections.portfolio !== undefined) assertRelativeProjectionPath(value.projections.portfolio, 'edition.projections.portfolio');
   assertObject(value.analytics, 'edition.analytics', new Set(['web', 'providerUsage']));
   const webIds = new Set();
   assertArray(value.analytics.web, 'edition.analytics.web', 50).forEach((subject, index) => {
