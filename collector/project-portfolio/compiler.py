@@ -9,6 +9,7 @@ import json
 import os
 import re
 import sqlite3
+import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -31,6 +32,7 @@ SESSION_FIELDS = {"label", "ref"}
 DOC_ROLES = ("vision", "charter", "architecture")
 ACTIVE_LIMIT = 3
 MAX_DOC_BYTES = 1024 * 1024
+GIT_TIMEOUT_SECONDS = 2
 
 
 class PortfolioError(ValueError):
@@ -172,7 +174,80 @@ def read_projects(db: Path) -> list[dict[str, Any]]:
         rows = conn.execute(
             "SELECT id, slug, name, description, primary_path, archived FROM projects ORDER BY created_at, slug"
         ).fetchall()
-    return [dict(row) for row in rows]
+        folders = conn.execute(
+            "SELECT project_id, path FROM project_folders ORDER BY is_primary DESC, added_at, path"
+        ).fetchall()
+    projects = [dict(row) for row in rows]
+    by_project: dict[str, list[str]] = {}
+    for row in folders:
+        by_project.setdefault(row["project_id"], []).append(row["path"])
+    for project in projects:
+        project["folders"] = by_project.get(project["id"], [])
+        if project.get("primary_path") and project["primary_path"] not in project["folders"]:
+            project["folders"].insert(0, project["primary_path"])
+    return projects
+
+
+def _parse_utc(value: str) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        return None
+    return parsed.astimezone(timezone.utc)
+
+
+def _day_timestamp(value: datetime) -> str:
+    return value.astimezone(timezone.utc).strftime("%Y-%m-%dT00:00:00.000Z")
+
+
+def project_activity(project: dict[str, Any], generated_at: str) -> dict[str, Any]:
+    """Return bounded repository activity without exposing private Git metadata."""
+    folders = [Path(path).expanduser() for path in project.get("folders") or [] if path]
+    if not folders:
+        return {"status": "no_source", "source": None, "lastActivityAt": None}
+    generated = _parse_utc(generated_at)
+    if generated is None:
+        raise PortfolioError("generatedAt must be a canonical UTC timestamp")
+    existing = [folder for folder in folders if folder.is_dir()]
+    if not existing:
+        return {"status": "binding_missing", "source": None, "lastActivityAt": None}
+    latest: datetime | None = None
+    git_repository_seen = False
+    invalid_timestamp = False
+    for folder in existing:
+        try:
+            inside = subprocess.run(
+                ["git", "-C", str(folder), "rev-parse", "--is-inside-work-tree"],
+                text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                timeout=GIT_TIMEOUT_SECONDS, check=False,
+            )
+            if inside.returncode != 0 or inside.stdout.strip() != "true":
+                continue
+            git_repository_seen = True
+            commit = subprocess.run(
+                ["git", "-C", str(folder), "log", "-1", "--format=%cI", "HEAD"],
+                text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                timeout=GIT_TIMEOUT_SECONDS, check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if commit.returncode != 0 or not commit.stdout.strip():
+            continue
+        observed = _parse_utc(commit.stdout)
+        if observed is None or observed > generated:
+            invalid_timestamp = True
+            continue
+        if latest is None or observed > latest:
+            latest = observed
+    if latest is not None:
+        return {"status": "observed", "source": "git_head_commit", "lastActivityAt": _day_timestamp(latest)}
+    if invalid_timestamp:
+        return {"status": "source_error", "source": "git_head_commit", "lastActivityAt": None}
+    if git_repository_seen:
+        return {"status": "quiet", "source": "git_repository", "lastActivityAt": None}
+    return {"status": "no_source", "source": None, "lastActivityAt": None}
 
 
 def manifest_path(project: dict[str, Any], sidecars: Path) -> Path | None:
@@ -270,6 +345,8 @@ def compile_portfolio(db: Path, sidecars: Path, outputs: list[Path], profile: st
         generated_at or datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
         "generatedAt",
     )
+    if generated_at is None:
+        raise PortfolioError("generatedAt is required")
     projects = read_projects(db)
     projected: list[dict[str, Any]] = []
     documents_to_render: list[tuple[str, str, Path, str]] = []
@@ -277,7 +354,9 @@ def compile_portfolio(db: Path, sidecars: Path, outputs: list[Path], profile: st
     for project in projects:
         path = manifest_path(project, sidecars)
         if path is None:
-            projected.append(unclassified(project))
+            row = unclassified(project)
+            row["activity"] = project_activity(project, generated_at)
+            projected.append(row)
             continue
         manifest = load_manifest(path, project["slug"])
         annotated += 1
@@ -302,7 +381,7 @@ def compile_portfolio(db: Path, sidecars: Path, outputs: list[Path], profile: st
             "lastReviewedAt": manifest["lastReviewedAt"], "visibility": manifest["visibility"],
             "repositoryUrl": manifest["repositoryUrl"], "archived": bool(project["archived"]),
             "documents": docs, "lifecycle": manifest["lifecycle"], "sessionRefs": manifest["sessionRefs"],
-            "relatedSkills": manifest["relatedSkills"],
+            "relatedSkills": manifest["relatedSkills"], "activity": project_activity(project, generated_at),
         })
     active = sorted((row for row in projected if row["portfolioState"] == "active"), key=lambda row: row["focusRank"])
     if len(active) > ACTIVE_LIMIT:
@@ -310,7 +389,16 @@ def compile_portfolio(db: Path, sidecars: Path, outputs: list[Path], profile: st
     if [row["focusRank"] for row in active] != list(range(1, len(active) + 1)):
         raise PortfolioError("active focus ranks must be contiguous from 1")
     state_order = {"active": 0, "operational": 1, "candidate": 2, "paused": 3, "complete": 4, "unclassified": 5, "archived": 6}
-    projected.sort(key=lambda row: (state_order[row["portfolioState"]], row["focusRank"] or 99, row["name"].lower()))
+
+    def project_order(row: dict[str, Any]) -> tuple[Any, ...]:
+        state = row["portfolioState"]
+        if state == "active":
+            return (state_order[state], row["focusRank"], 0, row["id"])
+        observed = row["activity"]["status"] == "observed"
+        parsed = _parse_utc(row["activity"]["lastActivityAt"] or "")
+        return (state_order[state], 0 if observed else 1, -(parsed.timestamp() if parsed else 0), row["id"])
+
+    projected.sort(key=project_order)
     payload = {
         "schemaVersion": "acc-project-portfolio-v1",
         "generatedAt": generated_at,
@@ -321,6 +409,11 @@ def compile_portfolio(db: Path, sidecars: Path, outputs: list[Path], profile: st
             "operational": sum(row["portfolioState"] == "operational" for row in projected),
             "missingDocuments": sum(doc["status"] == "missing" for row in projected for doc in row["documents"].values()),
             "unclassified": sum(row["portfolioState"] == "unclassified" for row in projected),
+            "activityObserved": sum(row["activity"]["status"] == "observed" for row in projected),
+            "activityQuiet": sum(row["activity"]["status"] == "quiet" for row in projected),
+            "activityNoSource": sum(row["activity"]["status"] == "no_source" for row in projected),
+            "activityBindingMissing": sum(row["activity"]["status"] == "binding_missing" for row in projected),
+            "activityErrors": sum(row["activity"]["status"] == "source_error" for row in projected),
         },
         "projects": projected,
     }

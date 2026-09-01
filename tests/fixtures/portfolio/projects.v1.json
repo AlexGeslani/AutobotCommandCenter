@@ -16,7 +16,12 @@
     "active": 3,
     "operational": 0,
     "missingDocuments": 4,
-    "unclassified": 0
+    "unclassified": 0,
+    "activityObserved": 2,
+    "activityQuiet": 1,
+    "activityNoSource": 1,
+    "activityBindingMissing": 0,
+    "activityErrors": 0
   },
   "projects": [
     {
@@ -36,17 +41,48 @@
       "repositoryUrl": null,
       "archived": false,
       "documents": {
-        "vision": { "status": "approved", "label": "Approved vision", "href": "runtime/portfolio/documents/alpha/vision.html", "note": "Mapped from the governing charter." },
-        "charter": { "status": "approved", "label": "Approved charter", "href": "runtime/portfolio/documents/alpha/charter.html", "note": "Current authority." },
-        "architecture": { "status": "missing", "label": "Architecture missing", "note": "Expected after Discovery." }
+        "vision": {
+          "status": "approved",
+          "label": "Approved vision",
+          "href": "runtime/portfolio/documents/alpha/vision.html",
+          "note": "Mapped from the governing charter."
+        },
+        "charter": {
+          "status": "approved",
+          "label": "Approved charter",
+          "href": "runtime/portfolio/documents/alpha/charter.html",
+          "note": "Current authority."
+        },
+        "architecture": {
+          "status": "missing",
+          "label": "Architecture missing",
+          "note": "Expected after Discovery."
+        }
       },
       "lifecycle": [
-        { "id": "discovery", "label": "Discovery", "state": "current" },
-        { "id": "architecture", "label": "Architecture", "state": "next" },
-        { "id": "build", "label": "Build", "state": "future" }
+        {
+          "id": "discovery",
+          "label": "Discovery",
+          "state": "current"
+        },
+        {
+          "id": "architecture",
+          "label": "Architecture",
+          "state": "next"
+        },
+        {
+          "id": "build",
+          "label": "Build",
+          "state": "future"
+        }
       ],
       "sessionRefs": [],
-      "relatedSkills": []
+      "relatedSkills": [],
+      "activity": {
+        "status": "observed",
+        "source": "git_head_commit",
+        "lastActivityAt": "2026-08-31T00:00:00.000Z"
+      }
     },
     {
       "id": "p_beta",
@@ -65,13 +101,35 @@
       "repositoryUrl": null,
       "archived": false,
       "documents": {
-        "vision": { "status": "approved", "label": "Vision and charter", "href": "runtime/portfolio/documents/beta/vision.html" },
-        "charter": { "status": "approved", "label": "Vision and charter", "href": "runtime/portfolio/documents/beta/charter.html" },
-        "architecture": { "status": "mapped", "label": "Approved starting architecture", "href": "runtime/portfolio/documents/beta/architecture.html" }
+        "vision": {
+          "status": "approved",
+          "label": "Vision and charter",
+          "href": "runtime/portfolio/documents/beta/vision.html"
+        },
+        "charter": {
+          "status": "approved",
+          "label": "Vision and charter",
+          "href": "runtime/portfolio/documents/beta/charter.html"
+        },
+        "architecture": {
+          "status": "mapped",
+          "label": "Approved starting architecture",
+          "href": "runtime/portfolio/documents/beta/architecture.html"
+        }
       },
       "lifecycle": [],
-      "sessionRefs": [{ "label": "Project session", "ref": "@session:default/20260829_example" }],
-      "relatedSkills": []
+      "sessionRefs": [
+        {
+          "label": "Project session",
+          "ref": "@session:default/20260829_example"
+        }
+      ],
+      "relatedSkills": [],
+      "activity": {
+        "status": "observed",
+        "source": "git_head_commit",
+        "lastActivityAt": "2026-09-01T00:00:00.000Z"
+      }
     },
     {
       "id": "p_gamma",
@@ -90,13 +148,30 @@
       "repositoryUrl": null,
       "archived": false,
       "documents": {
-        "vision": { "status": "approved", "label": "Vision and charter", "href": "runtime/portfolio/documents/gamma/vision.html" },
-        "charter": { "status": "approved", "label": "Vision and charter", "href": "runtime/portfolio/documents/gamma/charter.html" },
-        "architecture": { "status": "mapped", "label": "Current architecture seam", "href": "runtime/portfolio/documents/gamma/architecture.html" }
+        "vision": {
+          "status": "approved",
+          "label": "Vision and charter",
+          "href": "runtime/portfolio/documents/gamma/vision.html"
+        },
+        "charter": {
+          "status": "approved",
+          "label": "Vision and charter",
+          "href": "runtime/portfolio/documents/gamma/charter.html"
+        },
+        "architecture": {
+          "status": "mapped",
+          "label": "Current architecture seam",
+          "href": "runtime/portfolio/documents/gamma/architecture.html"
+        }
       },
       "lifecycle": [],
       "sessionRefs": [],
-      "relatedSkills": []
+      "relatedSkills": [],
+      "activity": {
+        "status": "no_source",
+        "source": null,
+        "lastActivityAt": null
+      }
     },
     {
       "id": "p_done",
@@ -115,13 +190,32 @@
       "repositoryUrl": null,
       "archived": false,
       "documents": {
-        "vision": { "status": "historical", "label": "Migration intent", "href": "runtime/portfolio/documents/done/vision.html" },
-        "charter": { "status": "historical", "label": "Migration plan", "href": "runtime/portfolio/documents/done/charter.html" },
-        "architecture": { "status": "historical", "label": "Migration and landing architecture", "href": "runtime/portfolio/documents/done/architecture.html" }
+        "vision": {
+          "status": "historical",
+          "label": "Migration intent",
+          "href": "runtime/portfolio/documents/done/vision.html"
+        },
+        "charter": {
+          "status": "historical",
+          "label": "Migration plan",
+          "href": "runtime/portfolio/documents/done/charter.html"
+        },
+        "architecture": {
+          "status": "historical",
+          "label": "Migration and landing architecture",
+          "href": "runtime/portfolio/documents/done/architecture.html"
+        }
       },
       "lifecycle": [],
       "sessionRefs": [],
-      "relatedSkills": ["private-intranet-domain-migrations"]
+      "relatedSkills": [
+        "private-intranet-domain-migrations"
+      ],
+      "activity": {
+        "status": "quiet",
+        "source": "git_repository",
+        "lastActivityAt": null
+      }
     }
   ]
 }

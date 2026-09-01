@@ -978,6 +978,10 @@ body {
 .acc-project-card__open h3, .acc-project-card__open p { margin: 0; }
 .acc-project-card__open h3 { font-size: 1.05rem; }
 .acc-project-card__open p, .acc-project-card > small, .acc-project-no-link { color: var(--color-muted-foreground); font-size: .72rem; }
+.acc-project-activity { display: grid; gap: .2rem; padding: .55rem .65rem; border: 1px solid var(--color-border); border-radius: calc(var(--radius) - 2px); background: color-mix(in srgb, var(--color-muted) 28%, transparent); }
+.acc-project-activity strong { font-size: .75rem; }
+.acc-project-activity small { color: var(--color-muted-foreground); font-size: .68rem; }
+.acc-project-activity:is(.is-binding_missing, .is-source_error) { border-color: color-mix(in srgb, var(--acc-amber) 48%, var(--color-border)); }
 .acc-project-docs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; }
 .acc-project-doc { display: grid; align-content: start; gap: .28rem; min-width: 0; padding: .65rem; border: 1px solid color-mix(in srgb, var(--acc-green) 30%, var(--color-border)); border-radius: calc(var(--radius) - 2px); background: color-mix(in srgb, var(--acc-green) 4%, transparent); }
 .acc-project-doc.is-missing { border-color: color-mix(in srgb, var(--acc-amber) 48%, var(--color-border)); background: color-mix(in srgb, var(--acc-amber) 5%, transparent); }

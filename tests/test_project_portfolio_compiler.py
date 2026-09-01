@@ -123,6 +123,110 @@ class ProjectPortfolioCompilerTests(unittest.TestCase):
             self.assertIn("reconciliation drift", drift.stdout.lower())
             self.assertEqual(output.read_bytes(), deployed_before)
 
+            publish_command = [
+                sys.executable, str(RECONCILER), "publish", "--compiler", str(COMPILER),
+                "--db", str(db), "--manifests", str(manifests), "--target", str(output),
+                "--profile", "default", "--retain", "2",
+            ]
+            published = subprocess.run(publish_command, cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.assertEqual(published.returncode, 0, published.stderr)
+            self.assertEqual(published.stdout, "")
+            self.assertTrue(output.parent.is_symlink())
+            self.assertIn("Approve the changed gate.", output.read_text(encoding="utf-8"))
+
+            manifest["nextGate"] = "Approve the second changed gate."
+            (manifests / "test-project.json").write_text(json.dumps(manifest), encoding="utf-8")
+            second_publish = subprocess.run(publish_command, cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.assertEqual(second_publish.returncode, 0, second_publish.stderr)
+            self.assertIn("Approve the second changed gate.", output.read_text(encoding="utf-8"))
+
+            rolled_back = subprocess.run(
+                [sys.executable, str(RECONCILER), "rollback", "--target", str(output)],
+                cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            )
+            self.assertEqual(rolled_back.returncode, 0, rolled_back.stderr)
+            self.assertIn("Approve the changed gate.", output.read_text(encoding="utf-8"))
+
+            last_good = output.read_bytes()
+            (manifests / "test-project.json").write_text("{not-json", encoding="utf-8")
+            failed_publish = subprocess.run(publish_command, cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.assertNotEqual(failed_publish.returncode, 0)
+            self.assertEqual(output.read_bytes(), last_good)
+            self.assertEqual(failed_publish.stdout.count("portfolio publish failed"), 1)
+
+    def test_projects_include_private_safe_git_activity_and_deterministic_order(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            db = root / "projects.db"
+            manifests = root / "manifests"
+            manifests.mkdir()
+            observed = root / "observed"
+            no_source = root / "no-source"
+            observed.mkdir()
+            no_source.mkdir()
+            subprocess.run(["git", "init", "-b", "main", str(observed)], check=True, stdout=subprocess.DEVNULL)
+            subprocess.run(["git", "-C", str(observed), "config", "user.name", "Private Author"], check=True)
+            subprocess.run(["git", "-C", str(observed), "config", "user.email", "private@example.invalid"], check=True)
+            (observed / "README.md").write_text("activity", encoding="utf-8")
+            subprocess.run(["git", "-C", str(observed), "add", "README.md"], check=True)
+            subprocess.run(
+                ["git", "-C", str(observed), "commit", "-m", "private commit message"], check=True,
+                stdout=subprocess.DEVNULL,
+                env={**__import__("os").environ, "GIT_AUTHOR_DATE": "2026-08-31T20:15:00Z", "GIT_COMMITTER_DATE": "2026-08-31T20:15:00Z"},
+            )
+            with sqlite3.connect(db) as conn:
+                conn.executescript("""
+                    CREATE TABLE projects (id TEXT PRIMARY KEY, slug TEXT UNIQUE, name TEXT, description TEXT, icon TEXT, color TEXT, board_slug TEXT, primary_path TEXT, created_at INTEGER, archived INTEGER DEFAULT 0);
+                    CREATE TABLE project_folders (project_id TEXT, path TEXT, label TEXT, is_primary INTEGER, added_at INTEGER, PRIMARY KEY(project_id, path));
+                """)
+                conn.execute("INSERT INTO projects VALUES (?,?,?,?,?,?,?,?,?,?)", ("p_observed", "observed", "Zeta Observed", "Observed", None, None, None, str(observed), 1, 0))
+                conn.execute("INSERT INTO projects VALUES (?,?,?,?,?,?,?,?,?,?)", ("p_no_source", "no-source", "Alpha No Source", "No source", None, None, None, str(no_source), 2, 0))
+                conn.execute("INSERT INTO project_folders VALUES (?,?,?,?,?)", ("p_observed", str(observed), None, 1, 1))
+                conn.execute("INSERT INTO project_folders VALUES (?,?,?,?,?)", ("p_no_source", str(no_source), None, 1, 2))
+
+            def write_manifest(slug):
+                value = {
+                    "schemaVersion": "hermes-project-manifest-v1", "slug": slug,
+                    "portfolioState": "candidate", "health": "unknown", "focusRank": None,
+                    "deliveryModel": "gated", "phase": "Discovery", "nextGate": "Observe activity.",
+                    "lastReviewedAt": None, "visibility": "private", "repositoryUrl": None,
+                    "outcome": "A bounded outcome.",
+                    "documents": {
+                        "vision": {"status": "missing", "label": "Vision missing"},
+                        "charter": {"status": "missing", "label": "Charter missing"},
+                        "architecture": {"status": "missing", "label": "Architecture missing"},
+                    },
+                    "lifecycle": [], "sessionRefs": [], "relatedSkills": [],
+                }
+                (manifests / f"{slug}.json").write_text(json.dumps(value), encoding="utf-8")
+
+            write_manifest("observed")
+            write_manifest("no-source")
+            output = root / "runtime" / "portfolio" / "projects.v1.json"
+            command = [
+                sys.executable, str(COMPILER), "--db", str(db), "--manifests", str(manifests),
+                "--output", str(output), "--profile", "default", "--generated-at", "2026-09-01T12:30:00.000Z",
+            ]
+            first = subprocess.run(command, cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            first_bytes = output.read_bytes()
+            payload = json.loads(first_bytes)
+            self.assertEqual([project["slug"] for project in payload["projects"]], ["observed", "no-source"])
+            self.assertEqual(payload["projects"][0]["activity"], {
+                "status": "observed", "source": "git_head_commit", "lastActivityAt": "2026-08-31T00:00:00.000Z",
+            })
+            self.assertEqual(payload["projects"][1]["activity"], {
+                "status": "no_source", "source": None, "lastActivityAt": None,
+            })
+            self.assertEqual(payload["summary"]["activityObserved"], 1)
+            self.assertEqual(payload["summary"]["activityNoSource"], 1)
+            serialized = first_bytes.decode("utf-8")
+            for forbidden in [str(root), "private commit message", "Private Author", "private@example.invalid"]:
+                self.assertNotIn(forbidden, serialized)
+            repeated = subprocess.run(command, cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.assertEqual(repeated.returncode, 0, repeated.stderr)
+            self.assertEqual(output.read_bytes(), first_bytes)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,9 +5,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -110,6 +114,123 @@ def weekly(args: argparse.Namespace) -> int:
     return 0
 
 
+def _versions_root(target: Path) -> Path:
+    return target.parent.parent / f".{target.parent.name}-versions"
+
+
+def _validate_candidate(candidate: Path, current: dict[str, Any] | None) -> dict[str, Any]:
+    projection = load_projection(candidate)
+    projects = projection["projects"]
+    summary = projection["summary"]
+    source = projection.get("source") or {}
+    policy = projection.get("policy") or {}
+    if not projects or summary.get("total") != len(projects) or source.get("registryProjectCount") != len(projects):
+        raise ValueError("candidate project counts do not reconcile")
+    if summary.get("active", 0) > policy.get("activeLimit", 3):
+        raise ValueError("candidate Active limit is invalid")
+    generated = datetime.fromisoformat(projection["generatedAt"].replace("Z", "+00:00"))
+    for project in projects:
+        activity = project.get("activity")
+        if not isinstance(activity, dict) or activity.get("status") not in {"observed", "quiet", "no_source", "binding_missing", "source_error"}:
+            raise ValueError("candidate activity state is invalid")
+        observed = activity.get("lastActivityAt")
+        if observed is not None:
+            parsed = datetime.fromisoformat(observed.replace("Z", "+00:00"))
+            if parsed > generated:
+                raise ValueError("candidate activity timestamp is in the future")
+    if current:
+        previous_total = int((current.get("summary") or {}).get("total") or 0)
+        if previous_total and len(projects) < max(1, previous_total // 2):
+            raise ValueError("candidate project count dropped below the safety floor")
+    return projection
+
+
+def _flip_link(live: Path, destination: Path) -> None:
+    relative = os.path.relpath(destination, live.parent)
+    next_link = live.parent / f".{live.name}.next-{uuid.uuid4().hex}"
+    os.symlink(relative, next_link)
+    try:
+        os.replace(next_link, live)
+    finally:
+        next_link.unlink(missing_ok=True)
+
+
+def _prune_versions(root: Path, live: Path, retain: int) -> None:
+    current = live.resolve() if live.is_symlink() else None
+    versions = sorted((path for path in root.iterdir() if path.is_dir()), key=lambda path: path.stat().st_mtime, reverse=True)
+    keep = set(versions[:retain])
+    if current:
+        keep.add(current)
+    for version in versions:
+        if version not in keep:
+            shutil.rmtree(version)
+
+
+def publish(args: argparse.Namespace) -> int:
+    live = args.target.parent
+    versions = _versions_root(args.target)
+    versions.mkdir(parents=True, exist_ok=True)
+    current = None
+    try:
+        current = load_projection(args.target)
+    except (OSError, ValueError, json.JSONDecodeError):
+        pass
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+    candidate_root = versions / f"projection-{stamp}-{uuid.uuid4().hex[:8]}"
+    candidate = candidate_root / args.target.name
+    try:
+        command = [
+            sys.executable, str(args.compiler), "--db", str(args.db), "--manifests", str(args.manifests),
+            "--output", str(candidate), "--profile", args.profile,
+        ]
+        result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+        if result.returncode != 0:
+            raise ValueError("candidate compilation failed")
+        projection = _validate_candidate(candidate, current)
+        if live.exists() and not live.is_symlink():
+            legacy = versions / f"projection-legacy-{stamp}"
+            shutil.copytree(live, legacy)
+            shutil.rmtree(live)
+        _flip_link(live, candidate_root)
+        _prune_versions(versions, live, args.retain)
+        if args.log:
+            args.log.parent.mkdir(parents=True, exist_ok=True)
+            summary = projection["summary"]
+            with args.log.open("a", encoding="utf-8") as stream:
+                stream.write(
+                    f"{projection['generatedAt']} total={summary['total']} active={summary['active']} "
+                    f"observed={summary.get('activityObserved', 0)} no_source={summary.get('activityNoSource', 0)} "
+                    f"binding_missing={summary.get('activityBindingMissing', 0)} errors={summary.get('activityErrors', 0)}\n"
+                )
+        return 0
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        shutil.rmtree(candidate_root, ignore_errors=True)
+        print(f"portfolio publish failed: {exc}")
+        return 2
+
+
+def rollback(args: argparse.Namespace) -> int:
+    live = args.target.parent
+    versions = _versions_root(args.target)
+    try:
+        if not live.is_symlink() or not versions.is_dir():
+            raise ValueError("versioned Portfolio projection is unavailable")
+        current = live.resolve()
+        candidates = sorted(
+            (path for path in versions.iterdir() if path.is_dir() and path.resolve() != current),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        if not candidates:
+            raise ValueError("no previous Portfolio projection is retained")
+        load_projection(candidates[0] / args.target.name)
+        _flip_link(live, candidates[0])
+        return 0
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        print(f"portfolio rollback failed: {exc}")
+        return 2
+
+
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser(description=__doc__)
     subcommands = value.add_subparsers(dest="mode", required=True)
@@ -121,6 +242,20 @@ def parser() -> argparse.ArgumentParser:
     audit_parser.add_argument("--target", type=Path, default=DEFAULT_TARGET)
     audit_parser.add_argument("--profile", default="default")
     audit_parser.set_defaults(handler=audit)
+
+    publish_parser = subcommands.add_parser("publish", help="Compile, validate, and atomically publish a private projection tree")
+    publish_parser.add_argument("--compiler", type=Path, default=DEFAULT_COMPILER)
+    publish_parser.add_argument("--db", type=Path, default=Path.home() / ".hermes" / "projects.db")
+    publish_parser.add_argument("--manifests", type=Path, default=Path.home() / ".hermes" / "project-manifests")
+    publish_parser.add_argument("--target", type=Path, default=DEFAULT_TARGET)
+    publish_parser.add_argument("--profile", default="default")
+    publish_parser.add_argument("--retain", type=int, choices=range(2, 8), default=2)
+    publish_parser.add_argument("--log", type=Path)
+    publish_parser.set_defaults(handler=publish)
+
+    rollback_parser = subcommands.add_parser("rollback", help="Atomically return to the previous retained private projection tree")
+    rollback_parser.add_argument("--target", type=Path, default=DEFAULT_TARGET)
+    rollback_parser.set_defaults(handler=rollback)
 
     weekly_parser = subcommands.add_parser("weekly", help="Render a deterministic owner-facing portfolio review")
     weekly_parser.add_argument("--target", type=Path, default=DEFAULT_TARGET)

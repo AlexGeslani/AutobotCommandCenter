@@ -594,6 +594,36 @@ export async function registerAutobotCommandCenter() {
     return href.startsWith('https://') ? href : runtimeProjectionUrl(basePath, href);
   }
 
+  function projectActivityLabel(activity) {
+    if (activity.status === 'observed') {
+      const observed = new Date(activity.lastActivityAt);
+      const now = new Date();
+      const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+      const observedUtc = Date.UTC(observed.getUTCFullYear(), observed.getUTCMonth(), observed.getUTCDate());
+      const days = Math.max(0, Math.floor((todayUtc - observedUtc) / 86400000));
+      return days === 0 ? 'Repository activity today' : days === 1 ? 'Repository activity 1 day ago' : `Repository activity ${days} days ago`;
+    }
+    if (activity.status === 'quiet') return 'Git repository has no commits';
+    if (activity.status === 'binding_missing') return 'Activity binding missing';
+    if (activity.status === 'source_error') return 'Activity source error';
+    return 'No activity source';
+  }
+
+  function ProjectActivity({ activity }) {
+    const detail = activity.status === 'observed'
+      ? `Observed ${activity.lastActivityAt.slice(0, 10)} · local Git HEAD`
+      : activity.status === 'quiet'
+        ? 'Measured repository · no commit evidence yet'
+        : activity.status === 'binding_missing'
+          ? 'Registered folder cannot be resolved'
+          : activity.status === 'source_error'
+            ? 'Repository timestamp was rejected'
+            : 'Bind a local Git repository to enable recency';
+    return h('div', { className: cx('acc-project-activity', `is-${activity.status}`), 'data-activity-status': activity.status },
+      h('strong', null, projectActivityLabel(activity)), h('small', null, detail),
+    );
+  }
+
   function ProjectDocument({ role, document }) {
     const label = role[0].toUpperCase() + role.slice(1);
     const content = document.href
@@ -615,13 +645,13 @@ export async function registerAutobotCommandCenter() {
         h('p', null, `${project.deliveryModel} · ${project.phase}`),
       ),
       h('div', { className: 'acc-callout' }, h('span', null, 'Next gate'), h('strong', null, project.nextGate)),
+      h(ProjectActivity, { activity: project.activity }),
       compact ? null : h('div', { className: 'acc-project-docs', 'aria-label': `${project.name} governance documents` },
         ...Object.entries(project.documents).map(([role, document]) => h(ProjectDocument, { key: role, role, document })),
       ),
       h('div', { className: 'acc-card-links' },
         project.repositoryUrl ? h('a', { className: 'acc-card-link', href: project.repositoryUrl, rel: 'noreferrer' }, 'Repository') : h('span', { className: 'acc-project-no-link' }, 'Repository not mapped'),
       ),
-      h('small', null, project.lastReviewedAt ? `Owner-reviewed ${project.lastReviewedAt.slice(0, 10)}` : 'Owner review missing'),
     );
   }
 
@@ -635,6 +665,7 @@ export async function registerAutobotCommandCenter() {
         ),
         h('div', { className: 'acc-callout' }, h('span', null, 'Landed / intended outcome'), h('strong', null, project.outcome)),
         h('div', { className: 'acc-callout' }, h('span', null, 'Next decision gate'), h('strong', null, project.nextGate)),
+        h(ProjectActivity, { activity: project.activity }),
         h('section', { className: 'acc-project-detail__section' }, h('h3', null, 'Governance documents'),
           h('div', { className: 'acc-project-docs' }, ...Object.entries(project.documents).map(([role, document]) => h(ProjectDocument, { key: role, role, document }))),
         ),
@@ -660,12 +691,12 @@ export async function registerAutobotCommandCenter() {
       h(SectionHeading, {
         eyebrow: 'Hermes Projects alignment',
         title: 'Portfolio',
-        help: 'Hermes projects.db defines membership. Validated project manifests add lifecycle, next gates, and document pointers. ACC is a read-only projection.',
+        help: 'Hermes projects.db defines membership. Validated manifests retain lifecycle authority; local Git activity supplies observational recency only. ACC refreshes this read-only projection automatically.',
       }),
       h('div', { className: 'acc-registry-summary', 'aria-label': 'Project portfolio summary' },
         h('div', null, h('strong', null, portfolio.summary.total), h('span', null, 'Registered projects')),
         h('div', null, h('strong', null, `${portfolio.summary.active} / ${portfolio.policy.activeLimit}`), h('span', null, 'Active WIP')),
-        h('div', null, h('strong', null, portfolio.summary.operational), h('span', null, 'Operational')),
+        h('div', null, h('strong', null, `${portfolio.summary.activityObserved + portfolio.summary.activityQuiet} / ${portfolio.summary.total}`), h('span', null, 'Activity sources')),
         h('div', null, h('strong', null, portfolio.summary.missingDocuments), h('span', null, 'Missing documents')),
       ),
       h('section', { className: 'acc-portfolio-group acc-focus-board', 'aria-labelledby': 'acc-focus-title' },

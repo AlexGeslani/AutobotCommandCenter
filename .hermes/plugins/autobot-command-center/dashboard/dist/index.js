@@ -835,7 +835,7 @@
   var TOP_FIELDS = /* @__PURE__ */ new Set(["schemaVersion", "generatedAt", "source", "policy", "summary", "projects"]);
   var SOURCE_FIELDS = /* @__PURE__ */ new Set(["authority", "profile", "registryProjectCount", "annotatedProjectCount"]);
   var POLICY_FIELDS = /* @__PURE__ */ new Set(["activeLimit", "rule"]);
-  var SUMMARY_FIELDS = /* @__PURE__ */ new Set(["total", "active", "operational", "missingDocuments", "unclassified"]);
+  var SUMMARY_FIELDS = /* @__PURE__ */ new Set(["total", "active", "operational", "missingDocuments", "unclassified", "activityObserved", "activityQuiet", "activityNoSource", "activityBindingMissing", "activityErrors"]);
   var PROJECT_FIELDS = /* @__PURE__ */ new Set([
     "id",
     "slug",
@@ -855,8 +855,10 @@
     "documents",
     "lifecycle",
     "sessionRefs",
-    "relatedSkills"
+    "relatedSkills",
+    "activity"
   ]);
+  var ACTIVITY_FIELDS = /* @__PURE__ */ new Set(["status", "source", "lastActivityAt"]);
   var DOCUMENT_FIELDS = /* @__PURE__ */ new Set(["status", "label", "href", "note"]);
   var LIFECYCLE_FIELDS = /* @__PURE__ */ new Set(["id", "label", "state"]);
   var SESSION_FIELDS = /* @__PURE__ */ new Set(["label", "ref"]);
@@ -867,6 +869,7 @@
   var SLUG = /^[a-z0-9][a-z0-9-_]{0,63}$/;
   var ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
   var SESSION_REF = /^@session:[a-z0-9_-]+\/[A-Za-z0-9_-]+$/;
+  var ACTIVITY_STATES = /* @__PURE__ */ new Set(["observed", "quiet", "no_source", "binding_missing", "source_error"]);
   function object(value, label, allowed) {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError(`${label} must be an object`);
     for (const key of Object.keys(value)) if (!allowed.has(key)) throw new TypeError(`${label} has unknown field ${key}`);
@@ -913,7 +916,20 @@
     if (value.status !== "missing" && value.href === void 0) throw new TypeError(`${label} must link mapped document evidence`);
     return value;
   }
-  function validateProject(value, index, activeLimit) {
+  function validateActivity(value, label, generatedAt) {
+    object(value, label, ACTIVITY_FIELDS);
+    if (!ACTIVITY_STATES.has(value.status)) throw new TypeError(`${label}.status is unsupported`);
+    const validSource = value.source === null || value.source === "git_head_commit" || value.source === "git_repository";
+    if (!validSource) throw new TypeError(`${label}.source is unsupported`);
+    const lastActivityAt = timestamp(value.lastActivityAt, `${label}.lastActivityAt`, true);
+    if (lastActivityAt !== null && (!/^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/.test(lastActivityAt) || Date.parse(lastActivityAt) > Date.parse(generatedAt))) throw new TypeError(`${label}.lastActivityAt must be a non-future UTC day`);
+    if (value.status === "observed" && !(value.source === "git_head_commit" && lastActivityAt)) throw new TypeError(`${label} observed activity requires a Git timestamp`);
+    if (value.status === "quiet" && !(value.source === "git_repository" && lastActivityAt === null)) throw new TypeError(`${label} quiet activity requires an empty Git repository`);
+    if (["no_source", "binding_missing"].includes(value.status) && !(value.source === null && lastActivityAt === null)) throw new TypeError(`${label} unavailable activity cannot carry evidence`);
+    if (value.status === "source_error" && !(value.source === "git_head_commit" && lastActivityAt === null)) throw new TypeError(`${label} source errors must identify Git without a timestamp`);
+    return value;
+  }
+  function validateProject(value, index, activeLimit, generatedAt) {
     const label = `project portfolio.projects[${index}]`;
     object(value, label, PROJECT_FIELDS);
     text(value.id, `${label}.id`, 128);
@@ -956,6 +972,7 @@
       if (!SESSION_REF.test(session.ref)) throw new TypeError(`${sessionLabel}.ref is not a Hermes session reference`);
     });
     array(value.relatedSkills, `${label}.relatedSkills`, 30).forEach((skill, skillIndex) => text(skill, `${label}.relatedSkills[${skillIndex}]`, 160));
+    validateActivity(value.activity, `${label}.activity`, generatedAt);
     return value;
   }
   function validateProjectPortfolio(value) {
@@ -971,7 +988,7 @@
     const activeLimit = integer(value.policy.activeLimit, "project portfolio.policy.activeLimit", { min: 1, max: 12 });
     text(value.policy.rule, "project portfolio.policy.rule", 512);
     object(value.summary, "project portfolio.summary", SUMMARY_FIELDS);
-    const projects = array(value.projects, "project portfolio.projects", 500).map((project, index) => validateProject(project, index, activeLimit));
+    const projects = array(value.projects, "project portfolio.projects", 500).map((project, index) => validateProject(project, index, activeLimit, value.generatedAt));
     if (value.source.registryProjectCount !== projects.length) throw new TypeError("registry project count must equal projected project count");
     if (value.source.annotatedProjectCount > projects.length) throw new TypeError("annotated project count cannot exceed registry project count");
     if (new Set(projects.map(({ id }) => id)).size !== projects.length || new Set(projects.map(({ slug }) => slug)).size !== projects.length) throw new TypeError("project ids and slugs must be unique");
@@ -986,7 +1003,12 @@
       active: active2.length,
       operational: projects.filter(({ portfolioState }) => portfolioState === "operational").length,
       missingDocuments: projects.reduce((count, project) => count + Object.values(project.documents).filter(({ status }) => status === "missing").length, 0),
-      unclassified: projects.filter(({ portfolioState }) => portfolioState === "unclassified").length
+      unclassified: projects.filter(({ portfolioState }) => portfolioState === "unclassified").length,
+      activityObserved: projects.filter(({ activity }) => activity.status === "observed").length,
+      activityQuiet: projects.filter(({ activity }) => activity.status === "quiet").length,
+      activityNoSource: projects.filter(({ activity }) => activity.status === "no_source").length,
+      activityBindingMissing: projects.filter(({ activity }) => activity.status === "binding_missing").length,
+      activityErrors: projects.filter(({ activity }) => activity.status === "source_error").length
     };
     return projected;
   }
@@ -995,7 +1017,7 @@
     generatedAt: "2026-01-01T00:00:00.000Z",
     source: { authority: "Hermes projects.db joined to validated project manifests", profile: "demo", registryProjectCount: 0, annotatedProjectCount: 0 },
     policy: { activeLimit: 3, rule: "One project enters Active only when another leaves Active." },
-    summary: { total: 0, active: 0, operational: 0, missingDocuments: 0, unclassified: 0 },
+    summary: { total: 0, active: 0, operational: 0, missingDocuments: 0, unclassified: 0, activityObserved: 0, activityQuiet: 0, activityNoSource: 0, activityBindingMissing: 0, activityErrors: 0 },
     projects: []
   });
 
@@ -3609,6 +3631,29 @@
     function projectEvidenceHref(href) {
       return href.startsWith("https://") ? href : runtimeProjectionUrl(basePath, href);
     }
+    function projectActivityLabel(activity) {
+      if (activity.status === "observed") {
+        const observed = new Date(activity.lastActivityAt);
+        const now = /* @__PURE__ */ new Date();
+        const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+        const observedUtc = Date.UTC(observed.getUTCFullYear(), observed.getUTCMonth(), observed.getUTCDate());
+        const days = Math.max(0, Math.floor((todayUtc - observedUtc) / 864e5));
+        return days === 0 ? "Repository activity today" : days === 1 ? "Repository activity 1 day ago" : `Repository activity ${days} days ago`;
+      }
+      if (activity.status === "quiet") return "Git repository has no commits";
+      if (activity.status === "binding_missing") return "Activity binding missing";
+      if (activity.status === "source_error") return "Activity source error";
+      return "No activity source";
+    }
+    function ProjectActivity({ activity }) {
+      const detail = activity.status === "observed" ? `Observed ${activity.lastActivityAt.slice(0, 10)} \xB7 local Git HEAD` : activity.status === "quiet" ? "Measured repository \xB7 no commit evidence yet" : activity.status === "binding_missing" ? "Registered folder cannot be resolved" : activity.status === "source_error" ? "Repository timestamp was rejected" : "Bind a local Git repository to enable recency";
+      return h(
+        "div",
+        { className: cx("acc-project-activity", `is-${activity.status}`), "data-activity-status": activity.status },
+        h("strong", null, projectActivityLabel(activity)),
+        h("small", null, detail)
+      );
+    }
     function ProjectDocument({ role, document }) {
       const label = role[0].toUpperCase() + role.slice(1);
       const content = document.href ? h("a", { href: projectEvidenceHref(document.href), rel: "noreferrer", className: "acc-project-doc__link" }, document.label) : h("span", { className: "acc-project-doc__missing" }, document.label);
@@ -3637,6 +3682,7 @@
           h("p", null, `${project.deliveryModel} \xB7 ${project.phase}`)
         ),
         h("div", { className: "acc-callout" }, h("span", null, "Next gate"), h("strong", null, project.nextGate)),
+        h(ProjectActivity, { activity: project.activity }),
         compact ? null : h(
           "div",
           { className: "acc-project-docs", "aria-label": `${project.name} governance documents` },
@@ -3646,8 +3692,7 @@
           "div",
           { className: "acc-card-links" },
           project.repositoryUrl ? h("a", { className: "acc-card-link", href: project.repositoryUrl, rel: "noreferrer" }, "Repository") : h("span", { className: "acc-project-no-link" }, "Repository not mapped")
-        ),
-        h("small", null, project.lastReviewedAt ? `Owner-reviewed ${project.lastReviewedAt.slice(0, 10)}` : "Owner review missing")
+        )
       );
     }
     function ProjectDetail({ project, go }) {
@@ -3666,6 +3711,7 @@
           ),
           h("div", { className: "acc-callout" }, h("span", null, "Landed / intended outcome"), h("strong", null, project.outcome)),
           h("div", { className: "acc-callout" }, h("span", null, "Next decision gate"), h("strong", null, project.nextGate)),
+          h(ProjectActivity, { activity: project.activity }),
           h(
             "section",
             { className: "acc-project-detail__section" },
@@ -3704,14 +3750,14 @@
         h(SectionHeading, {
           eyebrow: "Hermes Projects alignment",
           title: "Portfolio",
-          help: "Hermes projects.db defines membership. Validated project manifests add lifecycle, next gates, and document pointers. ACC is a read-only projection."
+          help: "Hermes projects.db defines membership. Validated manifests retain lifecycle authority; local Git activity supplies observational recency only. ACC refreshes this read-only projection automatically."
         }),
         h(
           "div",
           { className: "acc-registry-summary", "aria-label": "Project portfolio summary" },
           h("div", null, h("strong", null, portfolio.summary.total), h("span", null, "Registered projects")),
           h("div", null, h("strong", null, `${portfolio.summary.active} / ${portfolio.policy.activeLimit}`), h("span", null, "Active WIP")),
-          h("div", null, h("strong", null, portfolio.summary.operational), h("span", null, "Operational")),
+          h("div", null, h("strong", null, `${portfolio.summary.activityObserved + portfolio.summary.activityQuiet} / ${portfolio.summary.total}`), h("span", null, "Activity sources")),
           h("div", null, h("strong", null, portfolio.summary.missingDocuments), h("span", null, "Missing documents"))
         ),
         h(

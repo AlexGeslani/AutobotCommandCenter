@@ -289,7 +289,15 @@ test('Portfolio projects Hermes membership, WIP focus, governance gaps, and life
 
   const catalog = page.getByRole('region', { name: /All Hermes Projects/ });
   await expect(catalog.locator('.acc-project-card')).toHaveCount(4);
+  await expect(catalog.locator('.acc-project-activity')).toHaveCount(4);
+  await expect(catalog.getByText(/Repository activity/).first()).toBeVisible();
+  await expect(catalog.getByText('No activity source', { exact: true })).toBeVisible();
+  await expect(catalog.getByText('Git repository has no commits', { exact: true })).toBeVisible();
+  await expect(page.getByText('Owner review missing', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Activity sources', { exact: true })).toBeVisible();
+  await expect(page.getByText('3 / 4', { exact: true })).toBeVisible();
   await expect(catalog.getByText('Architecture missing', { exact: true })).toBeVisible();
+  await expect(catalog.locator('.acc-project-doc.is-missing')).toHaveCount(1);
   const vision = catalog.getByRole('link', { name: 'Approved vision' });
   await expect(vision).toHaveAttribute('href', /runtime\/portfolio\/documents\/alpha\/vision\.html$/);
 

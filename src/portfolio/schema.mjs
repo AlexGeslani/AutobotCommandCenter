@@ -1,12 +1,13 @@
 const TOP_FIELDS = new Set(['schemaVersion', 'generatedAt', 'source', 'policy', 'summary', 'projects']);
 const SOURCE_FIELDS = new Set(['authority', 'profile', 'registryProjectCount', 'annotatedProjectCount']);
 const POLICY_FIELDS = new Set(['activeLimit', 'rule']);
-const SUMMARY_FIELDS = new Set(['total', 'active', 'operational', 'missingDocuments', 'unclassified']);
+const SUMMARY_FIELDS = new Set(['total', 'active', 'operational', 'missingDocuments', 'unclassified', 'activityObserved', 'activityQuiet', 'activityNoSource', 'activityBindingMissing', 'activityErrors']);
 const PROJECT_FIELDS = new Set([
   'id', 'slug', 'name', 'description', 'outcome', 'portfolioState', 'health', 'focusRank',
   'deliveryModel', 'phase', 'nextGate', 'lastReviewedAt', 'visibility', 'repositoryUrl',
-  'archived', 'documents', 'lifecycle', 'sessionRefs', 'relatedSkills',
+  'archived', 'documents', 'lifecycle', 'sessionRefs', 'relatedSkills', 'activity',
 ]);
+const ACTIVITY_FIELDS = new Set(['status', 'source', 'lastActivityAt']);
 const DOCUMENT_FIELDS = new Set(['status', 'label', 'href', 'note']);
 const LIFECYCLE_FIELDS = new Set(['id', 'label', 'state']);
 const SESSION_FIELDS = new Set(['label', 'ref']);
@@ -17,6 +18,7 @@ const LIFECYCLE_STATES = new Set(['complete', 'current', 'next', 'future']);
 const SLUG = /^[a-z0-9][a-z0-9-_]{0,63}$/;
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const SESSION_REF = /^@session:[a-z0-9_-]+\/[A-Za-z0-9_-]+$/;
+const ACTIVITY_STATES = new Set(['observed', 'quiet', 'no_source', 'binding_missing', 'source_error']);
 
 function object(value, label, allowed) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError(`${label} must be an object`);
@@ -67,7 +69,21 @@ function validateDocument(value, label) {
   return value;
 }
 
-function validateProject(value, index, activeLimit) {
+function validateActivity(value, label, generatedAt) {
+  object(value, label, ACTIVITY_FIELDS);
+  if (!ACTIVITY_STATES.has(value.status)) throw new TypeError(`${label}.status is unsupported`);
+  const validSource = value.source === null || value.source === 'git_head_commit' || value.source === 'git_repository';
+  if (!validSource) throw new TypeError(`${label}.source is unsupported`);
+  const lastActivityAt = timestamp(value.lastActivityAt, `${label}.lastActivityAt`, true);
+  if (lastActivityAt !== null && (!/^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/.test(lastActivityAt) || Date.parse(lastActivityAt) > Date.parse(generatedAt))) throw new TypeError(`${label}.lastActivityAt must be a non-future UTC day`);
+  if (value.status === 'observed' && !(value.source === 'git_head_commit' && lastActivityAt)) throw new TypeError(`${label} observed activity requires a Git timestamp`);
+  if (value.status === 'quiet' && !(value.source === 'git_repository' && lastActivityAt === null)) throw new TypeError(`${label} quiet activity requires an empty Git repository`);
+  if (['no_source', 'binding_missing'].includes(value.status) && !(value.source === null && lastActivityAt === null)) throw new TypeError(`${label} unavailable activity cannot carry evidence`);
+  if (value.status === 'source_error' && !(value.source === 'git_head_commit' && lastActivityAt === null)) throw new TypeError(`${label} source errors must identify Git without a timestamp`);
+  return value;
+}
+
+function validateProject(value, index, activeLimit, generatedAt) {
   const label = `project portfolio.projects[${index}]`;
   object(value, label, PROJECT_FIELDS);
   text(value.id, `${label}.id`, 128);
@@ -110,6 +126,7 @@ function validateProject(value, index, activeLimit) {
     if (!SESSION_REF.test(session.ref)) throw new TypeError(`${sessionLabel}.ref is not a Hermes session reference`);
   });
   array(value.relatedSkills, `${label}.relatedSkills`, 30).forEach((skill, skillIndex) => text(skill, `${label}.relatedSkills[${skillIndex}]`, 160));
+  validateActivity(value.activity, `${label}.activity`, generatedAt);
   return value;
 }
 
@@ -126,7 +143,7 @@ export function validateProjectPortfolio(value) {
   const activeLimit = integer(value.policy.activeLimit, 'project portfolio.policy.activeLimit', { min: 1, max: 12 });
   text(value.policy.rule, 'project portfolio.policy.rule', 512);
   object(value.summary, 'project portfolio.summary', SUMMARY_FIELDS);
-  const projects = array(value.projects, 'project portfolio.projects', 500).map((project, index) => validateProject(project, index, activeLimit));
+  const projects = array(value.projects, 'project portfolio.projects', 500).map((project, index) => validateProject(project, index, activeLimit, value.generatedAt));
   if (value.source.registryProjectCount !== projects.length) throw new TypeError('registry project count must equal projected project count');
   if (value.source.annotatedProjectCount > projects.length) throw new TypeError('annotated project count cannot exceed registry project count');
   if (new Set(projects.map(({ id }) => id)).size !== projects.length || new Set(projects.map(({ slug }) => slug)).size !== projects.length) throw new TypeError('project ids and slugs must be unique');
@@ -142,6 +159,11 @@ export function validateProjectPortfolio(value) {
     operational: projects.filter(({ portfolioState }) => portfolioState === 'operational').length,
     missingDocuments: projects.reduce((count, project) => count + Object.values(project.documents).filter(({ status }) => status === 'missing').length, 0),
     unclassified: projects.filter(({ portfolioState }) => portfolioState === 'unclassified').length,
+    activityObserved: projects.filter(({ activity }) => activity.status === 'observed').length,
+    activityQuiet: projects.filter(({ activity }) => activity.status === 'quiet').length,
+    activityNoSource: projects.filter(({ activity }) => activity.status === 'no_source').length,
+    activityBindingMissing: projects.filter(({ activity }) => activity.status === 'binding_missing').length,
+    activityErrors: projects.filter(({ activity }) => activity.status === 'source_error').length,
   };
   return projected;
 }
@@ -151,6 +173,6 @@ export const EMPTY_PROJECT_PORTFOLIO = Object.freeze({
   generatedAt: '2026-01-01T00:00:00.000Z',
   source: { authority: 'Hermes projects.db joined to validated project manifests', profile: 'demo', registryProjectCount: 0, annotatedProjectCount: 0 },
   policy: { activeLimit: 3, rule: 'One project enters Active only when another leaves Active.' },
-  summary: { total: 0, active: 0, operational: 0, missingDocuments: 0, unclassified: 0 },
+  summary: { total: 0, active: 0, operational: 0, missingDocuments: 0, unclassified: 0, activityObserved: 0, activityQuiet: 0, activityNoSource: 0, activityBindingMissing: 0, activityErrors: 0 },
   projects: [],
 });

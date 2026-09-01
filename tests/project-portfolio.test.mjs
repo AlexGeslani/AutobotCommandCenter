@@ -15,8 +15,9 @@ describe('project portfolio projection', () => {
   it('accepts a registry-aligned projection and derives an honest completeness summary', () => {
     const portfolio = validateProjectPortfolio(clone());
     expect(portfolio.projects.map(({ slug }) => slug)).toEqual(['alpha', 'beta', 'gamma', 'done']);
-    expect(portfolio.summary).toEqual({ total: 4, active: 3, operational: 0, missingDocuments: 1, unclassified: 0 });
+    expect(portfolio.summary).toEqual({ total: 4, active: 3, operational: 0, missingDocuments: 1, unclassified: 0, activityObserved: 2, activityQuiet: 1, activityNoSource: 1, activityBindingMissing: 0, activityErrors: 0 });
     expect(portfolio.projects[0].documents.architecture.status).toBe('missing');
+    expect(portfolio.projects[0].activity).toEqual({ status: 'observed', source: 'git_head_commit', lastActivityAt: '2026-08-31T00:00:00.000Z' });
   });
 
   it('enforces the hard active-project cap', () => {
@@ -34,5 +35,9 @@ describe('project portfolio projection', () => {
     const unknown = clone();
     unknown.projects[0].secret = 'not allowed';
     expect(() => validateProjectPortfolio(unknown)).toThrow(/unknown field/i);
+
+    const futureActivity = clone();
+    futureActivity.projects[0].activity.lastActivityAt = '2026-09-02T00:00:00.000Z';
+    expect(() => validateProjectPortfolio(futureActivity)).toThrow(/non-future UTC day/i);
   });
 });
