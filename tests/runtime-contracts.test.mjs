@@ -11,10 +11,15 @@ import {
   validateEdition,
 } from '../src/runtime/contracts.mjs';
 import { createRuntimeLoader } from '../src/runtime/client.mjs';
+import projectPortfolio from './fixtures/portfolio/projects.v1.json' with { type: 'json' };
 
 const execFileAsync = promisify(execFile);
 const publisher = new URL('../scripts/publish-runtime-projection.mjs', import.meta.url);
 const jsonResponse = (value) => ({ ok: true, text: async () => JSON.stringify(value) });
+const domainOnlyEdition = structuredClone(DEMO_EDITION);
+delete domainOnlyEdition.projections.portfolio;
+const portfolioEdition = structuredClone(DEMO_EDITION);
+portfolioEdition.projections.portfolio = 'runtime/portfolio/projects.v1.json';
 
 describe('Core + Edition + Projection runtime contract', () => {
   it('accepts the sanitized demo and rejects executable or escaping edition configuration', () => {
@@ -76,9 +81,9 @@ describe('Core + Edition + Projection runtime contract', () => {
 
   it('retains the explicit last-good domain as stale_invalid after malformed replacement', async () => {
     const responses = [
-      jsonResponse(DEMO_EDITION),
+      jsonResponse(domainOnlyEdition),
       jsonResponse(DEMO_DOMAIN_PROJECTION),
-      jsonResponse(DEMO_EDITION),
+      jsonResponse(domainOnlyEdition),
       jsonResponse({ schemaVersion: 'acc-domain-projection-v1', generatedAt: 'not-a-time' }),
     ];
     const loader = createRuntimeLoader({ fetcher: async () => responses.shift() });
@@ -90,13 +95,32 @@ describe('Core + Edition + Projection runtime contract', () => {
     expect(second.health.edition.state).toBe('ready');
   });
 
+  it('clears last-good private portfolio data when a valid edition removes the locator', async () => {
+    const withoutPortfolio = structuredClone(DEMO_EDITION);
+    delete withoutPortfolio.projections.portfolio;
+    const responses = [
+      jsonResponse(portfolioEdition),
+      jsonResponse(DEMO_DOMAIN_PROJECTION),
+      jsonResponse(projectPortfolio),
+      jsonResponse(withoutPortfolio),
+      jsonResponse(DEMO_DOMAIN_PROJECTION),
+    ];
+    const loader = createRuntimeLoader({ fetcher: async () => responses.shift() });
+    const first = await loader('/');
+    const second = await loader('/');
+    expect(first.portfolio.projects).toHaveLength(4);
+    expect(first.health.portfolio.state).toBe('ready');
+    expect(second.portfolio.projects).toEqual([]);
+    expect(second.health.portfolio).toMatchObject({ state: 'not_configured', stale: false, valid: true });
+  });
+
   it('isolates an invalid edition while a valid domain refresh still advances through the last-good locator', async () => {
     const advanced = structuredClone(DEMO_DOMAIN_PROJECTION);
     advanced.generatedAt = '2026-01-02T00:00:00.000Z';
     const responses = [
-      jsonResponse(DEMO_EDITION),
+      jsonResponse(domainOnlyEdition),
       jsonResponse(DEMO_DOMAIN_PROJECTION),
-      jsonResponse({ ...DEMO_EDITION, modules: [{ id: 'unknown', label: 'Unknown' }] }),
+      jsonResponse({ ...domainOnlyEdition, modules: [{ id: 'unknown', label: 'Unknown' }] }),
       jsonResponse(advanced),
     ];
     const loader = createRuntimeLoader({ fetcher: async () => responses.shift() });

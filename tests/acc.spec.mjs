@@ -11,6 +11,7 @@ const showcaseBuild = process.env.ACC_ANALYTICS_SHOWCASE === '1';
 const showcaseProjection = JSON.parse(await readFile(new URL('./fixtures/analytics/kungfuclan-demo.v2.json', import.meta.url), 'utf8'));
 const demoDomainProjection = JSON.parse(await readFile(new URL('../fixtures/demo/domain.v1.json', import.meta.url), 'utf8'));
 const demoEdition = JSON.parse(await readFile(new URL('../config/demo.edition.v1.json', import.meta.url), 'utf8'));
+const projectPortfolio = JSON.parse(await readFile(new URL('./fixtures/portfolio/projects.v1.json', import.meta.url), 'utf8'));
 
 async function routeWebAnalytics(page) {
   const realProjection = structuredClone(showcaseProjection);
@@ -75,6 +76,25 @@ async function routeDomainProjection(page, projection) {
       await route.fulfill({ contentType: 'application/json', body: JSON.stringify(projection) });
     });
   }
+}
+
+async function routeLegacyEdition(page) {
+  for (const pattern of ['**/data/edition.v1.json', '**/runtime/edition.v1.json']) {
+    await page.route(pattern, (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(demoEdition) }));
+  }
+}
+
+async function routeProjectPortfolio(page, projection = projectPortfolio) {
+  const edition = structuredClone(demoEdition);
+  edition.projections.portfolio = 'runtime/portfolio/projects.v1.json';
+  for (const pattern of ['**/data/edition.v1.json', '**/runtime/edition.v1.json']) {
+    await page.route(pattern, async (route) => {
+      await route.fulfill({ contentType: 'application/json', body: JSON.stringify(edition) });
+    });
+  }
+  await page.route('**/runtime/portfolio/projects.v1.json', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(projection) });
+  });
 }
 
 async function routeProtectedKnowledge(page, { failure = false } = {}) {
@@ -235,9 +255,44 @@ test('Integration Status uses a compact issue bar, keeps complete details in Set
   expect(browserErrors).toEqual([]);
 });
 
+test('Portfolio projects Hermes membership, WIP focus, governance gaps, and lifecycle details', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page);
+  const failedResources = [];
+  page.on('response', (response) => { if (response.status() >= 400) failedResources.push(`${response.status()} ${response.url()}`); });
+  const providerUsage = healthyProviderUsageFixture();
+  await routeDomainProjection(page, demoDomainProjection);
+  await routeProviderUsage(page, providerUsage.providers, providerUsage.observedAt);
+  await routeProjectPortfolio(page);
+  await page.goto(pluginUrl);
+  await page.getByRole('button', { name: 'Open Portfolio' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Portfolio', exact: true })).toBeVisible();
+  await expect(page.getByText('4', { exact: true }).first()).toBeVisible();
+  const focus = page.getByRole('region', { name: /Current focus/ });
+  await expect(focus.getByRole('heading', { name: 'Current focus · 3/3' })).toBeVisible();
+  await expect(focus.locator('.acc-project-card')).toHaveCount(3);
+
+  const catalog = page.getByRole('region', { name: /All Hermes Projects/ });
+  await expect(catalog.locator('.acc-project-card')).toHaveCount(4);
+  await expect(catalog.getByText('Architecture missing', { exact: true })).toBeVisible();
+  const vision = catalog.getByRole('link', { name: 'Approved vision' });
+  await expect(vision).toHaveAttribute('href', /runtime\/portfolio\/documents\/alpha\/vision\.html$/);
+
+  await catalog.getByRole('button', { name: /Alpha/ }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Governance documents' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Lifecycle gates' })).toBeVisible();
+  await expect(page.getByText('Approve the architecture gate.', { exact: true })).toBeVisible();
+  expect(failedResources).toEqual([]);
+  expect(browserErrors).toEqual([]);
+});
+
 test('Portfolio presents dated capability evidence without a runtime availability monitor', async ({ page }) => {
   const browserErrors = captureBrowserErrors(page);
+  const providerUsage = healthyProviderUsageFixture();
+  await routeLegacyEdition(page);
   await routeDomainProjection(page, demoDomainProjection);
+  await routeProviderUsage(page, providerUsage.providers, providerUsage.observedAt);
   await page.goto(pluginUrl);
   await page.getByRole('button', { name: 'Open Portfolio' }).click();
   await page.getByRole('button', { name: /Demo Command Center/ }).click();
@@ -723,7 +778,8 @@ test('mobile hero exposes a 44px Search button and Search has no horizontal over
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 
-test('Portfolio stays on its frozen showcase projection', async ({ page }) => {
+test('Portfolio stays on its frozen showcase projection when the private projection is not configured', async ({ page }) => {
+  await routeLegacyEdition(page);
   await page.goto(pluginUrl + '?view=portfolio');
   const publicProjects = page.getByRole('region', { name: 'GitHub Showcase Projects' });
   await expect(publicProjects.locator('[data-showcase-project]')).toHaveCount(3);
@@ -969,6 +1025,7 @@ test('testing records live with their owning projects without a global Evidence 
 });
 
 test('top-level page explanations use accessible information popovers instead of repeated ledes', async ({ page }) => {
+  await routeLegacyEdition(page);
   for (const [route, title, copy] of [
     ['?view=portfolio', 'Portfolio', 'Public GitHub evidence is refreshed'],
     ['?view=analytics', 'Analytics', 'One reporting destination for web properties'],

@@ -1,0 +1,127 @@
+{
+  "schemaVersion": "acc-project-portfolio-v1",
+  "generatedAt": "2026-09-01T12:00:00.000Z",
+  "source": {
+    "authority": "Hermes projects.db joined to validated project manifests",
+    "profile": "default",
+    "registryProjectCount": 4,
+    "annotatedProjectCount": 4
+  },
+  "policy": {
+    "activeLimit": 3,
+    "rule": "One project enters Active only when another leaves Active."
+  },
+  "summary": {
+    "total": 4,
+    "active": 3,
+    "operational": 0,
+    "missingDocuments": 4,
+    "unclassified": 0
+  },
+  "projects": [
+    {
+      "id": "p_alpha",
+      "slug": "alpha",
+      "name": "Alpha",
+      "description": "A gated discovery project.",
+      "outcome": "Discovery evidence retained without implying implementation readiness.",
+      "portfolioState": "active",
+      "health": "on_track",
+      "focusRank": 1,
+      "deliveryModel": "gated",
+      "phase": "Discovery",
+      "nextGate": "Approve the architecture gate.",
+      "lastReviewedAt": "2026-09-01T12:00:00.000Z",
+      "visibility": "private",
+      "repositoryUrl": null,
+      "archived": false,
+      "documents": {
+        "vision": { "status": "approved", "label": "Approved vision", "href": "runtime/portfolio/documents/alpha/vision.html", "note": "Mapped from the governing charter." },
+        "charter": { "status": "approved", "label": "Approved charter", "href": "runtime/portfolio/documents/alpha/charter.html", "note": "Current authority." },
+        "architecture": { "status": "missing", "label": "Architecture missing", "note": "Expected after Discovery." }
+      },
+      "lifecycle": [
+        { "id": "discovery", "label": "Discovery", "state": "current" },
+        { "id": "architecture", "label": "Architecture", "state": "next" },
+        { "id": "build", "label": "Build", "state": "future" }
+      ],
+      "sessionRefs": [],
+      "relatedSkills": []
+    },
+    {
+      "id": "p_beta",
+      "slug": "beta",
+      "name": "Beta",
+      "description": "An agile project.",
+      "outcome": "A bounded vertical slice exists.",
+      "portfolioState": "active",
+      "health": "on_track",
+      "focusRank": 2,
+      "deliveryModel": "agile",
+      "phase": "Owner UAT",
+      "nextGate": "Complete owner UAT.",
+      "lastReviewedAt": "2026-09-01T12:00:00.000Z",
+      "visibility": "private",
+      "repositoryUrl": null,
+      "archived": false,
+      "documents": {
+        "vision": { "status": "approved", "label": "Vision and charter", "href": "runtime/portfolio/documents/beta/vision.html" },
+        "charter": { "status": "approved", "label": "Vision and charter", "href": "runtime/portfolio/documents/beta/charter.html" },
+        "architecture": { "status": "mapped", "label": "Approved starting architecture", "href": "runtime/portfolio/documents/beta/architecture.html" }
+      },
+      "lifecycle": [],
+      "sessionRefs": [{ "label": "Project session", "ref": "@session:default/20260829_example" }],
+      "relatedSkills": []
+    },
+    {
+      "id": "p_gamma",
+      "slug": "gamma",
+      "name": "Gamma",
+      "description": "An in-flight staged project.",
+      "outcome": "Current material is cataloged while delivery continues.",
+      "portfolioState": "active",
+      "health": "at_risk",
+      "focusRank": 3,
+      "deliveryModel": "staged",
+      "phase": "In flight",
+      "nextGate": "Publish the next accepted material set.",
+      "lastReviewedAt": "2026-09-01T12:00:00.000Z",
+      "visibility": "private",
+      "repositoryUrl": null,
+      "archived": false,
+      "documents": {
+        "vision": { "status": "approved", "label": "Vision and charter", "href": "runtime/portfolio/documents/gamma/vision.html" },
+        "charter": { "status": "approved", "label": "Vision and charter", "href": "runtime/portfolio/documents/gamma/charter.html" },
+        "architecture": { "status": "mapped", "label": "Current architecture seam", "href": "runtime/portfolio/documents/gamma/architecture.html" }
+      },
+      "lifecycle": [],
+      "sessionRefs": [],
+      "relatedSkills": []
+    },
+    {
+      "id": "p_done",
+      "slug": "done",
+      "name": "Done",
+      "description": "A completed migration catalog.",
+      "outcome": "Migration completed and retained as reusable evidence.",
+      "portfolioState": "complete",
+      "health": "on_track",
+      "focusRank": null,
+      "deliveryModel": "completed-migration",
+      "phase": "Complete",
+      "nextGate": "Retain the record and reuse its operating skills.",
+      "lastReviewedAt": "2026-09-01T12:00:00.000Z",
+      "visibility": "private",
+      "repositoryUrl": null,
+      "archived": false,
+      "documents": {
+        "vision": { "status": "historical", "label": "Migration intent", "href": "runtime/portfolio/documents/done/vision.html" },
+        "charter": { "status": "historical", "label": "Migration plan", "href": "runtime/portfolio/documents/done/charter.html" },
+        "architecture": { "status": "historical", "label": "Migration and landing architecture", "href": "runtime/portfolio/documents/done/architecture.html" }
+      },
+      "lifecycle": [],
+      "sessionRefs": [],
+      "relatedSkills": ["private-intranet-domain-migrations"]
+    }
+  ]
+}

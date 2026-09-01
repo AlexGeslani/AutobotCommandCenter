@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "acc-project-portfolio-v1",
+  "generatedAt": "2026-01-01T00:00:00.000Z",
+  "source": {
+    "authority": "Hermes projects.db joined to validated project manifests",
+    "profile": "demo",
+    "registryProjectCount": 0,
+    "annotatedProjectCount": 0
+  },
+  "policy": {
+    "activeLimit": 3,
+    "rule": "One project enters Active only when another leaves Active."
+  },
+  "summary": {
+    "total": 0,
+    "active": 0,
+    "operational": 0,
+    "missingDocuments": 0,
+    "unclassified": 0
+  },
+  "projects": []
+}

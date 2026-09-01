@@ -11,12 +11,13 @@
     "analytics:showcase": "node collector/web-analytics/showcase.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:portfolio": "python3 -m unittest discover -s tests -p 'test_project_portfolio_compiler.py' -v",
     "test:e2e": "playwright test",
     "test:standalone": "ACC_PLUGIN_PATH=/ playwright test --config=playwright.standalone.config.mjs",
     "security:public": "node scripts/check-public-safety.mjs",
     "security:media": "node scripts/check-media-safety.mjs",
     "showcase:render": "node scripts/render-showcase-media.mjs",
-    "check": "npm run test && npm run build && npm run test:e2e && npm run test:standalone && npm run security:public && npm run security:media"
+    "check": "npm run test && npm run test:portfolio && npm run build && npm run test:e2e && npm run test:standalone && npm run security:public && npm run security:media"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",

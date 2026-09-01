@@ -123,11 +123,12 @@ export function validateEditionWithWarnings(value) {
   const moduleIds = new Set(modules.map(({ id: moduleId }) => moduleId));
   if (moduleIds.size !== modules.length) throw new TypeError('edition modules must be unique known modules');
   if (!moduleIds.has('overview')) throw new TypeError('edition must enable overview');
-  assertObject(value.projections, 'edition.projections', new Set(['domain', 'providerUsage']));
+  assertObject(value.projections, 'edition.projections', new Set(['domain', 'providerUsage', 'portfolio']));
   const projections = {
     domain: assertRelativeProjectionPath(value.projections.domain, 'edition.projections.domain'),
     providerUsage: assertRelativeProjectionPath(value.projections.providerUsage, 'edition.projections.providerUsage'),
   };
+  if (value.projections.portfolio !== undefined) projections.portfolio = assertRelativeProjectionPath(value.projections.portfolio, 'edition.projections.portfolio');
   const sourceAnalytics = assertObject(value.analytics, 'edition.analytics');
   for (const key of Object.keys(sourceAnalytics)) {
     if (!['web', 'github', 'providerUsage'].includes(key)) warnings.push(`edition.analytics.${key} is unsupported and was ignored`);

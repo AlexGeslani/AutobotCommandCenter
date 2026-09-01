@@ -5,6 +5,7 @@ import {
   validateEdition,
 } from './runtime/contracts.mjs';
 import { getPortfolioProjection } from './showcase/projection.mjs';
+import { EMPTY_PROJECT_PORTFOLIO, validateProjectPortfolio } from './portfolio/schema.mjs';
 
 function bindProjection(projection) {
   const data = structuredClone(projection.data);
@@ -16,6 +17,7 @@ function bindProjection(projection) {
 
 let active = bindProjection(DEMO_DOMAIN_PROJECTION);
 let showcaseProjection = active.showcase;
+let projectPortfolio = structuredClone(EMPTY_PROJECT_PORTFOLIO);
 
 export let edition = structuredClone(DEMO_EDITION);
 export let NAV_ITEMS = structuredClone(DEMO_EDITION.modules);
@@ -34,6 +36,15 @@ export function applyDomainProjection(value) {
   RELEASES = structuredClone(fixtures.benchmarkReleases);
   showcaseProjection = active.showcase;
   return fixtures;
+}
+
+export function applyProjectPortfolio(value) {
+  projectPortfolio = validateProjectPortfolio(value);
+  return structuredClone(projectPortfolio);
+}
+
+export function getProjectPortfolio() {
+  return structuredClone(projectPortfolio);
 }
 
 export function getCondition(id) {
@@ -407,7 +418,7 @@ export function getOverviewProjection() {
   };
 }
 
-const ROUTE_KEYS = ['view', 'q', 'domain', 'subject', 'range', 'repository', 'mode', 'product', 'condition', 'result', 'release', 'run', 'evaluation'];
+const ROUTE_KEYS = ['view', 'q', 'domain', 'subject', 'range', 'repository', 'mode', 'product', 'project', 'condition', 'result', 'release', 'run', 'evaluation'];
 
 export function buildAccUrl(state = {}, basePath = '/autobot-command-center') {
   const normalizedBase = basePath === '/' ? '' : String(basePath).replace(/\/$/, '');
