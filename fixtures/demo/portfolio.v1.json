@@ -8,8 +8,8 @@
     "annotatedProjectCount": 0
   },
   "policy": {
-    "activeLimit": 3,
-    "rule": "One project enters Active only when another leaves Active."
+    "activeLimit": null,
+    "rule": "Active work is unbounded; optional focus ranks identify lock-in priorities."
   },
   "summary": {
     "total": 0,

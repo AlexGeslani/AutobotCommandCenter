@@ -19,7 +19,7 @@ from typing import Any
 SCHEMA_VERSION = "hermes-project-manifest-v1"
 PROJECT_STATES = {"active", "operational", "candidate", "paused", "complete", "archived", "unclassified"}
 HEALTH_STATES = {"on_track", "at_risk", "blocked", "unknown"}
-DOC_STATES = {"approved", "ratified", "mapped", "draft", "historical", "missing"}
+DOC_STATES = {"accepted", "approved", "ratified", "mapped", "draft", "historical", "missing"}
 LIFECYCLE_STATES = {"complete", "current", "next", "future"}
 MANIFEST_FIELDS = {
     "schemaVersion", "slug", "portfolioState", "health", "focusRank", "deliveryModel",
@@ -30,7 +30,7 @@ DOC_FIELDS = {"status", "label", "path", "url", "note"}
 GATE_FIELDS = {"id", "label", "state"}
 SESSION_FIELDS = {"label", "ref"}
 DOC_ROLES = ("vision", "charter", "architecture")
-ACTIVE_LIMIT = 3
+MAX_FOCUS_RANK = 500
 MAX_DOC_BYTES = 1024 * 1024
 GIT_TIMEOUT_SECONDS = 2
 
@@ -100,10 +100,10 @@ def load_manifest(path: Path, slug: str) -> dict[str, Any]:
     if health not in HEALTH_STATES:
         raise PortfolioError(f"manifest {slug} has unsupported health")
     focus = manifest.get("focusRank")
-    if not (focus is None or isinstance(focus, int) and not isinstance(focus, bool) and 1 <= focus <= ACTIVE_LIMIT):
+    if not (focus is None or isinstance(focus, int) and not isinstance(focus, bool) and 1 <= focus <= MAX_FOCUS_RANK):
         raise PortfolioError(f"manifest {slug}.focusRank is invalid")
-    if (state == "active") != (focus is not None):
-        raise PortfolioError(f"manifest {slug}.focusRank must exist exactly for active projects")
+    if state != "active" and focus is not None:
+        raise PortfolioError(f"manifest {slug}.focusRank is allowed only for active projects")
     bounded_text(manifest.get("deliveryModel"), f"manifest {slug}.deliveryModel", 96)
     bounded_text(manifest.get("phase"), f"manifest {slug}.phase", 160)
     bounded_text(manifest.get("nextGate"), f"manifest {slug}.nextGate", 2048)
@@ -383,17 +383,19 @@ def compile_portfolio(db: Path, sidecars: Path, outputs: list[Path], profile: st
             "documents": docs, "lifecycle": manifest["lifecycle"], "sessionRefs": manifest["sessionRefs"],
             "relatedSkills": manifest["relatedSkills"], "activity": project_activity(project, generated_at),
         })
-    active = sorted((row for row in projected if row["portfolioState"] == "active"), key=lambda row: row["focusRank"])
-    if len(active) > ACTIVE_LIMIT:
-        raise PortfolioError(f"active project limit {ACTIVE_LIMIT} exceeded")
-    if [row["focusRank"] for row in active] != list(range(1, len(active) + 1)):
+    active = sorted(
+        (row for row in projected if row["portfolioState"] == "active"),
+        key=lambda row: (row["focusRank"] is None, row["focusRank"] or 0, row["id"]),
+    )
+    focus_ranks = [row["focusRank"] for row in active if row["focusRank"] is not None]
+    if focus_ranks != list(range(1, len(focus_ranks) + 1)):
         raise PortfolioError("active focus ranks must be contiguous from 1")
     state_order = {"active": 0, "operational": 1, "candidate": 2, "paused": 3, "complete": 4, "unclassified": 5, "archived": 6}
 
     def project_order(row: dict[str, Any]) -> tuple[Any, ...]:
         state = row["portfolioState"]
         if state == "active":
-            return (state_order[state], row["focusRank"], 0, row["id"])
+            return (state_order[state], 0 if row["focusRank"] is not None else 1, row["focusRank"] or 0, row["id"])
         observed = row["activity"]["status"] == "observed"
         parsed = _parse_utc(row["activity"]["lastActivityAt"] or "")
         return (state_order[state], 0 if observed else 1, -(parsed.timestamp() if parsed else 0), row["id"])
@@ -403,7 +405,7 @@ def compile_portfolio(db: Path, sidecars: Path, outputs: list[Path], profile: st
         "schemaVersion": "acc-project-portfolio-v1",
         "generatedAt": generated_at,
         "source": {"authority": "Hermes projects.db joined to validated project manifests", "profile": profile, "registryProjectCount": len(projected), "annotatedProjectCount": annotated},
-        "policy": {"activeLimit": ACTIVE_LIMIT, "rule": "One project enters Active only when another leaves Active."},
+        "policy": {"activeLimit": None, "rule": "Active work is unbounded; optional focus ranks identify lock-in priorities."},
         "summary": {
             "total": len(projected), "active": len(active),
             "operational": sum(row["portfolioState"] == "operational" for row in projected),

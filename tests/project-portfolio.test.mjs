@@ -20,11 +20,24 @@ describe('project portfolio projection', () => {
     expect(portfolio.projects[0].activity).toEqual({ status: 'observed', source: 'git_head_commit', lastActivityAt: '2026-08-31T00:00:00.000Z' });
   });
 
-  it('enforces the hard active-project cap', () => {
-    const broken = clone();
-    broken.projects[3].portfolioState = 'active';
-    broken.projects[3].focusRank = 3;
-    expect(() => validateProjectPortfolio(broken)).toThrow(/active project limit/i);
+  it('accepts unlimited active projects while keeping focus ranks optional', () => {
+    const unlimited = clone();
+    unlimited.policy.activeLimit = null;
+    unlimited.policy.rule = 'Active work is unbounded; optional focus ranks identify lock-in priorities.';
+    unlimited.projects[3].portfolioState = 'active';
+    unlimited.projects[3].focusRank = null;
+    unlimited.summary.active = 4;
+
+    const portfolio = validateProjectPortfolio(unlimited);
+    expect(portfolio.summary.active).toBe(4);
+    expect(portfolio.projects.filter(({ portfolioState }) => portfolioState === 'active')).toHaveLength(4);
+    expect(portfolio.projects.find(({ slug }) => slug === 'done').focusRank).toBeNull();
+  });
+
+  it('preserves accepted project-document governance status', () => {
+    const accepted = clone();
+    accepted.projects[0].documents.vision.status = 'accepted';
+    expect(validateProjectPortfolio(accepted).projects[0].documents.vision.status).toBe('accepted');
   });
 
   it('rejects local paths and unknown fields before browser delivery', () => {
