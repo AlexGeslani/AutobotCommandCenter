@@ -13,7 +13,7 @@ const LIFECYCLE_FIELDS = new Set(['id', 'label', 'state']);
 const SESSION_FIELDS = new Set(['label', 'ref']);
 const STATES = new Set(['active', 'operational', 'candidate', 'paused', 'complete', 'archived', 'unclassified']);
 const HEALTH = new Set(['on_track', 'at_risk', 'blocked', 'unknown']);
-const DOCUMENT_STATES = new Set(['approved', 'ratified', 'mapped', 'draft', 'historical', 'missing']);
+const DOCUMENT_STATES = new Set(['accepted', 'approved', 'ratified', 'mapped', 'draft', 'historical', 'missing']);
 const LIFECYCLE_STATES = new Set(['complete', 'current', 'next', 'future']);
 const SLUG = /^[a-z0-9][a-z0-9-_]{0,63}$/;
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
@@ -83,7 +83,7 @@ function validateActivity(value, label, generatedAt) {
   return value;
 }
 
-function validateProject(value, index, activeLimit, generatedAt) {
+function validateProject(value, index, generatedAt) {
   const label = `project portfolio.projects[${index}]`;
   object(value, label, PROJECT_FIELDS);
   text(value.id, `${label}.id`, 128);
@@ -95,8 +95,8 @@ function validateProject(value, index, activeLimit, generatedAt) {
   text(value.outcome, `${label}.outcome`, 2048);
   if (!STATES.has(value.portfolioState)) throw new TypeError(`${label}.portfolioState is unsupported`);
   if (!HEALTH.has(value.health)) throw new TypeError(`${label}.health is unsupported`);
-  integer(value.focusRank, `${label}.focusRank`, { min: 1, max: activeLimit, nullable: true });
-  if ((value.portfolioState === 'active') !== (value.focusRank !== null)) throw new TypeError(`${label}.focusRank must exist exactly for active projects`);
+  integer(value.focusRank, `${label}.focusRank`, { min: 1, max: 500, nullable: true });
+  if (value.portfolioState !== 'active' && value.focusRank !== null) throw new TypeError(`${label}.focusRank is allowed only for active projects`);
   text(value.deliveryModel, `${label}.deliveryModel`, 96);
   text(value.phase, `${label}.phase`, 160);
   text(value.nextGate, `${label}.nextGate`, 2048);
@@ -140,16 +140,16 @@ export function validateProjectPortfolio(value) {
   integer(value.source.registryProjectCount, 'project portfolio.source.registryProjectCount', { max: 500 });
   integer(value.source.annotatedProjectCount, 'project portfolio.source.annotatedProjectCount', { max: 500 });
   object(value.policy, 'project portfolio.policy', POLICY_FIELDS);
-  const activeLimit = integer(value.policy.activeLimit, 'project portfolio.policy.activeLimit', { min: 1, max: 12 });
+  const activeLimit = integer(value.policy.activeLimit, 'project portfolio.policy.activeLimit', { min: 1, max: 500, nullable: true });
   text(value.policy.rule, 'project portfolio.policy.rule', 512);
   object(value.summary, 'project portfolio.summary', SUMMARY_FIELDS);
-  const projects = array(value.projects, 'project portfolio.projects', 500).map((project, index) => validateProject(project, index, activeLimit, value.generatedAt));
+  const projects = array(value.projects, 'project portfolio.projects', 500).map((project, index) => validateProject(project, index, value.generatedAt));
   if (value.source.registryProjectCount !== projects.length) throw new TypeError('registry project count must equal projected project count');
   if (value.source.annotatedProjectCount > projects.length) throw new TypeError('annotated project count cannot exceed registry project count');
   if (new Set(projects.map(({ id }) => id)).size !== projects.length || new Set(projects.map(({ slug }) => slug)).size !== projects.length) throw new TypeError('project ids and slugs must be unique');
   const active = projects.filter(({ portfolioState }) => portfolioState === 'active');
-  if (active.length > activeLimit) throw new TypeError(`active project limit ${activeLimit} exceeded`);
-  const ranks = active.map(({ focusRank }) => focusRank).sort((a, b) => a - b);
+  if (activeLimit !== null && active.length > activeLimit) throw new TypeError(`active project limit ${activeLimit} exceeded`);
+  const ranks = active.map(({ focusRank }) => focusRank).filter((rank) => rank !== null).sort((a, b) => a - b);
   if (new Set(ranks).size !== ranks.length || ranks.some((rank, index) => rank !== index + 1)) throw new TypeError('active focus ranks must be unique and contiguous from 1');
   const projected = structuredClone(value);
   projected.projects = projects;
@@ -172,7 +172,7 @@ export const EMPTY_PROJECT_PORTFOLIO = Object.freeze({
   schemaVersion: 'acc-project-portfolio-v1',
   generatedAt: '2026-01-01T00:00:00.000Z',
   source: { authority: 'Hermes projects.db joined to validated project manifests', profile: 'demo', registryProjectCount: 0, annotatedProjectCount: 0 },
-  policy: { activeLimit: 3, rule: 'One project enters Active only when another leaves Active.' },
+  policy: { activeLimit: null, rule: 'Active work is unbounded; optional focus ranks identify lock-in priorities.' },
   summary: { total: 0, active: 0, operational: 0, missingDocuments: 0, unclassified: 0, activityObserved: 0, activityQuiet: 0, activityNoSource: 0, activityBindingMissing: 0, activityErrors: 0 },
   projects: [],
 });

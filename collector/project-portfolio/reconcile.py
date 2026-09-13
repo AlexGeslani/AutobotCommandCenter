@@ -94,14 +94,16 @@ def weekly(args: argparse.Namespace) -> int:
     ]
     lines = [
         "WEEKLY ACC PORTFOLIO REVIEW",
-        f"Registered {summary.get('total', 0)} · Active {summary.get('active', 0)}/{limit} · Missing governance roles {summary.get('missingDocuments', 0)} · Unclassified {summary.get('unclassified', 0)}",
+        f"Registered {summary.get('total', 0)} · Active {summary.get('active', 0)}{f'/{limit}' if isinstance(limit, int) else ''} · Missing governance roles {summary.get('missingDocuments', 0)} · Unclassified {summary.get('unclassified', 0)}",
         "",
         "Current focus:",
     ]
-    lines.extend(
-        f"{project.get('focusRank')}. {project.get('name')} — {project.get('phase')} — Next: {project.get('nextGate')}"
-        for project in active
-    )
+    def active_line(project: dict[str, Any]) -> str:
+        rank = project.get("focusRank")
+        marker = f"{rank}." if rank is not None else "•"
+        return f"{marker} {project.get('name')} — {project.get('phase')} — Next: {project.get('nextGate')}"
+
+    lines.extend(active_line(project) for project in active)
     lines.extend(["", "Governance gaps:"])
     lines.extend(f"- {row}" for row in missing)
     if not missing:
@@ -126,7 +128,7 @@ def _validate_candidate(candidate: Path, current: dict[str, Any] | None) -> dict
     policy = projection.get("policy") or {}
     if not projects or summary.get("total") != len(projects) or source.get("registryProjectCount") != len(projects):
         raise ValueError("candidate project counts do not reconcile")
-    if summary.get("active", 0) > policy.get("activeLimit", 3):
+    if isinstance(policy.get("activeLimit"), int) and summary.get("active", 0) > policy["activeLimit"]:
         raise ValueError("candidate Active limit is invalid")
     generated = datetime.fromisoformat(projection["generatedAt"].replace("Z", "+00:00"))
     for project in projects:

@@ -38,7 +38,7 @@ class ProjectPortfolioCompilerTests(unittest.TestCase):
                 "slug": "test-project",
                 "portfolioState": "active",
                 "health": "on_track",
-                "focusRank": 1,
+                "focusRank": None,
                 "deliveryModel": "gated",
                 "phase": "Discovery",
                 "nextGate": "Approve architecture.",
@@ -47,7 +47,7 @@ class ProjectPortfolioCompilerTests(unittest.TestCase):
                 "repositoryUrl": None,
                 "outcome": "A bounded outcome.",
                 "documents": {
-                    "vision": {"status": "approved", "label": "Vision", "path": "VISION.md"},
+                    "vision": {"status": "accepted", "label": "Vision", "path": "VISION.md"},
                     "charter": {"status": "missing", "label": "Charter missing", "note": "Not yet authored."},
                     "architecture": {"status": "missing", "label": "Architecture missing", "note": "Discovery has not closed."},
                 },

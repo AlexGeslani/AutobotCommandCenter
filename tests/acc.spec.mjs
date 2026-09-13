@@ -283,8 +283,8 @@ test('Portfolio projects Hermes membership, WIP focus, governance gaps, and life
 
   await expect(page.getByRole('heading', { name: 'Portfolio', exact: true })).toBeVisible();
   await expect(page.getByText('4', { exact: true }).first()).toBeVisible();
-  const focus = page.getByRole('region', { name: /Current focus/ });
-  await expect(focus.getByRole('heading', { name: 'Current focus · 3/3' })).toBeVisible();
+  const focus = page.getByRole('region', { name: /Active \/ in flight/ });
+  await expect(focus.getByRole('heading', { name: 'Active / in flight · 3' })).toBeVisible();
   await expect(focus.locator('.acc-project-card')).toHaveCount(3);
 
   const catalog = page.getByRole('region', { name: /All Hermes Projects/ });
