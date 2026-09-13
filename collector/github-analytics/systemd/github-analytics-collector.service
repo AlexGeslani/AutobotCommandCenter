@@ -1,0 +1,26 @@
+[Unit]
+Description=Collect and retain GitHub repository traffic observations
+Documentation=https://docs.github.com/en/rest/metrics/traffic
+After=network-online.target
+Wants=network-online.target
+OnFailure=github-analytics-failure-notify@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/.local/lib/github-analytics/collector.py --config %h/.config/github-analytics/collector.v1.json
+ExecStartPost=%h/.local/lib/github-analytics/request-ark-refresh.sh
+TimeoutStartSec=30min
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/Documents/GitHubAnalytics %h/.local/state/github-analytics
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+UMask=0077
+
+[Install]
+WantedBy=default.target

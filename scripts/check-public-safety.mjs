@@ -76,7 +76,7 @@ try {
 
 for (const path of candidateFiles) {
   const name = relative(root, path).replaceAll('\\', '/');
-  if (excludedFiles.has(name)) continue;
+  if (excludedFiles.has(name) || name.split('/').some((segment) => excludedDirectories.has(segment))) continue;
   let bytes;
   try {
     bytes = await readFile(path);

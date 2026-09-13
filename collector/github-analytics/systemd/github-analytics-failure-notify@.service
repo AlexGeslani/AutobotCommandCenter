@@ -1,0 +1,19 @@
+[Unit]
+Description=Relay failed GitHub analytics unit %i to Prime Home
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=1800
+StartLimitBurst=4
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/lib/github-analytics/notify-failure.sh %i
+Restart=on-failure
+RestartSec=5min
+TimeoutStartSec=30
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
+PrivateTmp=true
+ProtectSystem=full
+NoNewPrivileges=true

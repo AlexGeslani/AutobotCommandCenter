@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "github-analytics-ark-refresh-v1",
+  "authority": {
+    "host": "archive-authority",
+    "root": "/srv/analytics/github"
+  },
+  "mirrorRoot": "/srv/acc-analytics/github/archive",
+  "compiler": "/opt/acc/collector/github-analytics/compiler.mjs",
+  "node": "/usr/bin/node",
+  "projectionTarget": "/srv/acc-dev/public/runtime/analytics/github/github-portfolio.v1.json"
+}

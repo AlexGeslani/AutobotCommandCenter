@@ -12,6 +12,8 @@ artifacts/
 *.pem
 secrets/
 ops/*.plist
+__pycache__/
+*.py[cod]
 
 # Mutable, sanitized runtime projections; publish atomically, never commit.
 standalone/public/runtime/

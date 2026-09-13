@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "github-analytics-repositories-v1",
+  "owner": "AlexGeslani",
+  "repositories": [
+    { "id": 1336106340, "name": "AutobotCommandCenter" },
+    { "id": 1329519850, "name": "Jarvis" },
+    { "id": 1151917882, "name": "StackLogic" },
+    { "id": 1318800339, "name": "8-Ball" }
+  ]
+}

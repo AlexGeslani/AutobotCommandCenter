@@ -1,0 +1,592 @@
+{
+  "schemaVersion": "github-analytics-projection-v1",
+  "dataKind": "real",
+  "generatedAt": "2026-09-01T05:35:00.000Z",
+  "subject": {
+    "id": "github-portfolio",
+    "label": "GitHub Portfolio",
+    "domain": "code"
+  },
+  "source": {
+    "authority": "GitHub REST repository traffic metrics",
+    "fidelity": "rolling_14_day_aggregate_observations"
+  },
+  "versions": {
+    "archiveSchema": 1,
+    "compiler": "1.0.0"
+  },
+  "coverage": {
+    "collectionStartedAt": "2026-08-16T05:35:00.000Z",
+    "trafficStart": "2026-08-16",
+    "observedThrough": "2026-08-31",
+    "acceptedObservations": 1,
+    "inputSha256s": [
+      "0000000000000000000000000000000000000000000000000000000000000000"
+    ]
+  },
+  "portfolio": {
+    "retainedTotals": {
+      "views": 408,
+      "clones": 48
+    },
+    "repositoriesReporting": 2
+  },
+  "repositories": [
+    {
+      "id": 101,
+      "name": "alpha",
+      "owner": "example",
+      "fullName": "example/alpha",
+      "htmlUrl": "https://github.com/example/alpha",
+      "archived": false,
+      "stars": 1,
+      "forks": 1,
+      "subscribers": 1,
+      "pushedAt": "2026-08-31T12:00:00.000Z",
+      "latestRelease": null,
+      "coverage": {
+        "firstTrafficDate": "2026-08-16",
+        "lastTrafficDate": "2026-08-31",
+        "observedDates": 16,
+        "missingViewDates": 0,
+        "missingCloneDates": 0
+      },
+      "retainedTotals": {
+        "views": 136,
+        "clones": 16
+      },
+      "daily": [
+        {
+          "date": "2026-08-16",
+          "finality": "historical",
+          "views": {
+            "state": "present",
+            "count": 1,
+            "uniques": 1
+          },
+          "clones": {
+            "state": "present",
+            "count": 1,
+            "uniques": 1
+          }
+        },
+        {
+          "date": "2026-08-17",
+          "finality": "historical",
+          "views": {
+            "state": "present",
+            "count": 2,
+            "uniques": 1
+          },
+          "clones": {
+            "state": "present",
+            "count": 1,
+            "uniques": 1
+          }
+        },
+        {
+          "date": "2026-08-18",
+          "finality": "historical",
+          "views": {
+            "state": "present",
+            "count": 3,
+            "uniques": 1
+          },
+          "clones": {
+            "state": "present",
+            "count": 1,
+            "uniques": 1
+          }
+        },
+        {
+          "date": "2026-08-19",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 4,
+            "uniques": 1
+          },
+          "clones": {
+            "state": "present",
+            "count": 1,
+            "uniques": 1
+          }
+        },
+        {
+          "date": "2026-08-20",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 5,
+            "uniques": 1
+          },
+          "clones": {
+            "state": "present",
+            "count": 1,
+            "uniques": 1
+          }
+        },
+        {
+          "date": "2026-08-21",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 6,
+            "uniques": 1
+          },
+          "clones": {
+            "state": "present",
+            "count": 1,
+            "uniques": 1
+          }
+        },
+        {
+          "date": "2026-08-22",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 7,
+            "uniques": 1
+          },
+          "clones": {
+            "state": "present",
+            "count": 1,
+            "uniques": 1
+          }
+        },
+        {
+          "date": "2026-08-23",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 8,
+            "uniques": 1
+          },
+          "clones": {
+            "state": "present",
+            "count": 1,
+            "uniques": 1
+          }
+        },
+        {
+          "date": "2026-08-24",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 9,
+            "uniques": 1
+          },
+          "clones": {
+            "state": "present",
+            "count": 1,
+            "uniques": 1
+          }
+        },
+        {
+          "date": "2026-08-25",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 10,
+            "uniques": 1
+          },
+          "clones": {
+            "state": "present",
+            "count": 1,
+            "uniques": 1
+          }
+        },
+        {
+          "date": "2026-08-26",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 11,
+            "uniques": 1
+          },
+          "clones": {
+            "state": "present",
+            "count": 1,
+            "uniques": 1
+          }
+        },
+        {
+          "date": "2026-08-27",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 12,
+            "uniques": 1
+          },
+          "clones": {
+            "state": "present",
+            "count": 1,
+            "uniques": 1
+          }
+        },
+        {
+          "date": "2026-08-28",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 13,
+            "uniques": 1
+          },
+          "clones": {
+            "state": "present",
+            "count": 1,
+            "uniques": 1
+          }
+        },
+        {
+          "date": "2026-08-29",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 14,
+            "uniques": 1
+          },
+          "clones": {
+            "state": "present",
+            "count": 1,
+            "uniques": 1
+          }
+        },
+        {
+          "date": "2026-08-30",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 15,
+            "uniques": 1
+          },
+          "clones": {
+            "state": "present",
+            "count": 1,
+            "uniques": 1
+          }
+        },
+        {
+          "date": "2026-08-31",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 16,
+            "uniques": 1
+          },
+          "clones": {
+            "state": "present",
+            "count": 1,
+            "uniques": 1
+          }
+        }
+      ],
+      "latestWindow": {
+        "observedAt": "2026-09-01T05:35:00.000Z",
+        "windowStart": "2026-08-19",
+        "windowEnd": "2026-09-01",
+        "views": {
+          "count": 120,
+          "uniques": 20
+        },
+        "clones": {
+          "count": 14,
+          "uniques": 7
+        },
+        "referrers": [
+          {
+            "referrer": "example.com",
+            "count": 5,
+            "uniques": 3
+          }
+        ],
+        "paths": [
+          {
+            "path": "/example/alpha",
+            "title": "Alpha",
+            "count": 8,
+            "uniques": 4
+          }
+        ]
+      }
+    },
+    {
+      "id": 202,
+      "name": "beta",
+      "owner": "example",
+      "fullName": "example/beta",
+      "htmlUrl": "https://github.com/example/beta",
+      "archived": false,
+      "stars": 2,
+      "forks": 2,
+      "subscribers": 2,
+      "pushedAt": "2026-08-31T12:00:00.000Z",
+      "latestRelease": null,
+      "coverage": {
+        "firstTrafficDate": "2026-08-16",
+        "lastTrafficDate": "2026-08-31",
+        "observedDates": 16,
+        "missingViewDates": 0,
+        "missingCloneDates": 0
+      },
+      "retainedTotals": {
+        "views": 272,
+        "clones": 32
+      },
+      "daily": [
+        {
+          "date": "2026-08-16",
+          "finality": "historical",
+          "views": {
+            "state": "present",
+            "count": 2,
+            "uniques": 2
+          },
+          "clones": {
+            "state": "present",
+            "count": 2,
+            "uniques": 2
+          }
+        },
+        {
+          "date": "2026-08-17",
+          "finality": "historical",
+          "views": {
+            "state": "present",
+            "count": 4,
+            "uniques": 2
+          },
+          "clones": {
+            "state": "present",
+            "count": 2,
+            "uniques": 2
+          }
+        },
+        {
+          "date": "2026-08-18",
+          "finality": "historical",
+          "views": {
+            "state": "present",
+            "count": 6,
+            "uniques": 2
+          },
+          "clones": {
+            "state": "present",
+            "count": 2,
+            "uniques": 2
+          }
+        },
+        {
+          "date": "2026-08-19",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 8,
+            "uniques": 2
+          },
+          "clones": {
+            "state": "present",
+            "count": 2,
+            "uniques": 2
+          }
+        },
+        {
+          "date": "2026-08-20",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 10,
+            "uniques": 2
+          },
+          "clones": {
+            "state": "present",
+            "count": 2,
+            "uniques": 2
+          }
+        },
+        {
+          "date": "2026-08-21",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 12,
+            "uniques": 2
+          },
+          "clones": {
+            "state": "present",
+            "count": 2,
+            "uniques": 2
+          }
+        },
+        {
+          "date": "2026-08-22",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 14,
+            "uniques": 2
+          },
+          "clones": {
+            "state": "present",
+            "count": 2,
+            "uniques": 2
+          }
+        },
+        {
+          "date": "2026-08-23",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 16,
+            "uniques": 2
+          },
+          "clones": {
+            "state": "present",
+            "count": 2,
+            "uniques": 2
+          }
+        },
+        {
+          "date": "2026-08-24",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 18,
+            "uniques": 2
+          },
+          "clones": {
+            "state": "present",
+            "count": 2,
+            "uniques": 2
+          }
+        },
+        {
+          "date": "2026-08-25",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 20,
+            "uniques": 2
+          },
+          "clones": {
+            "state": "present",
+            "count": 2,
+            "uniques": 2
+          }
+        },
+        {
+          "date": "2026-08-26",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 22,
+            "uniques": 2
+          },
+          "clones": {
+            "state": "present",
+            "count": 2,
+            "uniques": 2
+          }
+        },
+        {
+          "date": "2026-08-27",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 24,
+            "uniques": 2
+          },
+          "clones": {
+            "state": "present",
+            "count": 2,
+            "uniques": 2
+          }
+        },
+        {
+          "date": "2026-08-28",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 26,
+            "uniques": 2
+          },
+          "clones": {
+            "state": "present",
+            "count": 2,
+            "uniques": 2
+          }
+        },
+        {
+          "date": "2026-08-29",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 28,
+            "uniques": 2
+          },
+          "clones": {
+            "state": "present",
+            "count": 2,
+            "uniques": 2
+          }
+        },
+        {
+          "date": "2026-08-30",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 30,
+            "uniques": 2
+          },
+          "clones": {
+            "state": "present",
+            "count": 2,
+            "uniques": 2
+          }
+        },
+        {
+          "date": "2026-08-31",
+          "finality": "provisional",
+          "views": {
+            "state": "present",
+            "count": 32,
+            "uniques": 2
+          },
+          "clones": {
+            "state": "present",
+            "count": 2,
+            "uniques": 2
+          }
+        }
+      ],
+      "latestWindow": {
+        "observedAt": "2026-09-01T05:35:00.000Z",
+        "windowStart": "2026-08-19",
+        "windowEnd": "2026-09-01",
+        "views": {
+          "count": 240,
+          "uniques": 40
+        },
+        "clones": {
+          "count": 28,
+          "uniques": 14
+        },
+        "referrers": [
+          {
+            "referrer": "example.com",
+            "count": 10,
+            "uniques": 6
+          }
+        ],
+        "paths": [
+          {
+            "path": "/example/beta",
+            "title": "Beta",
+            "count": 16,
+            "uniques": 8
+          }
+        ]
+      }
+    }
+  ]
+}

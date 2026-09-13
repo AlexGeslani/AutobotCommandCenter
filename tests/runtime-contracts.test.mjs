@@ -11,10 +11,15 @@ import {
   validateEdition,
 } from '../src/runtime/contracts.mjs';
 import { createRuntimeLoader } from '../src/runtime/client.mjs';
+import projectPortfolio from './fixtures/portfolio/projects.v1.json' with { type: 'json' };
 
 const execFileAsync = promisify(execFile);
 const publisher = new URL('../scripts/publish-runtime-projection.mjs', import.meta.url);
 const jsonResponse = (value) => ({ ok: true, text: async () => JSON.stringify(value) });
+const domainOnlyEdition = structuredClone(DEMO_EDITION);
+delete domainOnlyEdition.projections.portfolio;
+const portfolioEdition = structuredClone(DEMO_EDITION);
+portfolioEdition.projections.portfolio = 'runtime/portfolio/projects.v1.json';
 
 describe('Core + Edition + Projection runtime contract', () => {
   it('accepts the sanitized demo and rejects executable or escaping edition configuration', () => {
@@ -24,6 +29,42 @@ describe('Core + Edition + Projection runtime contract', () => {
     expect(() => validateEdition({ ...DEMO_EDITION, modules: DEMO_EDITION.modules.map((module, index) => index ? module : { id: 'dynamic-import', label: 'Code' }) })).toThrow(/known modules/i);
     expect(() => validateEdition({ ...DEMO_EDITION, projections: { ...DEMO_EDITION.projections, domain: '../private.json' } })).toThrow(/safe relative/i);
     expect(() => validateEdition({ ...DEMO_EDITION, projections: { ...DEMO_EDITION.projections, domain: 'https://example.invalid/data.json' } })).toThrow(/safe relative/i);
+  });
+
+  it('ignores an additive future analytics source without hiding known subjects', async () => {
+    const futureEdition = structuredClone(DEMO_EDITION);
+    futureEdition.analytics.web = [{ id: 'alexgeslani.com', label: 'alexgeslani.com', description: 'Web analytics', projection: 'runtime/analytics/web/alexgeslani.com.v2.json' }];
+    futureEdition.analytics.gitlab = { executable: '<script>alert(1)</script>' };
+    const loader = createRuntimeLoader({ fetcher: async (url) => url.pathname.endsWith('edition.v1.json') ? jsonResponse(futureEdition) : jsonResponse(DEMO_DOMAIN_PROJECTION) });
+    const runtime = await loader('/');
+    expect(runtime.edition.analytics.web.map(({ id }) => id)).toEqual(['alexgeslani.com']);
+    expect(runtime.edition.analytics.gitlab).toBeUndefined();
+    expect(runtime.health.edition).toMatchObject({ state: 'ready_with_warnings', valid: true, stale: false });
+    expect(runtime.health.edition.warnings[0]).toMatch(/analytics\.gitlab.*unsupported/i);
+  });
+
+  it('withholds only an invalid GitHub subject while preserving valid website subjects', async () => {
+    const mixedEdition = structuredClone(DEMO_EDITION);
+    mixedEdition.analytics.web = [{ id: 'kungfuclan.com', label: 'Kung Fu Clan', description: 'Web analytics', projection: 'runtime/analytics/web/kungfuclan.com.v2.json' }];
+    mixedEdition.analytics.github = { id: 'github-portfolio', label: 'GitHub Portfolio', description: 'Repositories', projection: '../private.json' };
+    const loader = createRuntimeLoader({ fetcher: async (url) => url.pathname.endsWith('edition.v1.json') ? jsonResponse(mixedEdition) : jsonResponse(DEMO_DOMAIN_PROJECTION) });
+    const runtime = await loader('/');
+    expect(runtime.edition.analytics.web.map(({ id }) => id)).toEqual(['kungfuclan.com']);
+    expect(runtime.edition.analytics.github).toBeNull();
+    expect(runtime.health.edition).toMatchObject({ state: 'ready_with_warnings', valid: true, stale: false });
+    expect(runtime.health.edition.warnings[0]).toMatch(/analytics\.github/i);
+  });
+
+  it('withholds one malformed website subject without hiding valid peers', async () => {
+    const mixedEdition = structuredClone(DEMO_EDITION);
+    mixedEdition.analytics.web = [
+      { id: 'alexgeslani.com', label: 'alexgeslani.com', description: 'Web analytics', projection: 'runtime/analytics/web/alexgeslani.com.v2.json' },
+      { id: 'broken.example', label: 'Broken', description: 'Bad path', projection: '../private.json' },
+    ];
+    const loader = createRuntimeLoader({ fetcher: async (url) => url.pathname.endsWith('edition.v1.json') ? jsonResponse(mixedEdition) : jsonResponse(DEMO_DOMAIN_PROJECTION) });
+    const runtime = await loader('/');
+    expect(runtime.edition.analytics.web.map(({ id }) => id)).toEqual(['alexgeslani.com']);
+    expect(runtime.health.edition.warnings[0]).toMatch(/analytics\.web\[1\]/i);
   });
 
   it('rejects relationship drift before projections reach selectors', () => {
@@ -40,9 +81,9 @@ describe('Core + Edition + Projection runtime contract', () => {
 
   it('retains the explicit last-good domain as stale_invalid after malformed replacement', async () => {
     const responses = [
-      jsonResponse(DEMO_EDITION),
+      jsonResponse(domainOnlyEdition),
       jsonResponse(DEMO_DOMAIN_PROJECTION),
-      jsonResponse(DEMO_EDITION),
+      jsonResponse(domainOnlyEdition),
       jsonResponse({ schemaVersion: 'acc-domain-projection-v1', generatedAt: 'not-a-time' }),
     ];
     const loader = createRuntimeLoader({ fetcher: async () => responses.shift() });
@@ -54,13 +95,32 @@ describe('Core + Edition + Projection runtime contract', () => {
     expect(second.health.edition.state).toBe('ready');
   });
 
+  it('clears last-good private portfolio data when a valid edition removes the locator', async () => {
+    const withoutPortfolio = structuredClone(DEMO_EDITION);
+    delete withoutPortfolio.projections.portfolio;
+    const responses = [
+      jsonResponse(portfolioEdition),
+      jsonResponse(DEMO_DOMAIN_PROJECTION),
+      jsonResponse(projectPortfolio),
+      jsonResponse(withoutPortfolio),
+      jsonResponse(DEMO_DOMAIN_PROJECTION),
+    ];
+    const loader = createRuntimeLoader({ fetcher: async () => responses.shift() });
+    const first = await loader('/');
+    const second = await loader('/');
+    expect(first.portfolio.projects).toHaveLength(4);
+    expect(first.health.portfolio.state).toBe('ready');
+    expect(second.portfolio.projects).toEqual([]);
+    expect(second.health.portfolio).toMatchObject({ state: 'not_configured', stale: false, valid: true });
+  });
+
   it('isolates an invalid edition while a valid domain refresh still advances through the last-good locator', async () => {
     const advanced = structuredClone(DEMO_DOMAIN_PROJECTION);
     advanced.generatedAt = '2026-01-02T00:00:00.000Z';
     const responses = [
-      jsonResponse(DEMO_EDITION),
+      jsonResponse(domainOnlyEdition),
       jsonResponse(DEMO_DOMAIN_PROJECTION),
-      jsonResponse({ ...DEMO_EDITION, modules: [{ id: 'unknown', label: 'Unknown' }] }),
+      jsonResponse({ ...domainOnlyEdition, modules: [{ id: 'unknown', label: 'Unknown' }] }),
       jsonResponse(advanced),
     ];
     const loader = createRuntimeLoader({ fetcher: async () => responses.shift() });

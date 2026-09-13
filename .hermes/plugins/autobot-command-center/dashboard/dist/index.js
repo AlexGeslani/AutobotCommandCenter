@@ -257,6 +257,7 @@
     },
     analytics: {
       web: [],
+      github: null,
       providerUsage: {
         id: "provider-usage",
         label: "Provider Usage",
@@ -656,42 +657,89 @@
       });
     }
   }
-  function validateEdition(value) {
-    assertObject2(value, "edition", EDITION_FIELDS);
+  function validateWebAnalyticsSubject(subject, name) {
+    assertObject2(subject, name, /* @__PURE__ */ new Set(["id", "label", "description", "projection"]));
+    return {
+      id: assertId(subject.id, `${name}.id`),
+      label: assertString2(subject.label, `${name}.label`, { max: 96 }),
+      description: assertString2(subject.description, `${name}.description`, { max: 1024 }),
+      projection: assertRelativeProjectionPath(subject.projection, `${name}.projection`)
+    };
+  }
+  function validateGitHubAnalyticsSubject(subject) {
+    const name = "edition.analytics.github";
+    assertObject2(subject, name, /* @__PURE__ */ new Set(["id", "label", "description", "projection"]));
+    if (subject.id !== "github-portfolio") throw new TypeError("GitHub analytics adapter id is fixed");
+    return {
+      id: subject.id,
+      label: assertString2(subject.label, `${name}.label`, { max: 96 }),
+      description: assertString2(subject.description, `${name}.description`, { max: 1024 }),
+      projection: assertRelativeProjectionPath(subject.projection, `${name}.projection`)
+    };
+  }
+  function validateEditionWithWarnings(value) {
+    assertObject2(value, "edition");
+    const warnings = Object.keys(value).filter((key) => !EDITION_FIELDS.has(key)).map((key) => `edition.${key} is unsupported and was ignored`);
     if (value.schemaVersion !== ACC_EDITION_SCHEMA_VERSION) throw new TypeError(`edition must use ${ACC_EDITION_SCHEMA_VERSION}`);
-    assertId(value.id, "edition.id");
+    const id = assertId(value.id, "edition.id");
     assertObject2(value.branding, "edition.branding", /* @__PURE__ */ new Set(["title", "defaultTheme"]));
-    assertString2(value.branding.title, "edition.branding.title", { max: 96 });
-    if (!KNOWN_THEMES.has(value.branding.defaultTheme)) throw new TypeError("edition.branding.defaultTheme is unsupported");
-    const modules = assertArray2(value.modules, "edition.modules", KNOWN_MODULES.size);
-    const moduleIds = /* @__PURE__ */ new Set();
-    modules.forEach((module, index) => {
+    const branding = {
+      title: assertString2(value.branding.title, "edition.branding.title", { max: 96 }),
+      defaultTheme: value.branding.defaultTheme
+    };
+    if (!KNOWN_THEMES.has(branding.defaultTheme)) throw new TypeError("edition.branding.defaultTheme is unsupported");
+    const modules = assertArray2(value.modules, "edition.modules", KNOWN_MODULES.size).map((module, index) => {
       assertObject2(module, `edition.modules[${index}]`, /* @__PURE__ */ new Set(["id", "label"]));
-      if (!KNOWN_MODULES.has(module.id) || moduleIds.has(module.id)) throw new TypeError("edition modules must be unique known modules");
-      moduleIds.add(module.id);
-      assertString2(module.label, `edition.modules[${index}].label`, { max: 48 });
+      if (!KNOWN_MODULES.has(module.id)) throw new TypeError("edition modules must be unique known modules");
+      return { id: module.id, label: assertString2(module.label, `edition.modules[${index}].label`, { max: 48 }) };
     });
+    const moduleIds = new Set(modules.map(({ id: moduleId }) => moduleId));
+    if (moduleIds.size !== modules.length) throw new TypeError("edition modules must be unique known modules");
     if (!moduleIds.has("overview")) throw new TypeError("edition must enable overview");
-    assertObject2(value.projections, "edition.projections", /* @__PURE__ */ new Set(["domain", "providerUsage"]));
-    assertRelativeProjectionPath(value.projections.domain, "edition.projections.domain");
-    assertRelativeProjectionPath(value.projections.providerUsage, "edition.projections.providerUsage");
-    assertObject2(value.analytics, "edition.analytics", /* @__PURE__ */ new Set(["web", "providerUsage"]));
+    assertObject2(value.projections, "edition.projections", /* @__PURE__ */ new Set(["domain", "providerUsage", "portfolio"]));
+    const projections = {
+      domain: assertRelativeProjectionPath(value.projections.domain, "edition.projections.domain"),
+      providerUsage: assertRelativeProjectionPath(value.projections.providerUsage, "edition.projections.providerUsage")
+    };
+    if (value.projections.portfolio !== void 0) projections.portfolio = assertRelativeProjectionPath(value.projections.portfolio, "edition.projections.portfolio");
+    const sourceAnalytics = assertObject2(value.analytics, "edition.analytics");
+    for (const key of Object.keys(sourceAnalytics)) {
+      if (!["web", "github", "providerUsage"].includes(key)) warnings.push(`edition.analytics.${key} is unsupported and was ignored`);
+    }
+    const web = [];
     const webIds = /* @__PURE__ */ new Set();
-    assertArray2(value.analytics.web, "edition.analytics.web", 50).forEach((subject, index) => {
-      assertObject2(subject, `edition.analytics.web[${index}]`, /* @__PURE__ */ new Set(["id", "label", "description", "projection"]));
-      const id = assertId(subject.id, `edition.analytics.web[${index}].id`);
-      if (webIds.has(id)) throw new TypeError("analytics subject ids must be unique");
-      webIds.add(id);
-      assertString2(subject.label, `edition.analytics.web[${index}].label`, { max: 96 });
-      assertString2(subject.description, `edition.analytics.web[${index}].description`, { max: 1024 });
-      assertRelativeProjectionPath(subject.projection, `edition.analytics.web[${index}].projection`);
+    assertArray2(sourceAnalytics.web, "edition.analytics.web", 50).forEach((subject, index) => {
+      const name = `edition.analytics.web[${index}]`;
+      try {
+        const projected = validateWebAnalyticsSubject(subject, name);
+        if (webIds.has(projected.id)) throw new TypeError("analytics subject ids must be unique");
+        webIds.add(projected.id);
+        web.push(projected);
+      } catch (error) {
+        warnings.push(`${name} was withheld: ${error.message}`);
+      }
     });
-    assertObject2(value.analytics.providerUsage, "edition.analytics.providerUsage", /* @__PURE__ */ new Set(["id", "label", "description"]));
-    if (value.analytics.providerUsage.id !== "provider-usage") throw new TypeError("provider usage adapter id is fixed");
-    assertString2(value.analytics.providerUsage.label, "edition.analytics.providerUsage.label", { max: 96 });
-    assertString2(value.analytics.providerUsage.description, "edition.analytics.providerUsage.description", { max: 1024 });
-    assertTextTree(value, "edition");
-    return structuredClone(value);
+    let github = null;
+    if (sourceAnalytics.github !== null && sourceAnalytics.github !== void 0) {
+      try {
+        github = validateGitHubAnalyticsSubject(sourceAnalytics.github);
+      } catch (error) {
+        warnings.push(`edition.analytics.github was withheld: ${error.message}`);
+      }
+    }
+    assertObject2(sourceAnalytics.providerUsage, "edition.analytics.providerUsage", /* @__PURE__ */ new Set(["id", "label", "description"]));
+    if (sourceAnalytics.providerUsage.id !== "provider-usage") throw new TypeError("provider usage adapter id is fixed");
+    const providerUsage = {
+      id: sourceAnalytics.providerUsage.id,
+      label: assertString2(sourceAnalytics.providerUsage.label, "edition.analytics.providerUsage.label", { max: 96 }),
+      description: assertString2(sourceAnalytics.providerUsage.description, "edition.analytics.providerUsage.description", { max: 1024 })
+    };
+    const edition2 = { schemaVersion: value.schemaVersion, id, branding, modules, projections, analytics: { web, github, providerUsage } };
+    assertTextTree(edition2, "edition");
+    return { edition: edition2, warnings };
+  }
+  function validateEdition(value) {
+    return validateEditionWithWarnings(value).edition;
   }
   function validateScore(score, name) {
     assertObject2(score, name);
@@ -758,9 +806,9 @@
       for (const [scoreId, score] of Object.entries(profile.scores)) validateScore(score, `benchmarkComparison[${index}].scores.${scoreId}`);
     });
     data.evaluations.forEach((evaluation, index) => {
-      assertArray2(evaluation.affectedObjects, `evaluations[${index}].affectedObjects`, 100).forEach((object) => {
-        if (object.type === "product" && !productIds.has(object.id)) throw new TypeError(`evaluations[${index}] references an unknown product`);
-        if (object.type === "condition" && !conditionIds.has(object.id)) throw new TypeError(`evaluations[${index}] references an unknown condition`);
+      assertArray2(evaluation.affectedObjects, `evaluations[${index}].affectedObjects`, 100).forEach((object2) => {
+        if (object2.type === "product" && !productIds.has(object2.id)) throw new TypeError(`evaluations[${index}] references an unknown product`);
+        if (object2.type === "condition" && !conditionIds.has(object2.id)) throw new TypeError(`evaluations[${index}] references an unknown condition`);
       });
     });
     const showcase = validateShowcaseProjection(value.showcase);
@@ -770,11 +818,11 @@
     assertTextTree(projected, "domain projection");
     return projected;
   }
-  function parseRuntimeJson(text, validator, name = "runtime projection") {
-    if (typeof text !== "string" || new TextEncoder().encode(text).byteLength > ACC_RUNTIME_MAX_BYTES) throw new TypeError(`${name} exceeds the runtime size limit`);
+  function parseRuntimeJson(text2, validator, name = "runtime projection") {
+    if (typeof text2 !== "string" || new TextEncoder().encode(text2).byteLength > ACC_RUNTIME_MAX_BYTES) throw new TypeError(`${name} exceeds the runtime size limit`);
     let value;
     try {
-      value = JSON.parse(text);
+      value = JSON.parse(text2);
     } catch {
       throw new TypeError(`${name} is not valid JSON`);
     }
@@ -782,6 +830,196 @@
   }
   var DEMO_EDITION = validateEdition(demo_edition_v1_default);
   var DEMO_DOMAIN_PROJECTION = validateDomainProjection(domain_v1_default);
+
+  // src/portfolio/schema.mjs
+  var TOP_FIELDS = /* @__PURE__ */ new Set(["schemaVersion", "generatedAt", "source", "policy", "summary", "projects"]);
+  var SOURCE_FIELDS = /* @__PURE__ */ new Set(["authority", "profile", "registryProjectCount", "annotatedProjectCount"]);
+  var POLICY_FIELDS = /* @__PURE__ */ new Set(["activeLimit", "rule"]);
+  var SUMMARY_FIELDS = /* @__PURE__ */ new Set(["total", "active", "operational", "missingDocuments", "unclassified", "activityObserved", "activityQuiet", "activityNoSource", "activityBindingMissing", "activityErrors"]);
+  var PROJECT_FIELDS = /* @__PURE__ */ new Set([
+    "id",
+    "slug",
+    "name",
+    "description",
+    "outcome",
+    "portfolioState",
+    "health",
+    "focusRank",
+    "deliveryModel",
+    "phase",
+    "nextGate",
+    "lastReviewedAt",
+    "visibility",
+    "repositoryUrl",
+    "archived",
+    "documents",
+    "lifecycle",
+    "sessionRefs",
+    "relatedSkills",
+    "activity"
+  ]);
+  var ACTIVITY_FIELDS = /* @__PURE__ */ new Set(["status", "source", "lastActivityAt"]);
+  var DOCUMENT_FIELDS = /* @__PURE__ */ new Set(["status", "label", "href", "note"]);
+  var LIFECYCLE_FIELDS = /* @__PURE__ */ new Set(["id", "label", "state"]);
+  var SESSION_FIELDS = /* @__PURE__ */ new Set(["label", "ref"]);
+  var STATES2 = /* @__PURE__ */ new Set(["active", "operational", "candidate", "paused", "complete", "archived", "unclassified"]);
+  var HEALTH = /* @__PURE__ */ new Set(["on_track", "at_risk", "blocked", "unknown"]);
+  var DOCUMENT_STATES = /* @__PURE__ */ new Set(["accepted", "approved", "ratified", "mapped", "draft", "historical", "missing"]);
+  var LIFECYCLE_STATES = /* @__PURE__ */ new Set(["complete", "current", "next", "future"]);
+  var SLUG = /^[a-z0-9][a-z0-9-_]{0,63}$/;
+  var ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+  var SESSION_REF = /^@session:[a-z0-9_-]+\/[A-Za-z0-9_-]+$/;
+  var ACTIVITY_STATES = /* @__PURE__ */ new Set(["observed", "quiet", "no_source", "binding_missing", "source_error"]);
+  function object(value, label, allowed) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError(`${label} must be an object`);
+    for (const key of Object.keys(value)) if (!allowed.has(key)) throw new TypeError(`${label} has unknown field ${key}`);
+    return value;
+  }
+  function text(value, label, max = 4096) {
+    if (typeof value !== "string" || !value.trim() || value.length > max || value.includes("\0")) throw new TypeError(`${label} must be a bounded non-empty string`);
+    return value;
+  }
+  function timestamp(value, label, nullable = false) {
+    if (nullable && value === null) return null;
+    text(value, label, 64);
+    if (Number.isNaN(Date.parse(value)) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) throw new TypeError(`${label} must be a canonical UTC timestamp`);
+    return value;
+  }
+  function integer(value, label, { min = 0, max = Number.MAX_SAFE_INTEGER, nullable = false } = {}) {
+    if (nullable && value === null) return null;
+    if (!Number.isSafeInteger(value) || value < min || value > max) throw new TypeError(`${label} must be an integer from ${min} to ${max}`);
+    return value;
+  }
+  function array(value, label, max = 100) {
+    if (!Array.isArray(value) || value.length > max) throw new TypeError(`${label} must be a bounded array`);
+    return value;
+  }
+  function safeHref(value, label) {
+    text(value, label, 1024);
+    if (/^(?:runtime|data)\/[A-Za-z0-9._/-]+\.html$/.test(value) && !value.split("/").includes("..")) return value;
+    let parsed;
+    try {
+      parsed = new URL(value);
+    } catch {
+      throw new TypeError(`${label} must be a safe relative or credential-free HTTPS URL`);
+    }
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password) throw new TypeError(`${label} must be a safe relative or credential-free HTTPS URL`);
+    return value;
+  }
+  function validateDocument(value, label) {
+    object(value, label, DOCUMENT_FIELDS);
+    if (!DOCUMENT_STATES.has(value.status)) throw new TypeError(`${label}.status is unsupported`);
+    text(value.label, `${label}.label`, 160);
+    if (value.href !== void 0) safeHref(value.href, `${label}.href`);
+    if (value.note !== void 0) text(value.note, `${label}.note`, 1024);
+    if (value.status === "missing" && value.href !== void 0) throw new TypeError(`${label} cannot link a missing document`);
+    if (value.status !== "missing" && value.href === void 0) throw new TypeError(`${label} must link mapped document evidence`);
+    return value;
+  }
+  function validateActivity(value, label, generatedAt) {
+    object(value, label, ACTIVITY_FIELDS);
+    if (!ACTIVITY_STATES.has(value.status)) throw new TypeError(`${label}.status is unsupported`);
+    const validSource = value.source === null || value.source === "git_head_commit" || value.source === "git_repository";
+    if (!validSource) throw new TypeError(`${label}.source is unsupported`);
+    const lastActivityAt = timestamp(value.lastActivityAt, `${label}.lastActivityAt`, true);
+    if (lastActivityAt !== null && (!/^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/.test(lastActivityAt) || Date.parse(lastActivityAt) > Date.parse(generatedAt))) throw new TypeError(`${label}.lastActivityAt must be a non-future UTC day`);
+    if (value.status === "observed" && !(value.source === "git_head_commit" && lastActivityAt)) throw new TypeError(`${label} observed activity requires a Git timestamp`);
+    if (value.status === "quiet" && !(value.source === "git_repository" && lastActivityAt === null)) throw new TypeError(`${label} quiet activity requires an empty Git repository`);
+    if (["no_source", "binding_missing"].includes(value.status) && !(value.source === null && lastActivityAt === null)) throw new TypeError(`${label} unavailable activity cannot carry evidence`);
+    if (value.status === "source_error" && !(value.source === "git_head_commit" && lastActivityAt === null)) throw new TypeError(`${label} source errors must identify Git without a timestamp`);
+    return value;
+  }
+  function validateProject(value, index, generatedAt) {
+    const label = `project portfolio.projects[${index}]`;
+    object(value, label, PROJECT_FIELDS);
+    text(value.id, `${label}.id`, 128);
+    if (!ID.test(value.id)) throw new TypeError(`${label}.id has an invalid format`);
+    text(value.slug, `${label}.slug`, 64);
+    if (!SLUG.test(value.slug)) throw new TypeError(`${label}.slug has an invalid format`);
+    text(value.name, `${label}.name`, 160);
+    text(value.description, `${label}.description`, 2048);
+    text(value.outcome, `${label}.outcome`, 2048);
+    if (!STATES2.has(value.portfolioState)) throw new TypeError(`${label}.portfolioState is unsupported`);
+    if (!HEALTH.has(value.health)) throw new TypeError(`${label}.health is unsupported`);
+    integer(value.focusRank, `${label}.focusRank`, { min: 1, max: 500, nullable: true });
+    if (value.portfolioState !== "active" && value.focusRank !== null) throw new TypeError(`${label}.focusRank is allowed only for active projects`);
+    text(value.deliveryModel, `${label}.deliveryModel`, 96);
+    text(value.phase, `${label}.phase`, 160);
+    text(value.nextGate, `${label}.nextGate`, 2048);
+    timestamp(value.lastReviewedAt, `${label}.lastReviewedAt`, true);
+    if (!["private", "public"].includes(value.visibility)) throw new TypeError(`${label}.visibility is unsupported`);
+    if (!(value.repositoryUrl === null || typeof value.repositoryUrl === "string")) throw new TypeError(`${label}.repositoryUrl must be null or HTTPS`);
+    if (value.repositoryUrl !== null) safeHref(value.repositoryUrl, `${label}.repositoryUrl`);
+    if (typeof value.archived !== "boolean") throw new TypeError(`${label}.archived must be boolean`);
+    if (value.archived !== (value.portfolioState === "archived")) throw new TypeError(`${label}.archived must agree with portfolioState`);
+    object(value.documents, `${label}.documents`, /* @__PURE__ */ new Set(["vision", "charter", "architecture"]));
+    for (const role of ["vision", "charter", "architecture"]) validateDocument(value.documents[role], `${label}.documents.${role}`);
+    const lifecycleIds = /* @__PURE__ */ new Set();
+    array(value.lifecycle, `${label}.lifecycle`, 20).forEach((gate, gateIndex) => {
+      const gateLabel = `${label}.lifecycle[${gateIndex}]`;
+      object(gate, gateLabel, LIFECYCLE_FIELDS);
+      text(gate.id, `${gateLabel}.id`, 64);
+      if (!SLUG.test(gate.id) || lifecycleIds.has(gate.id)) throw new TypeError(`${gateLabel}.id must be a unique slug`);
+      lifecycleIds.add(gate.id);
+      text(gate.label, `${gateLabel}.label`, 160);
+      if (!LIFECYCLE_STATES.has(gate.state)) throw new TypeError(`${gateLabel}.state is unsupported`);
+    });
+    if (value.lifecycle.filter(({ state }) => state === "current").length > 1) throw new TypeError(`${label}.lifecycle can have at most one current gate`);
+    array(value.sessionRefs, `${label}.sessionRefs`, 20).forEach((session, sessionIndex) => {
+      const sessionLabel = `${label}.sessionRefs[${sessionIndex}]`;
+      object(session, sessionLabel, SESSION_FIELDS);
+      text(session.label, `${sessionLabel}.label`, 160);
+      if (!SESSION_REF.test(session.ref)) throw new TypeError(`${sessionLabel}.ref is not a Hermes session reference`);
+    });
+    array(value.relatedSkills, `${label}.relatedSkills`, 30).forEach((skill, skillIndex) => text(skill, `${label}.relatedSkills[${skillIndex}]`, 160));
+    validateActivity(value.activity, `${label}.activity`, generatedAt);
+    return value;
+  }
+  function validateProjectPortfolio(value) {
+    object(value, "project portfolio", TOP_FIELDS);
+    if (value.schemaVersion !== "acc-project-portfolio-v1") throw new TypeError("project portfolio schema is unsupported");
+    timestamp(value.generatedAt, "project portfolio.generatedAt");
+    object(value.source, "project portfolio.source", SOURCE_FIELDS);
+    if (value.source.authority !== "Hermes projects.db joined to validated project manifests") throw new TypeError("project portfolio source authority is unsupported");
+    text(value.source.profile, "project portfolio.source.profile", 64);
+    integer(value.source.registryProjectCount, "project portfolio.source.registryProjectCount", { max: 500 });
+    integer(value.source.annotatedProjectCount, "project portfolio.source.annotatedProjectCount", { max: 500 });
+    object(value.policy, "project portfolio.policy", POLICY_FIELDS);
+    const activeLimit = integer(value.policy.activeLimit, "project portfolio.policy.activeLimit", { min: 1, max: 500, nullable: true });
+    text(value.policy.rule, "project portfolio.policy.rule", 512);
+    object(value.summary, "project portfolio.summary", SUMMARY_FIELDS);
+    const projects = array(value.projects, "project portfolio.projects", 500).map((project, index) => validateProject(project, index, value.generatedAt));
+    if (value.source.registryProjectCount !== projects.length) throw new TypeError("registry project count must equal projected project count");
+    if (value.source.annotatedProjectCount > projects.length) throw new TypeError("annotated project count cannot exceed registry project count");
+    if (new Set(projects.map(({ id }) => id)).size !== projects.length || new Set(projects.map(({ slug }) => slug)).size !== projects.length) throw new TypeError("project ids and slugs must be unique");
+    const active2 = projects.filter(({ portfolioState }) => portfolioState === "active");
+    if (activeLimit !== null && active2.length > activeLimit) throw new TypeError(`active project limit ${activeLimit} exceeded`);
+    const ranks = active2.map(({ focusRank }) => focusRank).filter((rank) => rank !== null).sort((a, b) => a - b);
+    if (new Set(ranks).size !== ranks.length || ranks.some((rank, index) => rank !== index + 1)) throw new TypeError("active focus ranks must be unique and contiguous from 1");
+    const projected = structuredClone(value);
+    projected.projects = projects;
+    projected.summary = {
+      total: projects.length,
+      active: active2.length,
+      operational: projects.filter(({ portfolioState }) => portfolioState === "operational").length,
+      missingDocuments: projects.reduce((count, project) => count + Object.values(project.documents).filter(({ status }) => status === "missing").length, 0),
+      unclassified: projects.filter(({ portfolioState }) => portfolioState === "unclassified").length,
+      activityObserved: projects.filter(({ activity }) => activity.status === "observed").length,
+      activityQuiet: projects.filter(({ activity }) => activity.status === "quiet").length,
+      activityNoSource: projects.filter(({ activity }) => activity.status === "no_source").length,
+      activityBindingMissing: projects.filter(({ activity }) => activity.status === "binding_missing").length,
+      activityErrors: projects.filter(({ activity }) => activity.status === "source_error").length
+    };
+    return projected;
+  }
+  var EMPTY_PROJECT_PORTFOLIO = Object.freeze({
+    schemaVersion: "acc-project-portfolio-v1",
+    generatedAt: "2026-01-01T00:00:00.000Z",
+    source: { authority: "Hermes projects.db joined to validated project manifests", profile: "demo", registryProjectCount: 0, annotatedProjectCount: 0 },
+    policy: { activeLimit: null, rule: "Active work is unbounded; optional focus ranks identify lock-in priorities." },
+    summary: { total: 0, active: 0, operational: 0, missingDocuments: 0, unclassified: 0, activityObserved: 0, activityQuiet: 0, activityNoSource: 0, activityBindingMissing: 0, activityErrors: 0 },
+    projects: []
+  });
 
   // src/runtime/client.mjs
   function origin() {
@@ -808,14 +1046,17 @@
     if (typeof fetcher !== "function") throw new TypeError("runtime loader requires fetch");
     let edition2 = DEMO_EDITION;
     let domain = DEMO_DOMAIN_PROJECTION;
+    let portfolio = EMPTY_PROJECT_PORTFOLIO;
     let editionReady = false;
     let domainReady = false;
+    let portfolioReady = false;
     return async function load(basePath = "/") {
       let editionHealth;
       try {
-        edition2 = await fetchValidated(fetcher, basePath, "runtime/edition.v1.json", validateEdition, "edition");
+        const candidate = await fetchValidated(fetcher, basePath, "runtime/edition.v1.json", validateEditionWithWarnings, "edition");
+        edition2 = candidate.edition;
         editionReady = true;
-        editionHealth = { state: "ready", stale: false, valid: true, error: null };
+        editionHealth = candidate.warnings.length ? { state: "ready_with_warnings", stale: false, valid: true, error: candidate.warnings.join("; "), warnings: candidate.warnings } : { state: "ready", stale: false, valid: true, error: null, warnings: [] };
       } catch (error) {
         editionHealth = degradedState(error, editionReady);
       }
@@ -827,12 +1068,27 @@
       } catch (error) {
         domainHealth = degradedState(error, domainReady);
       }
+      let portfolioHealth = { state: "not_configured", stale: false, valid: true, error: null };
+      if (edition2.projections.portfolio) {
+        try {
+          portfolio = await fetchValidated(fetcher, basePath, edition2.projections.portfolio, validateProjectPortfolio, "project portfolio");
+          portfolioReady = true;
+          portfolioHealth = { state: "ready", stale: false, valid: true, error: null };
+        } catch (error) {
+          portfolioHealth = degradedState(error, portfolioReady);
+        }
+      } else if (editionHealth.valid) {
+        portfolio = EMPTY_PROJECT_PORTFOLIO;
+        portfolioReady = false;
+      }
       return {
         edition: structuredClone(edition2),
         domain: structuredClone(domain),
+        portfolio: structuredClone(portfolio),
         health: {
           edition: editionHealth,
           domain: domainHealth,
+          portfolio: portfolioHealth,
           state: editionHealth.valid && domainHealth.valid ? "ready" : "degraded"
         }
       };
@@ -840,14 +1096,17 @@
   }
   var defaultLoader = createRuntimeLoader();
   var loadRuntimeConfiguration = (basePath = "/") => defaultLoader(basePath);
+  function runtimeProjectionUrl(basePath, relativePath) {
+    return projectionUrl(basePath, relativePath).href;
+  }
 
   // src/analytics/schema.mjs
   var PUBLIC_WEB_ANALYTICS_SCHEMA_VERSION = "web-analytics-projection-v2";
   var WEB_ANALYTICS_MAX_BYTES = 256 * 1024;
   var WEB_ANALYTICS_FIXTURE_NOTICE = "ILLUSTRATIVE FIXTURE \u2014 NOT CURRENT ANALYTICS";
-  var TOP_FIELDS = /* @__PURE__ */ new Set(["schemaVersion", "dataKind", "generatedAt", "subject", "source", "versions", "coverage", "ranges", "notice"]);
+  var TOP_FIELDS2 = /* @__PURE__ */ new Set(["schemaVersion", "dataKind", "generatedAt", "subject", "source", "versions", "coverage", "ranges", "notice"]);
   var SUBJECT_FIELDS = /* @__PURE__ */ new Set(["id", "label", "domain"]);
-  var SOURCE_FIELDS = /* @__PURE__ */ new Set(["authority", "fidelity"]);
+  var SOURCE_FIELDS2 = /* @__PURE__ */ new Set(["authority", "fidelity"]);
   var VERSION_FIELDS = /* @__PURE__ */ new Set(["archiveSchema", "query", "metricRegistry", "compiler"]);
   var COVERAGE_FIELDS = /* @__PURE__ */ new Set(["archiveStart", "expectedThrough", "dataThrough", "freshness", "acceptedPeriods", "rejectedPeriods", "missingPeriods", "outsideArchivePeriods", "inputSha256s"]);
   var RANGE_FIELDS = /* @__PURE__ */ new Set(["id", "startDate", "endDate", "daysCalendar", "daysObserved", "daysMissing", "daysOutsideArchive", "totals", "daily", "countries", "statusClasses", "cacheStatuses"]);
@@ -1014,7 +1273,7 @@
     return { archiveStart, expectedThrough, dataThrough, freshness: value.freshness, acceptedPeriods, rejectedPeriods, missingPeriods, outsideArchivePeriods, inputSha256s: [...value.inputSha256s] };
   }
   function projectWebAnalyticsProjection(value) {
-    assertAllowedKeys2(value, TOP_FIELDS, "projection");
+    assertAllowedKeys2(value, TOP_FIELDS2, "projection");
     if (value.schemaVersion !== PUBLIC_WEB_ANALYTICS_SCHEMA_VERSION) throw new TypeError("projection schema version is unsupported");
     if (!DATA_KINDS.has(value.dataKind)) throw new TypeError("projection data kind is unsupported");
     const generatedAt = assertTimestamp3(value.generatedAt, "generatedAt");
@@ -1027,7 +1286,7 @@
     } else if (value.notice !== void 0) {
       throw new TypeError("real projections cannot carry fixture notice state");
     }
-    assertAllowedKeys2(value.source, SOURCE_FIELDS, "source");
+    assertAllowedKeys2(value.source, SOURCE_FIELDS2, "source");
     if (value.source.authority !== "Cloudflare edge aggregate analytics" || value.source.fidelity !== "aggregate_not_raw_request_logs") throw new TypeError("source metadata is not canonical");
     const source = { authority: value.source.authority, fidelity: value.source.fidelity };
     assertAllowedKeys2(value.versions, VERSION_FIELDS, "versions");
@@ -1056,13 +1315,13 @@
     const expectedThrough = new Date(currentUtcDay - 864e5).toISOString().slice(0, 10);
     return { ...coverage, expectedThrough, freshness: coverage.dataThrough === expectedThrough ? "fresh" : "stale" };
   }
-  function parseWebAnalyticsText(text) {
-    if (typeof text !== "string") throw new TypeError("analytics payload must be text");
-    const bytes = new TextEncoder().encode(text).byteLength;
+  function parseWebAnalyticsText(text2) {
+    if (typeof text2 !== "string") throw new TypeError("analytics payload must be text");
+    const bytes = new TextEncoder().encode(text2).byteLength;
     if (bytes > WEB_ANALYTICS_MAX_BYTES) throw new TypeError("analytics payload exceeds the public size limit");
     let value;
     try {
-      value = JSON.parse(text);
+      value = JSON.parse(text2);
     } catch {
       throw new TypeError("analytics payload is not valid JSON");
     }
@@ -1082,6 +1341,248 @@
     const response = await fetch(url, { cache: "no-store" });
     if (!response.ok) throw new Error("Web analytics projection unavailable");
     return parseWebAnalyticsText(await response.text());
+  }
+
+  // src/analytics/github-schema.mjs
+  var PUBLIC_GITHUB_ANALYTICS_SCHEMA_VERSION = "github-analytics-projection-v1";
+  var GITHUB_ANALYTICS_MAX_BYTES = 2 * 1024 * 1024;
+  var TOP_FIELDS3 = /* @__PURE__ */ new Set(["schemaVersion", "dataKind", "generatedAt", "subject", "source", "versions", "coverage", "portfolio", "repositories"]);
+  var SUBJECT_FIELDS2 = /* @__PURE__ */ new Set(["id", "label", "domain"]);
+  var SOURCE_FIELDS3 = /* @__PURE__ */ new Set(["authority", "fidelity"]);
+  var VERSION_FIELDS2 = /* @__PURE__ */ new Set(["archiveSchema", "compiler"]);
+  var COVERAGE_FIELDS2 = /* @__PURE__ */ new Set(["collectionStartedAt", "trafficStart", "observedThrough", "acceptedObservations", "inputSha256s"]);
+  var PORTFOLIO_FIELDS = /* @__PURE__ */ new Set(["retainedTotals", "repositoriesReporting"]);
+  var TOTAL_FIELDS2 = /* @__PURE__ */ new Set(["views", "clones"]);
+  var REPOSITORY_FIELDS = /* @__PURE__ */ new Set(["id", "name", "owner", "fullName", "htmlUrl", "archived", "stars", "forks", "subscribers", "pushedAt", "latestRelease", "coverage", "retainedTotals", "daily", "latestWindow"]);
+  var REPOSITORY_COVERAGE_FIELDS = /* @__PURE__ */ new Set(["firstTrafficDate", "lastTrafficDate", "observedDates", "missingViewDates", "missingCloneDates"]);
+  var DAILY_FIELDS2 = /* @__PURE__ */ new Set(["date", "finality", "views", "clones"]);
+  var DAILY_METRIC_FIELDS = /* @__PURE__ */ new Set(["state", "count", "uniques"]);
+  var WINDOW_FIELDS2 = /* @__PURE__ */ new Set(["observedAt", "windowStart", "windowEnd", "views", "clones", "referrers", "paths"]);
+  var WINDOW_METRIC_FIELDS = /* @__PURE__ */ new Set(["count", "uniques"]);
+  var REFERRER_FIELDS = /* @__PURE__ */ new Set(["referrer", "count", "uniques"]);
+  var PATH_FIELDS = /* @__PURE__ */ new Set(["path", "title", "count", "uniques"]);
+  var RELEASE_FIELDS = /* @__PURE__ */ new Set(["tagName", "publishedAt", "htmlUrl"]);
+  function assertPlainObject3(value, name) {
+    if (!value || Array.isArray(value) || typeof value !== "object") throw new TypeError(`${name} must be an object`);
+    return value;
+  }
+  function assertAllowedKeys3(value, allowed, name) {
+    assertPlainObject3(value, name);
+    for (const key of Object.keys(value)) if (!allowed.has(key)) throw new TypeError(`${name} has unknown field: ${key}`);
+    if (Object.keys(value).length !== allowed.size) throw new TypeError(`${name} must contain the exact field contract`);
+  }
+  function assertString4(value, name, { max = 2048, pattern = null } = {}) {
+    if (typeof value !== "string" || !value.trim() || value.length > max) throw new TypeError(`${name} must be a bounded non-empty string`);
+    if (pattern && !pattern.test(value)) throw new TypeError(`${name} has an invalid format`);
+    return value;
+  }
+  function assertTimestamp4(value, name) {
+    if (typeof value !== "string" || Number.isNaN(Date.parse(value)) || new Date(value).toISOString() !== value) throw new TypeError(`${name} must be a canonical UTC ISO timestamp`);
+    return value;
+  }
+  function assertDate2(value, name) {
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new TypeError(`${name} must be YYYY-MM-DD`);
+    const parsed = /* @__PURE__ */ new Date(`${value}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) throw new TypeError(`${name} must be a real UTC date`);
+    return value;
+  }
+  function addDays2(value, amount) {
+    const date = /* @__PURE__ */ new Date(`${value}T00:00:00.000Z`);
+    date.setUTCDate(date.getUTCDate() + amount);
+    return date.toISOString().slice(0, 10);
+  }
+  function assertInteger2(value, name) {
+    if (!Number.isSafeInteger(value) || value < 0) throw new TypeError(`${name} must be a non-negative safe integer`);
+    return value;
+  }
+  function assertCountPair(value, name) {
+    assertAllowedKeys3(value, WINDOW_METRIC_FIELDS, name);
+    const count = assertInteger2(value.count, `${name}.count`);
+    const uniques = assertInteger2(value.uniques, `${name}.uniques`);
+    if (uniques > count) throw new TypeError(`${name}.uniques cannot exceed count`);
+    return { count, uniques };
+  }
+  function projectDailyMetric(value, name) {
+    assertAllowedKeys3(value, DAILY_METRIC_FIELDS, name);
+    if (!["present", "missing"].includes(value.state)) throw new TypeError(`${name}.state is unsupported`);
+    if (value.state === "missing") {
+      if (value.count !== null || value.uniques !== null) throw new TypeError(`${name} missing metrics must use null values`);
+      return { state: "missing", count: null, uniques: null };
+    }
+    const count = assertInteger2(value.count, `${name}.count`);
+    const uniques = assertInteger2(value.uniques, `${name}.uniques`);
+    if (uniques > count) throw new TypeError(`${name}.uniques cannot exceed count`);
+    return { state: "present", count, uniques };
+  }
+  function projectLatestRelease(value, name) {
+    if (value === null) return null;
+    assertAllowedKeys3(value, RELEASE_FIELDS, name);
+    return {
+      tagName: assertString4(value.tagName, `${name}.tagName`, { max: 255 }),
+      publishedAt: assertTimestamp4(value.publishedAt, `${name}.publishedAt`),
+      htmlUrl: assertString4(value.htmlUrl, `${name}.htmlUrl`, { max: 512, pattern: /^https:\/\/github\.com\// })
+    };
+  }
+  function projectLatestWindow(value, name) {
+    assertAllowedKeys3(value, WINDOW_FIELDS2, name);
+    const observedAt = assertTimestamp4(value.observedAt, `${name}.observedAt`);
+    const windowStart = assertDate2(value.windowStart, `${name}.windowStart`);
+    const windowEnd = assertDate2(value.windowEnd, `${name}.windowEnd`);
+    if (windowEnd !== observedAt.slice(0, 10) || addDays2(windowStart, 13) !== windowEnd) throw new TypeError(`${name} must describe the exact 14-day observation window`);
+    if (!Array.isArray(value.referrers) || value.referrers.length > 10) throw new TypeError(`${name}.referrers must be one bounded provider window`);
+    if (!Array.isArray(value.paths) || value.paths.length > 10) throw new TypeError(`${name}.paths must be one bounded provider window`);
+    const referrers = value.referrers.map((row, index) => {
+      assertAllowedKeys3(row, REFERRER_FIELDS, `${name}.referrers[${index}]`);
+      const count = assertInteger2(row.count, "referrer.count");
+      const uniques = assertInteger2(row.uniques, "referrer.uniques");
+      if (uniques > count) throw new TypeError("referrer uniques cannot exceed count");
+      return { referrer: assertString4(row.referrer, "referrer.referrer", { max: 512 }), count, uniques };
+    });
+    const paths = value.paths.map((row, index) => {
+      assertAllowedKeys3(row, PATH_FIELDS, `${name}.paths[${index}]`);
+      const count = assertInteger2(row.count, "path.count");
+      const uniques = assertInteger2(row.uniques, "path.uniques");
+      if (uniques > count) throw new TypeError("path uniques cannot exceed count");
+      return { path: assertString4(row.path, "path.path", { max: 1024, pattern: /^\// }), title: assertString4(row.title, "path.title", { max: 512 }), count, uniques };
+    });
+    return { observedAt, windowStart, windowEnd, views: assertCountPair(value.views, `${name}.views`), clones: assertCountPair(value.clones, `${name}.clones`), referrers, paths };
+  }
+  function projectRepository(value, index, generatedAt) {
+    const name = `repositories[${index}]`;
+    assertAllowedKeys3(value, REPOSITORY_FIELDS, name);
+    const id = assertInteger2(value.id, `${name}.id`);
+    if (id === 0) throw new TypeError(`${name}.id must be a positive GitHub numeric repository ID`);
+    const repositoryName = assertString4(value.name, `${name}.name`, { max: 100, pattern: /^[A-Za-z0-9_.-]+$/ });
+    const owner = assertString4(value.owner, `${name}.owner`, { max: 39, pattern: /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/ });
+    const fullName = assertString4(value.fullName, `${name}.fullName`, { max: 140 });
+    if (fullName !== `${owner}/${repositoryName}`) throw new TypeError(`${name}.fullName must match owner/name`);
+    const htmlUrl = assertString4(value.htmlUrl, `${name}.htmlUrl`, { max: 512 });
+    if (htmlUrl !== `https://github.com/${fullName}`) throw new TypeError(`${name}.htmlUrl must be the canonical GitHub repository URL`);
+    if (typeof value.archived !== "boolean") throw new TypeError(`${name}.archived must be boolean`);
+    const pushedAt = assertTimestamp4(value.pushedAt, `${name}.pushedAt`);
+    assertAllowedKeys3(value.coverage, REPOSITORY_COVERAGE_FIELDS, `${name}.coverage`);
+    const observedDates = assertInteger2(value.coverage.observedDates, `${name}.coverage.observedDates`);
+    let firstTrafficDate = value.coverage.firstTrafficDate;
+    let lastTrafficDate = value.coverage.lastTrafficDate;
+    if (observedDates === 0) {
+      if (firstTrafficDate !== null || lastTrafficDate !== null) throw new TypeError(`${name}.coverage empty dates must be null`);
+    } else {
+      firstTrafficDate = assertDate2(firstTrafficDate, `${name}.coverage.firstTrafficDate`);
+      lastTrafficDate = assertDate2(lastTrafficDate, `${name}.coverage.lastTrafficDate`);
+    }
+    if (!Array.isArray(value.daily) || value.daily.length !== observedDates) throw new TypeError(`${name}.daily must match coverage`);
+    const daily = value.daily.map((row, dayIndex) => {
+      assertAllowedKeys3(row, DAILY_FIELDS2, `${name}.daily[${dayIndex}]`);
+      const date = assertDate2(row.date, `${name}.daily[${dayIndex}].date`);
+      if (dayIndex && date !== addDays2(value.daily[dayIndex - 1].date, 1)) throw new TypeError(`${name}.daily dates must be contiguous`);
+      const expectedFinality = addDays2(date, 14) <= generatedAt.slice(0, 10) ? "historical" : "provisional";
+      if (row.finality !== expectedFinality) throw new TypeError(`${name}.daily finality is inconsistent with the rolling window`);
+      return { date, finality: row.finality, views: projectDailyMetric(row.views, `${name}.daily[${dayIndex}].views`), clones: projectDailyMetric(row.clones, `${name}.daily[${dayIndex}].clones`) };
+    });
+    if (observedDates && (daily[0].date !== firstTrafficDate || daily.at(-1).date !== lastTrafficDate)) throw new TypeError(`${name}.coverage dates must match daily rows`);
+    const missingViewDates = daily.filter((row) => row.views.state === "missing").length;
+    const missingCloneDates = daily.filter((row) => row.clones.state === "missing").length;
+    if (value.coverage.missingViewDates !== missingViewDates || value.coverage.missingCloneDates !== missingCloneDates) throw new TypeError(`${name}.coverage missing counts must match daily rows`);
+    assertAllowedKeys3(value.retainedTotals, TOTAL_FIELDS2, `${name}.retainedTotals`);
+    const retainedTotals = { views: assertInteger2(value.retainedTotals.views, `${name}.retainedTotals.views`), clones: assertInteger2(value.retainedTotals.clones, `${name}.retainedTotals.clones`) };
+    if (daily.reduce((sum, row) => sum + (row.views.count ?? 0), 0) !== retainedTotals.views || daily.reduce((sum, row) => sum + (row.clones.count ?? 0), 0) !== retainedTotals.clones) throw new TypeError(`${name}.retainedTotals must reconcile to additive daily counts`);
+    return {
+      id,
+      name: repositoryName,
+      owner,
+      fullName,
+      htmlUrl,
+      archived: value.archived,
+      stars: assertInteger2(value.stars, `${name}.stars`),
+      forks: assertInteger2(value.forks, `${name}.forks`),
+      subscribers: assertInteger2(value.subscribers, `${name}.subscribers`),
+      pushedAt,
+      latestRelease: projectLatestRelease(value.latestRelease, `${name}.latestRelease`),
+      coverage: { firstTrafficDate, lastTrafficDate, observedDates, missingViewDates, missingCloneDates },
+      retainedTotals,
+      daily,
+      latestWindow: projectLatestWindow(value.latestWindow, `${name}.latestWindow`)
+    };
+  }
+  function projectGitHubAnalyticsProjection(value) {
+    assertAllowedKeys3(value, TOP_FIELDS3, "projection");
+    if (value.schemaVersion !== PUBLIC_GITHUB_ANALYTICS_SCHEMA_VERSION) throw new TypeError("projection schema version is unsupported");
+    if (value.dataKind !== "real") throw new TypeError("GitHub analytics projections must be real retained observations");
+    const generatedAt = assertTimestamp4(value.generatedAt, "generatedAt");
+    assertAllowedKeys3(value.subject, SUBJECT_FIELDS2, "subject");
+    if (value.subject.id !== "github-portfolio" || value.subject.label !== "GitHub Portfolio" || value.subject.domain !== "code") throw new TypeError("subject identity is not canonical");
+    assertAllowedKeys3(value.source, SOURCE_FIELDS3, "source");
+    if (value.source.authority !== "GitHub REST repository traffic metrics" || value.source.fidelity !== "rolling_14_day_aggregate_observations") throw new TypeError("source metadata is not canonical");
+    assertAllowedKeys3(value.versions, VERSION_FIELDS2, "versions");
+    if (value.versions.archiveSchema !== 1 || value.versions.compiler !== "1.0.0") throw new TypeError("projection versions are incompatible");
+    assertAllowedKeys3(value.coverage, COVERAGE_FIELDS2, "coverage");
+    const collectionStartedAt = assertTimestamp4(value.coverage.collectionStartedAt, "coverage.collectionStartedAt");
+    if (collectionStartedAt > generatedAt) throw new TypeError("coverage collection start cannot follow generation");
+    const acceptedObservations = assertInteger2(value.coverage.acceptedObservations, "coverage.acceptedObservations");
+    if (!Array.isArray(value.coverage.inputSha256s) || value.coverage.inputSha256s.length !== acceptedObservations || value.coverage.inputSha256s.some((digest) => typeof digest !== "string" || !/^[0-9a-f]{64}$/.test(digest))) throw new TypeError("coverage.inputSha256s must match accepted observations");
+    let trafficStart = value.coverage.trafficStart;
+    let observedThrough = value.coverage.observedThrough;
+    if (trafficStart === null || observedThrough === null) {
+      if (trafficStart !== null || observedThrough !== null) throw new TypeError("coverage traffic dates must both be null or both be dates");
+    } else {
+      trafficStart = assertDate2(trafficStart, "coverage.trafficStart");
+      observedThrough = assertDate2(observedThrough, "coverage.observedThrough");
+      if (trafficStart > observedThrough) throw new TypeError("coverage traffic dates are inconsistent");
+    }
+    if (!Array.isArray(value.repositories) || value.repositories.length > 50) throw new TypeError("repositories must be a bounded array");
+    const repositories = value.repositories.map((repository, index) => projectRepository(repository, index, generatedAt));
+    if (new Set(repositories.map((repository) => repository.id)).size !== repositories.length) throw new TypeError("repository numeric IDs must be unique");
+    if (repositories.some((repository, index) => index && repositories[index - 1].id > repository.id)) throw new TypeError("repositories must be sorted by numeric ID");
+    const dates = repositories.flatMap((repository) => repository.daily.map((row) => row.date));
+    const derivedStart = dates.length ? [...dates].sort()[0] : null;
+    const derivedThrough = dates.length ? [...dates].sort().at(-1) : null;
+    if (trafficStart !== derivedStart || observedThrough !== derivedThrough) throw new TypeError("portfolio coverage dates must match repository rows");
+    assertAllowedKeys3(value.portfolio, PORTFOLIO_FIELDS, "portfolio");
+    assertAllowedKeys3(value.portfolio.retainedTotals, TOTAL_FIELDS2, "portfolio.retainedTotals");
+    const portfolio = {
+      retainedTotals: {
+        views: assertInteger2(value.portfolio.retainedTotals.views, "portfolio.retainedTotals.views"),
+        clones: assertInteger2(value.portfolio.retainedTotals.clones, "portfolio.retainedTotals.clones")
+      },
+      repositoriesReporting: assertInteger2(value.portfolio.repositoriesReporting, "portfolio.repositoriesReporting")
+    };
+    if (portfolio.repositoriesReporting !== repositories.length) throw new TypeError("portfolio repository count must match public rows");
+    if (portfolio.retainedTotals.views !== repositories.reduce((sum, repository) => sum + repository.retainedTotals.views, 0) || portfolio.retainedTotals.clones !== repositories.reduce((sum, repository) => sum + repository.retainedTotals.clones, 0)) throw new TypeError("portfolio additive totals must reconcile to repositories");
+    return {
+      schemaVersion: PUBLIC_GITHUB_ANALYTICS_SCHEMA_VERSION,
+      dataKind: "real",
+      generatedAt,
+      subject: { id: "github-portfolio", label: "GitHub Portfolio", domain: "code" },
+      source: { authority: value.source.authority, fidelity: value.source.fidelity },
+      versions: { archiveSchema: 1, compiler: "1.0.0" },
+      coverage: { collectionStartedAt, trafficStart, observedThrough, acceptedObservations, inputSha256s: [...value.coverage.inputSha256s] },
+      portfolio,
+      repositories
+    };
+  }
+  function parseGitHubAnalyticsText(text2) {
+    if (typeof text2 !== "string") throw new TypeError("GitHub analytics payload must be text");
+    if (new TextEncoder().encode(text2).byteLength > GITHUB_ANALYTICS_MAX_BYTES) throw new TypeError("GitHub analytics payload exceeds the public size limit");
+    let value;
+    try {
+      value = JSON.parse(text2);
+    } catch {
+      throw new TypeError("GitHub analytics payload is not valid JSON");
+    }
+    return projectGitHubAnalyticsProjection(value);
+  }
+
+  // src/analytics/github-client.mjs
+  function githubAnalyticsProjectionPath(subject) {
+    if (!subject || subject.id !== "github-portfolio" || typeof subject.projection !== "string") throw new TypeError("GitHub analytics source is not connected");
+    return subject.projection;
+  }
+  async function loadGitHubAnalyticsProjection(basePath = "/", subject) {
+    const base = new URL(basePath, window.location.origin);
+    const url = new URL(githubAnalyticsProjectionPath(subject), `${base.href.replace(/\/?$/, "/")}`);
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) throw new Error("GitHub analytics projection unavailable");
+    return parseGitHubAnalyticsText(await response.text());
   }
 
   // src/analytics/world-geometry-110m.mjs
@@ -1276,8 +1777,149 @@
     const maximum = Math.max(...observed.map((day) => day.requests), 1);
     return { maximum, ticks: [0, 0.25, 0.5, 0.75, 1].map((fraction) => maximum * fraction) };
   }
+  function projectGitHubPortfolioCards(projection) {
+    return [
+      { label: "Retained views", value: formatNumber(projection.portfolio.retainedTotals.views), note: "Additive repository views retained since collection began" },
+      { label: "Retained clones", value: formatNumber(projection.portfolio.retainedTotals.clones), note: "Additive full-clone events retained since collection began" },
+      { label: "Repositories reporting", value: formatNumber(projection.portfolio.repositoriesReporting), note: "Approved public repositories with validated observations" },
+      { label: "Retained coverage", value: projection.coverage.trafficStart ? `${projection.coverage.trafficStart} \u2192 ${projection.coverage.observedThrough}` : "No daily rows", note: `Collection began ${projection.coverage.collectionStartedAt.slice(0, 10)}` }
+    ];
+  }
+  function projectGitHubDailyRows(repository) {
+    const display = (metric, field) => metric.state === "missing" ? "\u2014" : formatNumber(metric[field]);
+    return repository.daily.map((row) => ({
+      date: row.date,
+      finality: row.finality,
+      views: display(row.views, "count"),
+      uniqueVisitors: display(row.views, "uniques"),
+      clones: display(row.clones, "count"),
+      uniqueCloners: display(row.clones, "uniques")
+    }));
+  }
+  var GITHUB_RANGE_DAYS = { "14d": 14, "30d": 30, "90d": 90 };
+  var GITHUB_RANGE_LABELS = { "14d": "14 days", "30d": "30 days", "90d": "90 days", all: "All retained" };
+  function addUtcDays(date, amount) {
+    const value = /* @__PURE__ */ new Date(`${date}T00:00:00.000Z`);
+    value.setUTCDate(value.getUTCDate() + amount);
+    return value.toISOString().slice(0, 10);
+  }
+  function utcDateRange(start, end) {
+    if (!start || !end || start > end) return [];
+    const dates = [];
+    for (let date = start; date <= end; date = addUtcDays(date, 1)) dates.push(date);
+    return dates;
+  }
+  function aggregateGitHubDay(repositories, date) {
+    const rows = repositories.map((repository) => repository.daily.find((row) => row.date === date));
+    const metric = (field) => {
+      const values = rows.map((row) => row?.[field]);
+      if (values.some((value) => !value || value.state === "missing")) return { state: "missing", count: null };
+      return { state: "present", count: values.reduce((sum, value) => sum + value.count, 0) };
+    };
+    return {
+      date,
+      finality: rows.length && rows.every((row) => row?.finality === "historical") ? "historical" : "provisional",
+      views: metric("views"),
+      clones: metric("clones")
+    };
+  }
+  function summarizeGitHubDays(daily) {
+    const completeViews = daily.every((row) => row.views.state === "present");
+    const completeClones = daily.every((row) => row.clones.state === "present");
+    return {
+      views: daily.reduce((sum, row) => sum + (row.views.count ?? 0), 0),
+      clones: daily.reduce((sum, row) => sum + (row.clones.count ?? 0), 0),
+      completeViews,
+      completeClones,
+      complete: completeViews && completeClones
+    };
+  }
+  function projectGitHubTrendModel(projection, { range = "14d", repositoryId = null, today = projection.generatedAt.slice(0, 10) } = {}) {
+    const lastCompleteUtcDate = addUtcDays(today, -1);
+    const retainedEnd = projection.coverage.observedThrough && projection.coverage.observedThrough < today ? projection.coverage.observedThrough : lastCompleteUtcDate;
+    const retainedStart = projection.coverage.trafficStart;
+    const retainedDates = utcDateRange(retainedStart, retainedEnd);
+    const rangeOptions = Object.entries(GITHUB_RANGE_LABELS).map(([id, label]) => {
+      if (id === "all") return { id, label, available: true, daysNeeded: 0, reason: "" };
+      const daysNeeded = Math.max(GITHUB_RANGE_DAYS[id] - retainedDates.length, 0);
+      const unlockDate = daysNeeded ? addUtcDays(retainedEnd, daysNeeded) : null;
+      return {
+        id,
+        label,
+        available: daysNeeded === 0,
+        daysNeeded,
+        reason: daysNeeded ? `Needs ${daysNeeded} more complete UTC day${daysNeeded === 1 ? "" : "s"}; earliest ${unlockDate}.` : ""
+      };
+    });
+    const requested = rangeOptions.find((option) => option.id === range);
+    const selectedRange = requested?.available ? requested.id : "all";
+    const selectedDays = GITHUB_RANGE_DAYS[selectedRange];
+    const startDate = selectedDays ? addUtcDays(retainedEnd, -(selectedDays - 1)) : retainedStart;
+    const dates = utcDateRange(startDate, retainedEnd);
+    const selectedRepository = projection.repositories.find((repository) => repository.id === Number(repositoryId));
+    const scopeRepositories = selectedRepository ? [selectedRepository] : projection.repositories;
+    const daily = dates.map((date) => aggregateGitHubDay(scopeRepositories, date));
+    const totals = summarizeGitHubDays(daily);
+    const portfolioTotals = summarizeGitHubDays(dates.map((date) => aggregateGitHubDay(projection.repositories, date)));
+    const repositories = projection.repositories.map((repository) => {
+      const repositoryDaily = dates.map((date) => aggregateGitHubDay([repository], date));
+      const repositoryTotals = summarizeGitHubDays(repositoryDaily);
+      return {
+        id: repository.id,
+        name: repository.name,
+        views: repositoryTotals.views,
+        clones: repositoryTotals.clones,
+        complete: repositoryTotals.complete,
+        viewShare: portfolioTotals.completeViews && repositoryTotals.completeViews && portfolioTotals.views > 0 ? repositoryTotals.views / portfolioTotals.views : null
+      };
+    }).sort((left, right) => right.views - left.views || left.name.localeCompare(right.name));
+    let comparison = { available: false, reason: selectedRange === "all" ? "Choose a fixed range for a prior-period comparison." : "Not enough retained history for an equal prior period." };
+    if (selectedDays) {
+      const previousDates = utcDateRange(addUtcDays(startDate, -selectedDays), addUtcDays(startDate, -1));
+      if (previousDates.length === selectedDays && previousDates[0] >= retainedStart) {
+        const previousDaily = previousDates.map((date) => aggregateGitHubDay(scopeRepositories, date));
+        const previous = summarizeGitHubDays(previousDaily);
+        if (totals.complete && previous.complete) {
+          const change = (currentValue, priorValue) => ({
+            absolute: currentValue - priorValue,
+            percent: priorValue > 0 ? (currentValue - priorValue) / priorValue : null
+          });
+          comparison = {
+            available: true,
+            current: { views: totals.views, clones: totals.clones },
+            prior: { views: previous.views, clones: previous.clones },
+            change: { views: change(totals.views, previous.views), clones: change(totals.clones, previous.clones) },
+            priorStartDate: previousDates[0],
+            priorEndDate: previousDates.at(-1)
+          };
+        } else {
+          comparison = { available: false, reason: "A comparison window contains a retained gap." };
+        }
+      } else {
+        const daysNeeded = Math.max(selectedDays * 2 - retainedDates.length, 0);
+        comparison = {
+          available: false,
+          daysNeeded,
+          readyDate: daysNeeded ? addUtcDays(retainedEnd, daysNeeded) : retainedEnd,
+          reason: daysNeeded ? `Needs ${daysNeeded} more complete UTC day${daysNeeded === 1 ? "" : "s"}; earliest comparison ${addUtcDays(retainedEnd, daysNeeded)}.` : "Not enough retained history for an equal prior period."
+        };
+      }
+    }
+    return {
+      selectedRange,
+      rangeOptions,
+      startDate,
+      endDate: retainedEnd,
+      scope: selectedRepository ? { id: selectedRepository.id, name: selectedRepository.name } : { id: null, name: "Portfolio" },
+      daily,
+      totals,
+      repositories,
+      comparison
+    };
+  }
   function createAnalyticsView({ React, h, useEffect, useState, Badge, StatusBadge, SectionHeading, ProviderUsage, edition: edition2 }) {
     const webSubjects = edition2.analytics.web;
+    const githubSubject = edition2.analytics.github;
     const providerSubject = edition2.analytics.providerUsage;
     const { useSortableRows, SortableHeader } = createSortingSupport({ React, useState });
     function SourceCard({ eyebrow, title, status, description, action, onClick }) {
@@ -1320,8 +1962,21 @@
         ),
         h(
           "section",
+          { className: "acc-analytics-domain", "aria-labelledby": "acc-domain-code" },
+          h("div", { className: "acc-analytics-domain__head" }, h("div", null, h("p", { className: "acc-eyebrow" }, "Domain 02"), h("h2", { id: "acc-domain-code" }, "Code & repositories")), h(Badge, { tone: githubSubject ? "good" : "warn" }, githubSubject ? "1 connected" : "Not connected")),
+          githubSubject ? h("div", { className: "acc-analytics-source-grid" }, h(SourceCard, {
+            eyebrow: "Retained rolling observations",
+            title: githubSubject.label,
+            status: "available",
+            description: githubSubject.description,
+            action: `Open ${githubSubject.label}`,
+            onClick: () => go({ view: "analytics", domain: "code", subject: githubSubject.id })
+          })) : h("p", { className: "acc-provider-empty" }, "No repository analytics projection is connected in this edition.")
+        ),
+        h(
+          "section",
           { className: "acc-analytics-domain", "aria-labelledby": "acc-domain-ai" },
-          h("div", { className: "acc-analytics-domain__head" }, h("div", null, h("p", { className: "acc-eyebrow" }, "Domain 02"), h("h2", { id: "acc-domain-ai" }, "AI services")), h(Badge, { tone: providerCount ? "good" : "warn" }, `${providerCount} reporting`)),
+          h("div", { className: "acc-analytics-domain__head" }, h("div", null, h("p", { className: "acc-eyebrow" }, "Domain 03"), h("h2", { id: "acc-domain-ai" }, "AI services")), h(Badge, { tone: providerCount ? "good" : "warn" }, `${providerCount} reporting`)),
           h(
             "div",
             { className: "acc-analytics-source-grid" },
@@ -1331,7 +1986,7 @@
         h(
           "section",
           { className: "acc-analytics-domain", "aria-labelledby": "acc-domain-products" },
-          h("div", { className: "acc-analytics-domain__head" }, h("div", null, h("p", { className: "acc-eyebrow" }, "Domain 03"), h("h2", { id: "acc-domain-products" }, "Products & agents")), h(Badge, { tone: "warn" }, "Not connected")),
+          h("div", { className: "acc-analytics-domain__head" }, h("div", null, h("p", { className: "acc-eyebrow" }, "Domain 04"), h("h2", { id: "acc-domain-products" }, "Products & agents")), h(Badge, { tone: "warn" }, "Not connected")),
           h("p", { className: "acc-provider-empty" }, "No product or agent analytics projection is connected in this edition.")
         )
       );
@@ -1614,6 +2269,290 @@
         h(MissingPeriods, { projection, range })
       );
     }
+    function GitHubTopList({ eyebrow, title, rows, labelFor, empty }) {
+      const maximum = Math.max(...rows.map((row) => row.count), 1);
+      return h(
+        "section",
+        { className: "acc-analytics-panel" },
+        h("div", { className: "acc-analytics-panel__head" }, h("div", null, h("p", { className: "acc-eyebrow" }, eyebrow), h("h2", null, title)), h("small", null, `${rows.length} from one provider window`)),
+        rows.length ? h("ol", { className: "acc-analytics-bars" }, rows.map((row) => {
+          const label = labelFor(row);
+          return h(
+            "li",
+            { key: label },
+            h("div", null, h("span", { title: label }, label), h("strong", null, `${formatNumber(row.count)} \xB7 ${formatNumber(row.uniques)} unique`)),
+            h("span", { className: "acc-analytics-bar", role: "img", "aria-label": `${label}: ${formatNumber(row.count)} views in this repository window` }, h("i", { style: { width: `${row.count / maximum * 100}%` } }))
+          );
+        })) : h("p", { className: "acc-provider-empty" }, empty)
+      );
+    }
+    function GitHubTrendChart({ trend, metric, title }) {
+      const width = 720;
+      const height = 220;
+      const leftInset = 58;
+      const rightInset = 22;
+      const topInset = 20;
+      const bottomInset = 30;
+      const observed = trend.daily.filter((row) => row[metric].state === "present");
+      const maximum = Math.max(...observed.map((row) => row[metric].count), 1);
+      const slot = (width - leftInset - rightInset) / Math.max(trend.daily.length, 1);
+      const barWidth = Math.max(Math.min(slot * 0.62, 28), 3);
+      const xFor = (index) => leftInset + index * slot + (slot - barWidth) / 2;
+      const yFor = (value) => height - bottomInset - value / maximum * (height - topInset - bottomInset);
+      const gaps = trend.daily.filter((row) => row[metric].state === "missing").length;
+      const metricLabel = metric === "clones" ? "full clones" : "views";
+      const ticks = [0, maximum / 2, maximum];
+      return h(
+        "section",
+        { className: "acc-analytics-panel acc-github-trend-panel", "aria-labelledby": `acc-github-${metric}-trend-title` },
+        h(
+          "div",
+          { className: "acc-analytics-panel__head" },
+          h("div", null, h("p", { className: "acc-eyebrow" }, `${trend.scope.name} \xB7 complete UTC days`), h("h2", { id: `acc-github-${metric}-trend-title` }, title)),
+          h("small", null, gaps ? `${gaps} retained gap${gaps === 1 ? "" : "s"}` : "No retained gaps")
+        ),
+        h("div", { className: "acc-github-chart-frame" }, h(
+          "svg",
+          {
+            className: "acc-github-trend-chart",
+            viewBox: `0 0 ${width} ${height}`,
+            role: "img",
+            "data-github-trend": metric,
+            "aria-label": `${trend.scope.name} daily ${metricLabel} from ${trend.startDate} through ${trend.endDate}. Missing values are shown as gaps, never zero.`
+          },
+          ticks.map((value, index) => h(
+            "g",
+            { key: index },
+            h("line", { x1: leftInset, x2: width - rightInset, y1: yFor(value), y2: yFor(value), className: "acc-traffic-gridline" }),
+            h("text", { x: leftInset - 8, y: yFor(value) + 4, textAnchor: "end", className: "acc-traffic-tick" }, formatChartNumber(value))
+          )),
+          trend.daily.map((row, index) => row[metric].state === "present" ? h("rect", {
+            key: row.date,
+            x: xFor(index),
+            y: yFor(row[metric].count),
+            width: barWidth,
+            height: Math.max(height - bottomInset - yFor(row[metric].count), 1),
+            className: `acc-github-trend-bar${row.finality === "provisional" ? " is-provisional" : ""}`
+          }, h("title", null, `${row.date}: ${formatNumber(row[metric].count)} ${metricLabel} \xB7 ${row.finality}`)) : h("line", {
+            key: row.date,
+            x1: xFor(index) + barWidth / 2,
+            x2: xFor(index) + barWidth / 2,
+            y1: topInset,
+            y2: height - bottomInset,
+            className: "acc-github-trend-gap"
+          }, h("title", null, `${row.date}: unavailable, not zero`)))
+        )),
+        h("div", { className: "acc-traffic-axis" }, h("span", null, trend.startDate), h("span", null, trend.endDate)),
+        h("p", { className: "acc-github-chart-note" }, "Solid bars are historical. Translucent outlined bars remain provisional while GitHub can revise the rolling provider window.")
+      );
+    }
+    function GitHubTrendOverview({ trend, route, go }) {
+      const goRange = (range) => {
+        const next = { view: "analytics", domain: "code", subject: "github-portfolio", range };
+        if (route.repository) next.repository = route.repository;
+        go(next);
+      };
+      const changeLabel = (change) => {
+        const sign = change.absolute > 0 ? "+" : "";
+        const percent = change.percent == null ? "from a zero prior value" : `${change.percent > 0 ? "+" : ""}${formatPercent(change.percent)}`;
+        return `${sign}${formatNumber(change.absolute)} (${percent})`;
+      };
+      const answer = trend.comparison.available ? `${trend.scope.name} recorded ${formatNumber(trend.totals.views)} views (${changeLabel(trend.comparison.change.views)}) and ${formatNumber(trend.totals.clones)} full clones (${changeLabel(trend.comparison.change.clones)}) versus ${trend.comparison.priorStartDate} \u2192 ${trend.comparison.priorEndDate}. This is attention correlation, not campaign attribution.` : `Building comparable history for ${trend.scope.name}. ${trend.comparison.reason}`;
+      const displayTotal = (metric) => trend.totals[`complete${metric === "views" ? "Views" : "Clones"}`] ? formatNumber(trend.totals[metric]) : `\u2265 ${formatNumber(trend.totals[metric])}`;
+      return h(
+        "section",
+        { className: "acc-github-trends", "aria-labelledby": "acc-github-trends-title" },
+        h(
+          "div",
+          { className: "acc-github-answer", role: "status" },
+          h("div", null, h("p", { className: "acc-eyebrow" }, "Promotion attention pulse"), h("h2", { id: "acc-github-trends-title" }, "Repository attention over time")),
+          h("p", null, answer)
+        ),
+        h(
+          "div",
+          { className: "acc-analytics-toolbar acc-github-range-toolbar" },
+          h("div", { className: "acc-metric-tabs", role: "group", "aria-label": "GitHub analytics date range" }, trend.rangeOptions.map((option) => h("button", {
+            key: option.id,
+            type: "button",
+            className: `acc-tab-button${trend.selectedRange === option.id ? " is-active" : ""}`,
+            "aria-pressed": trend.selectedRange === option.id,
+            disabled: !option.available,
+            title: option.reason || option.label,
+            onClick: () => goRange(option.id)
+          }, option.label))),
+          h("p", { className: "acc-github-range-note" }, trend.rangeOptions.filter((option) => !option.available).map((option) => `${option.label}: ${option.reason}`).join(" "))
+        ),
+        h(
+          "section",
+          { className: "acc-analytics-summary", "aria-label": "Selected GitHub trend summary" },
+          h("article", { className: "acc-analytics-metric" }, h("span", null, "Views in range"), h("strong", null, displayTotal("views")), h("small", null, trend.totals.completeViews ? `${trend.startDate} \u2192 ${trend.endDate}` : "Partial: retained gaps excluded, not zero-filled")),
+          h("article", { className: "acc-analytics-metric" }, h("span", null, "Full clones in range"), h("strong", null, displayTotal("clones")), h("small", null, trend.totals.completeClones ? "Full-clone events; fetches are not included" : "Partial: retained gaps excluded, not zero-filled")),
+          h("article", { className: "acc-analytics-metric" }, h("span", null, "Trend scope"), h("strong", null, trend.scope.name), h("small", null, trend.scope.id == null ? "Additive approved public repository portfolio" : `Repository ID ${trend.scope.id}`)),
+          h("article", { className: "acc-analytics-metric" }, h("span", null, "Prior-period change"), h("strong", null, trend.comparison.available ? "Comparable" : "Building history"), h("small", null, trend.comparison.available ? "Equal complete UTC windows with no retained gaps" : trend.comparison.reason))
+        ),
+        h(
+          "div",
+          { className: "acc-github-trend-grid" },
+          h(GitHubTrendChart, { trend, metric: "views", title: "Daily views" }),
+          h(GitHubTrendChart, { trend, metric: "clones", title: "Daily full clones" })
+        ),
+        h(
+          "details",
+          { className: "acc-analytics-daily acc-github-trend-values" },
+          h("summary", null, "Exact selected-range values and gap states"),
+          h("div", { className: "acc-analytics-daily-table" }, h(
+            "table",
+            { "aria-label": `${trend.scope.name} exact GitHub trend values` },
+            h("thead", null, h("tr", null, h("th", null, "UTC date"), h("th", null, "Revision state"), h("th", null, "Views"), h("th", null, "Full clones"))),
+            h("tbody", null, [...trend.daily].reverse().map((row) => h(
+              "tr",
+              { key: row.date },
+              h("th", { scope: "row" }, row.date),
+              h("td", null, row.finality),
+              h("td", null, row.views.state === "present" ? formatNumber(row.views.count) : "\u2014"),
+              h("td", null, row.clones.state === "present" ? formatNumber(row.clones.count) : "\u2014")
+            )))
+          ))
+        ),
+        h(
+          "section",
+          { className: "acc-analytics-panel" },
+          h("div", { className: "acc-analytics-panel__head" }, h("div", null, h("p", { className: "acc-eyebrow" }, "Selected-range portfolio drivers"), h("h2", null, "Repositories")), h("small", null, "Views and full clones are additive; audience uniques are not ranked here")),
+          h(
+            "div",
+            { className: "acc-github-repository-grid" },
+            h("button", {
+              type: "button",
+              className: `acc-github-repository${trend.scope.id == null ? " is-active" : ""}`,
+              "aria-pressed": trend.scope.id == null,
+              onClick: () => go({ view: "analytics", domain: "code", subject: "github-portfolio", range: trend.selectedRange })
+            }, h("strong", null, "Portfolio total"), h("span", null, `${formatNumber(trend.repositories.length)} approved public repositories`), h("small", null, "Use the additive portfolio trend")),
+            trend.repositories.map((row) => h("button", {
+              key: row.id,
+              type: "button",
+              className: `acc-github-repository${trend.scope.id === row.id ? " is-active" : ""}`,
+              "aria-pressed": trend.scope.id === row.id,
+              onClick: () => go({ view: "analytics", domain: "code", subject: "github-portfolio", repository: String(row.id), range: trend.selectedRange })
+            }, h("strong", null, row.name), h("span", null, `${row.complete ? "" : "\u2265 "}${formatNumber(row.views)} views \xB7 ${row.complete ? "" : "\u2265 "}${formatNumber(row.clones)} full clones`), h("small", null, row.viewShare == null ? "Share unavailable while the portfolio has a retained gap" : `${formatPercent(row.viewShare)} of portfolio views in this range`)))
+          )
+        )
+      );
+    }
+    function GitHubPortfolioAnalytics({ route, go }) {
+      const [loadState, setLoadState] = useState({ status: "loading", projection: null });
+      useEffect(() => {
+        let active2 = true;
+        setLoadState({ status: "loading", projection: null });
+        loadGitHubAnalyticsProjection(window.__ACC_BASE_PATH__ || "/dashboard-plugins/autobot-command-center/dist", githubSubject).then(
+          (projection2) => {
+            if (active2) setLoadState({ status: "ready", projection: projection2 });
+          },
+          () => {
+            if (active2) setLoadState({ status: "unavailable", projection: null });
+          }
+        );
+        return () => {
+          active2 = false;
+        };
+      }, []);
+      if (loadState.status === "loading") return h("div", { className: "acc-view" }, h("p", { className: "acc-search-status", role: "status" }, "Loading validated GitHub observations\u2026"));
+      if (loadState.status === "unavailable") return h(
+        "div",
+        { className: "acc-view" },
+        h("button", { type: "button", className: "acc-back", onClick: () => go({ view: "analytics" }) }, "\u2190 Analytics"),
+        h("section", { className: "acc-boundary", role: "status" }, h("h2", null, "GitHub Portfolio analytics unavailable"), h("p", null, "No validated GitHub projection was loaded. The dashboard does not substitute zeros, fixtures, or repository inventory."))
+      );
+      const projection = loadState.projection;
+      const requestedId = Number(route.repository);
+      const repository = projection.repositories.find((row) => row.id === requestedId) || projection.repositories[0];
+      const trend = projectGitHubTrendModel(projection, { range: route.range || "14d", repositoryId: route.repository });
+      const daily = projectGitHubDailyRows(repository);
+      const freshness = Date.now() - Date.parse(projection.generatedAt) <= 36 * 60 * 60 * 1e3 ? "available" : "stale";
+      return h(
+        "div",
+        { className: "acc-view acc-analytics" },
+        h("button", { type: "button", className: "acc-back", onClick: () => go({ view: "analytics" }) }, "\u2190 Analytics"),
+        h(
+          "section",
+          { className: "acc-analytics-hero" },
+          h(
+            "div",
+            null,
+            h("p", { className: "acc-eyebrow" }, "Analytics / Code & repositories"),
+            h("h2", null, "GitHub Portfolio"),
+            h("p", { className: "acc-lede" }, "Prospective retention of GitHub\u2019s rolling, revisable 14-day repository traffic observations. Website and demo traffic remains in the separate Cloudflare lane.")
+          ),
+          h(StatusBadge, { state: freshness })
+        ),
+        h(
+          "section",
+          { className: "acc-analytics-trust", "aria-label": "GitHub analytics source coverage" },
+          h("div", null, h("span", null, "Source state"), h(StatusBadge, { state: freshness }), h("small", null, "Checksum-verified immutable observations")),
+          h("div", null, h("span", null, "Collection began"), h("strong", null, projection.coverage.collectionStartedAt.slice(0, 10)), h("small", null, "Earlier traffic outside GitHub\u2019s first retained window is unavailable")),
+          h("div", null, h("span", null, "Retained traffic dates"), h("strong", null, projection.coverage.trafficStart ? `${projection.coverage.trafficStart} \u2192 ${projection.coverage.observedThrough}` : "No daily rows"), h("small", null, "Recent dates remain provisional while GitHub can revise them")),
+          h("div", null, h("span", null, "Authority"), h("strong", null, "GitHub REST traffic metrics"), h("small", null, "Repository traffic only \xB7 not GitHub Pages/demo traffic"))
+        ),
+        h(GitHubTrendOverview, { trend, route, go }),
+        h("section", { className: "acc-analytics-summary", "aria-label": "GitHub Portfolio retained summary" }, projectGitHubPortfolioCards(projection).map(
+          (card) => h("article", { key: card.label, className: "acc-analytics-metric" }, h("span", null, card.label), h("strong", null, card.value), h("small", null, card.note))
+        )),
+        h(
+          "section",
+          { className: "acc-analytics-panel acc-github-caveat", role: "note" },
+          h("strong", null, "Audience boundary"),
+          h("p", null, "Unique visitors and unique cloners are shown only for one repository\u2019s latest 14-day GitHub window. They overlap across repositories and dates, so ACC never creates a portfolio-wide unique audience total. Traffic may include Alex, automation, and repeat activity.")
+        ),
+        h(
+          "section",
+          { className: "acc-analytics-panel" },
+          h(
+            "div",
+            { className: "acc-analytics-panel__head" },
+            h("div", null, h("p", { className: "acc-eyebrow" }, `Repository ID ${repository.id}`), h("h2", null, h("a", { href: repository.htmlUrl, target: "_blank", rel: "noreferrer" }, repository.fullName))),
+            h("small", null, `Observed ${repository.latestWindow.observedAt}`)
+          ),
+          h(
+            "div",
+            { className: "acc-analytics-summary acc-github-window-summary" },
+            h("article", { className: "acc-analytics-metric" }, h("span", null, "14-day views"), h("strong", null, formatNumber(repository.latestWindow.views.count)), h("small", null, `${formatNumber(repository.latestWindow.views.uniques)} repository-window unique visitors`)),
+            h("article", { className: "acc-analytics-metric" }, h("span", null, "14-day clones"), h("strong", null, formatNumber(repository.latestWindow.clones.count)), h("small", null, `${formatNumber(repository.latestWindow.clones.uniques)} repository-window unique cloners`)),
+            h("article", { className: "acc-analytics-metric" }, h("span", null, "Stars"), h("strong", null, formatNumber(repository.stars)), h("small", null, `${formatNumber(repository.forks)} forks`)),
+            h("article", { className: "acc-analytics-metric" }, h("span", null, "Subscribers"), h("strong", null, formatNumber(repository.subscribers)), h("small", null, "GitHub repository subscribers \xB7 not watchers/stars"))
+          ),
+          h("p", { className: "acc-github-window-note" }, `Exact provider window ${repository.latestWindow.windowStart} \u2192 ${repository.latestWindow.windowEnd}. Top referrers and paths below are this one snapshot only and are never merged into portfolio rankings.`),
+          h(
+            "details",
+            { className: "acc-analytics-daily", open: true },
+            h("summary", null, "Retained daily values and revision state"),
+            h("div", { className: "acc-analytics-daily-table" }, h(
+              "table",
+              { "aria-label": `${repository.name} retained GitHub traffic` },
+              h("thead", null, h("tr", null, h("th", null, "UTC date"), h("th", null, "State"), h("th", null, "Views"), h("th", null, "Unique visitors"), h("th", null, "Clones"), h("th", null, "Unique cloners"))),
+              h("tbody", null, [...daily].reverse().map((row) => h("tr", { key: row.date }, h("th", { scope: "row" }, row.date), h("td", null, row.finality), h("td", null, row.views), h("td", null, row.uniqueVisitors), h("td", null, row.clones), h("td", null, row.uniqueCloners))))
+            ))
+          )
+        ),
+        h(
+          "div",
+          { className: "acc-analytics-compact-breakdowns" },
+          h(GitHubTopList, { eyebrow: "Latest repository window", title: "Top referrers", rows: repository.latestWindow.referrers, labelFor: (row) => row.referrer, empty: "No referrers reported in this provider window" }),
+          h(GitHubTopList, { eyebrow: "Latest repository window", title: "Popular paths", rows: repository.latestWindow.paths, labelFor: (row) => row.title || row.path, empty: "No popular paths reported in this provider window" })
+        ),
+        h(
+          "section",
+          { className: "acc-analytics-method" },
+          h("div", null, h("p", { className: "acc-eyebrow" }, "Interpretation contract"), h("h2", null, "Coverage & method")),
+          h(
+            "div",
+            { className: "acc-detail-grid" },
+            h("section", null, h("h3", null, "Rolling revisions"), h("p", null, "Each daily collection preserves the full GitHub window. A newer observation may revise a recent date; ACC selects the newest valid observation for that repository and day. Dates age from provisional to historical only after they leave the revisable window.")),
+            h("section", null, h("h3", null, "Missing is not zero"), h("p", null, "An explicit provider zero is displayed as 0. A day or metric absent from retained observations is displayed as \u2014 and is never silently imputed.")),
+            h("section", null, h("h3", null, "Identity & privacy"), h("p", null, "Approved public repositories are keyed by GitHub numeric repository ID across renames. Private, unknown-visibility, access-lost, and unapproved repositories are absent from this browser projection.")),
+            h("section", null, h("h3", null, "Version contract"), h("p", null, `Archive ${projection.versions.archiveSchema} \xB7 compiler ${projection.versions.compiler} \xB7 projection ${projection.schemaVersion}`))
+          )
+        )
+      );
+    }
     function Analytics({ route, go, providerUsage }) {
       if (!route.domain && !route.subject) return h(AnalyticsLanding, { go, providerUsage });
       if (route.domain === "ai" && route.subject === providerSubject.id) return h(
@@ -1622,6 +2561,7 @@
         h("button", { type: "button", className: "acc-back", onClick: () => go({ view: "analytics" }) }, "\u2190 Analytics"),
         h(ProviderUsage, { snapshot: providerUsage, go })
       );
+      if (route.domain === "code" && githubSubject && route.subject === githubSubject.id) return h(GitHubPortfolioAnalytics, { route, go });
       if (route.domain === "web" && webSubjects.some((subject) => subject.id === route.subject)) return h(WebPropertyAnalytics, { route, go });
       return h(
         "div",
@@ -1643,6 +2583,7 @@
   }
   var active = bindProjection(DEMO_DOMAIN_PROJECTION);
   var showcaseProjection = active.showcase;
+  var projectPortfolio = structuredClone(EMPTY_PROJECT_PORTFOLIO);
   var edition = structuredClone(DEMO_EDITION);
   var NAV_ITEMS = structuredClone(DEMO_EDITION.modules);
   var fixtures = active.data;
@@ -1658,6 +2599,13 @@
     RELEASES = structuredClone(fixtures.benchmarkReleases);
     showcaseProjection = active.showcase;
     return fixtures;
+  }
+  function applyProjectPortfolio(value) {
+    projectPortfolio = validateProjectPortfolio(value);
+    return structuredClone(projectPortfolio);
+  }
+  function getProjectPortfolio() {
+    return structuredClone(projectPortfolio);
   }
   function getCondition(id) {
     return fixtures.conditions.find((condition) => condition.id === id) || null;
@@ -1788,11 +2736,11 @@
     };
   }
   function getObjectTestingRecords(type, id) {
-    return fixtures.evaluations.filter((evaluation) => evaluation.affectedObjects.some((object) => object.type === type && object.id === id)).sort((a, b) => a.title.localeCompare(b.title));
+    return fixtures.evaluations.filter((evaluation) => evaluation.affectedObjects.some((object2) => object2.type === type && object2.id === id)).sort((a, b) => a.title.localeCompare(b.title));
   }
   function getEvaluationOwnerRoute(evaluationId) {
     const evaluation = fixtures.evaluations.find((item) => item.id === evaluationId);
-    const owner = evaluation?.affectedObjects.find((object) => object.type === "product");
+    const owner = evaluation?.affectedObjects.find((object2) => object2.type === "product");
     if (owner?.type === "product") return { view: "portfolio", product: owner.id };
     return { view: "overview" };
   }
@@ -1849,16 +2797,17 @@
     const runtimeIntegrations = ["edition", "domain"].map((key) => {
       const health = runtimeHealth?.[key] || null;
       const ready = health?.state === "ready" && health.valid === true && health.stale === false;
+      const partial = health?.state === "ready_with_warnings" && health.valid === true && health.stale === false;
       return {
         id: `runtime:${key}`,
         label: key === "edition" ? "ACC Edition projection" : "ACC Domain projection",
         category: "Runtime projection",
-        status: ready ? "healthy" : health ? "invalid" : "unknown",
+        status: ready ? "healthy" : partial ? "degraded" : health ? "invalid" : "unknown",
         reachability: runtimeReachability(health),
         configuration: "Not applicable",
-        freshness: ready ? "Current validated load" : health?.state === "stale_invalid" ? "Stale last-good projection" : "Bundled demonstration fallback",
-        validation: ready ? "Validated" : health ? "Invalid" : "Not evaluated",
-        claimImpact: ready ? "No dependent claims withheld" : "Projection claims fall back to stale or demonstration data",
+        freshness: ready ? "Current validated load" : partial ? "Current validated load with isolated subject warnings" : health?.state === "stale_invalid" ? "Stale last-good projection" : "Bundled demonstration fallback",
+        validation: ready ? "Validated" : partial ? `Partially validated \u2014 ${health.warnings?.length || 0} subject warning(s)` : health ? "Invalid" : "Not evaluated",
+        claimImpact: ready ? "No dependent claims withheld" : partial ? "Only invalid or unsupported subjects withheld; valid peers remain available" : "Projection claims fall back to stale or demonstration data",
         observedAt: key === "domain" ? fixtures.meta?.generatedAt || null : null,
         authority: key === "edition" ? "ACC Edition contract" : "ACC Domain projection contract"
       };
@@ -1936,6 +2885,14 @@
         keywords: ["web property analytics validated projection traffic coverage"],
         route: { view: "analytics", domain: "web", subject: subject.id, range: "30d" }
       })),
+      ...edition.analytics.github ? [{
+        id: `analytics:${edition.analytics.github.id}`,
+        kind: "analytics",
+        title: edition.analytics.github.label,
+        summary: edition.analytics.github.description,
+        keywords: ["GitHub portfolio repositories traffic views clones retained rolling observation"],
+        route: { view: "analytics", domain: "code", subject: edition.analytics.github.id }
+      }] : [],
       {
         id: `analytics:${edition.analytics.providerUsage.id}`,
         kind: "analytics",
@@ -1967,7 +2924,7 @@
       destinations: NAV_ITEMS.filter((item) => Object.hasOwn(summaries, item.id)).map((item) => ({ ...item, summary: summaries[item.id] }))
     };
   }
-  var ROUTE_KEYS = ["view", "q", "domain", "subject", "range", "mode", "product", "condition", "result", "release", "run", "evaluation"];
+  var ROUTE_KEYS = ["view", "q", "domain", "subject", "range", "repository", "mode", "product", "project", "condition", "result", "release", "run", "evaluation"];
   function buildAccUrl(state = {}, basePath = "/autobot-command-center") {
     const normalizedBase = basePath === "/" ? "" : String(basePath).replace(/\/$/, "");
     const standaloneSearch = state.view === "search" && !normalizedBase;
@@ -2062,6 +3019,7 @@
     const runtime = await loadRuntimeConfiguration(basePath);
     applyEdition(runtime.edition);
     applyDomainProjection(runtime.domain);
+    applyProjectPortfolio(runtime.portfolio);
     window.__ACC_RUNTIME_HEALTH__ = runtime.health;
     const SDK = window.__HERMES_PLUGIN_SDK__;
     if (!SDK || !window.__HERMES_PLUGINS__) {
@@ -2572,7 +3530,7 @@
         )
       );
     }
-    function Portfolio({ route, go }) {
+    function LegacyPortfolio({ route, go }) {
       const portfolio = getShowcasePortfolio();
       const product = route.product ? portfolio.internalProducts.find((item) => item.id === route.product) : null;
       if (product) {
@@ -2669,6 +3627,157 @@
           )
         )
       );
+    }
+    function projectEvidenceHref(href) {
+      return href.startsWith("https://") ? href : runtimeProjectionUrl(basePath, href);
+    }
+    function projectActivityLabel(activity) {
+      if (activity.status === "observed") {
+        const observed = new Date(activity.lastActivityAt);
+        const now = /* @__PURE__ */ new Date();
+        const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+        const observedUtc = Date.UTC(observed.getUTCFullYear(), observed.getUTCMonth(), observed.getUTCDate());
+        const days = Math.max(0, Math.floor((todayUtc - observedUtc) / 864e5));
+        return days === 0 ? "Repository activity today" : days === 1 ? "Repository activity 1 day ago" : `Repository activity ${days} days ago`;
+      }
+      if (activity.status === "quiet") return "Git repository has no commits";
+      if (activity.status === "binding_missing") return "Activity binding missing";
+      if (activity.status === "source_error") return "Activity source error";
+      return "No activity source";
+    }
+    function ProjectActivity({ activity }) {
+      const detail = activity.status === "observed" ? `Observed ${activity.lastActivityAt.slice(0, 10)} \xB7 local Git HEAD` : activity.status === "quiet" ? "Measured repository \xB7 no commit evidence yet" : activity.status === "binding_missing" ? "Registered folder cannot be resolved" : activity.status === "source_error" ? "Repository timestamp was rejected" : "Bind a local Git repository to enable recency";
+      return h(
+        "div",
+        { className: cx("acc-project-activity", `is-${activity.status}`), "data-activity-status": activity.status },
+        h("strong", null, projectActivityLabel(activity)),
+        h("small", null, detail)
+      );
+    }
+    function ProjectDocument({ role, document }) {
+      const label = role[0].toUpperCase() + role.slice(1);
+      const content = document.href ? h("a", { href: projectEvidenceHref(document.href), rel: "noreferrer", className: "acc-project-doc__link" }, document.label) : h("span", { className: "acc-project-doc__missing" }, document.label);
+      return h(
+        "div",
+        { className: cx("acc-project-doc", document.status === "missing" && "is-missing") },
+        h("span", null, label),
+        content,
+        h("small", null, document.note || document.status)
+      );
+    }
+    function ProjectCard({ project, go, compact = false }) {
+      return h(
+        "article",
+        { className: cx("acc-project-card", compact && "is-focus"), "data-project": project.slug },
+        h(
+          "div",
+          { className: "acc-object-card__top" },
+          h(Badge, { tone: project.portfolioState === "active" || project.portfolioState === "operational" ? "good" : void 0 }, project.portfolioState),
+          h(StatusBadge, { state: project.health })
+        ),
+        h(
+          "button",
+          { type: "button", className: "acc-project-card__open", onClick: () => go({ view: "portfolio", project: project.slug }) },
+          h("h3", null, project.name),
+          h("p", null, `${project.deliveryModel} \xB7 ${project.phase}`)
+        ),
+        h("div", { className: "acc-callout" }, h("span", null, "Next gate"), h("strong", null, project.nextGate)),
+        h(ProjectActivity, { activity: project.activity }),
+        compact ? null : h(
+          "div",
+          { className: "acc-project-docs", "aria-label": `${project.name} governance documents` },
+          ...Object.entries(project.documents).map(([role, document]) => h(ProjectDocument, { key: role, role, document }))
+        ),
+        h(
+          "div",
+          { className: "acc-card-links" },
+          project.repositoryUrl ? h("a", { className: "acc-card-link", href: project.repositoryUrl, rel: "noreferrer" }, "Repository") : h("span", { className: "acc-project-no-link" }, "Repository not mapped")
+        )
+      );
+    }
+    function ProjectDetail({ project, go }) {
+      return h(
+        "div",
+        { className: "acc-view" },
+        h("button", { type: "button", className: "acc-back", onClick: () => go({ view: "portfolio" }) }, "\u2190 Portfolio"),
+        h(
+          "article",
+          { className: "acc-detail acc-project-detail" },
+          h(
+            "div",
+            { className: "acc-detail__hero" },
+            h("div", null, h("p", { className: "acc-eyebrow" }, `${project.deliveryModel} \xB7 ${project.phase}`), h("h2", null, project.name), h("p", { className: "acc-lede" }, project.description)),
+            h("div", { className: "acc-project-detail__badges" }, h(Badge, { tone: project.portfolioState === "active" ? "good" : void 0 }, project.portfolioState), h(StatusBadge, { state: project.health }))
+          ),
+          h("div", { className: "acc-callout" }, h("span", null, "Landed / intended outcome"), h("strong", null, project.outcome)),
+          h("div", { className: "acc-callout" }, h("span", null, "Next decision gate"), h("strong", null, project.nextGate)),
+          h(ProjectActivity, { activity: project.activity }),
+          h(
+            "section",
+            { className: "acc-project-detail__section" },
+            h("h3", null, "Governance documents"),
+            h("div", { className: "acc-project-docs" }, ...Object.entries(project.documents).map(([role, document]) => h(ProjectDocument, { key: role, role, document })))
+          ),
+          project.lifecycle.length ? h(
+            "section",
+            { className: "acc-project-detail__section" },
+            h("h3", null, "Lifecycle gates"),
+            h("ol", { className: "acc-project-lifecycle" }, project.lifecycle.map((gate) => h("li", { key: gate.id, className: `is-${gate.state}` }, h("strong", null, gate.label), h("span", null, gate.state))))
+          ) : null,
+          project.sessionRefs.length ? h(
+            "section",
+            { className: "acc-project-detail__section" },
+            h("h3", null, "Tracked sessions"),
+            h("ul", { className: "acc-project-reference-list" }, project.sessionRefs.map((session) => h("li", { key: session.ref }, h("strong", null, session.label), h("code", null, session.ref))))
+          ) : null,
+          project.relatedSkills.length ? h(
+            "section",
+            { className: "acc-project-detail__section" },
+            h("h3", null, "Related operating skills"),
+            h("div", { className: "acc-chip-list" }, project.relatedSkills.map((skill) => h(Badge, { key: skill }, skill)))
+          ) : null,
+          h("div", { className: "acc-card-links" }, project.repositoryUrl ? h("a", { className: "acc-card-link", href: project.repositoryUrl, rel: "noreferrer" }, "Repository") : null)
+        )
+      );
+    }
+    function ProjectPortfolio({ route, go, portfolio }) {
+      const selected = route.project ? portfolio.projects.find(({ slug }) => slug === route.project) : null;
+      if (selected) return h(ProjectDetail, { project: selected, go });
+      const activeProjects = portfolio.projects.filter(({ portfolioState }) => portfolioState === "active");
+      return h(
+        "div",
+        { className: "acc-view" },
+        h(SectionHeading, {
+          eyebrow: "Hermes Projects alignment",
+          title: "Portfolio",
+          help: "Hermes projects.db defines membership. Validated manifests retain lifecycle authority; local Git activity supplies observational recency only. ACC refreshes this read-only projection automatically."
+        }),
+        h(
+          "div",
+          { className: "acc-registry-summary", "aria-label": "Project portfolio summary" },
+          h("div", null, h("strong", null, portfolio.summary.total), h("span", null, "Registered projects")),
+          h("div", null, h("strong", null, portfolio.policy.activeLimit == null ? portfolio.summary.active : `${portfolio.summary.active} / ${portfolio.policy.activeLimit}`), h("span", null, "Active / in flight")),
+          h("div", null, h("strong", null, `${portfolio.summary.activityObserved + portfolio.summary.activityQuiet} / ${portfolio.summary.total}`), h("span", null, "Activity sources")),
+          h("div", null, h("strong", null, portfolio.summary.missingDocuments), h("span", null, "Missing documents"))
+        ),
+        h(
+          "section",
+          { className: "acc-portfolio-group acc-focus-board", "aria-labelledby": "acc-focus-title" },
+          h("div", { className: "acc-section-heading" }, h("div", null, h("p", { className: "acc-eyebrow" }, portfolio.policy.activeLimit == null ? "In flight" : "One in, one out"), h("h3", { id: "acc-focus-title" }, portfolio.policy.activeLimit == null ? `Active / in flight \xB7 ${activeProjects.length}` : `Current focus \xB7 ${activeProjects.length}/${portfolio.policy.activeLimit}`)), h("small", null, portfolio.policy.rule)),
+          h("div", { className: "acc-project-focus-grid" }, activeProjects.map((project) => h(ProjectCard, { key: project.id, project, go, compact: true })))
+        ),
+        h(
+          "section",
+          { className: "acc-portfolio-group", "aria-labelledby": "acc-project-catalog-title" },
+          h("div", { className: "acc-section-heading" }, h("div", null, h("p", { className: "acc-eyebrow" }, "Authoritative private catalog"), h("h3", { id: "acc-project-catalog-title" }, "All Hermes Projects")), h("small", null, `Projection refreshed ${portfolio.generatedAt}`)),
+          h("div", { className: "acc-project-grid" }, portfolio.projects.map((project) => h(ProjectCard, { key: project.id, project, go })))
+        )
+      );
+    }
+    function Portfolio({ route, go }) {
+      const portfolio = getProjectPortfolio();
+      if (route.product) return h(LegacyPortfolio, { route, go });
+      return portfolio.projects.length ? h(ProjectPortfolio, { route, go, portfolio }) : h(LegacyPortfolio, { route, go });
     }
     function MetricTabs({ active: active2, onSelect }) {
       const labels = { rollup: "Capability rollup", "tool-use": "Tool Use", reasoning: "GPQA Diamond", coding: "Coding" };

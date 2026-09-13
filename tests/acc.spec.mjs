@@ -9,8 +9,10 @@ const searchUrl = pathSearchMode ? '/search' : `${pluginUrl}?view=search`;
 const searchDeepLink = (query = '') => `${searchUrl}${query ? `${searchUrl.includes('?') ? '&' : '?'}q=${encodeURIComponent(query).replaceAll('%20', '+')}` : ''}`;
 const showcaseBuild = process.env.ACC_ANALYTICS_SHOWCASE === '1';
 const showcaseProjection = JSON.parse(await readFile(new URL('./fixtures/analytics/kungfuclan-demo.v2.json', import.meta.url), 'utf8'));
+const githubProjection = JSON.parse(await readFile(new URL('./fixtures/analytics/github-portfolio.v1.json', import.meta.url), 'utf8'));
 const demoDomainProjection = JSON.parse(await readFile(new URL('../fixtures/demo/domain.v1.json', import.meta.url), 'utf8'));
 const demoEdition = JSON.parse(await readFile(new URL('../config/demo.edition.v1.json', import.meta.url), 'utf8'));
+const projectPortfolio = JSON.parse(await readFile(new URL('./fixtures/portfolio/projects.v1.json', import.meta.url), 'utf8'));
 
 async function routeWebAnalytics(page) {
   const realProjection = structuredClone(showcaseProjection);
@@ -44,6 +46,20 @@ async function routeWebAnalytics(page) {
   }
 }
 
+async function routeGitHubAnalytics(page) {
+  const edition = structuredClone(demoEdition);
+  edition.analytics.github = {
+    id: 'github-portfolio',
+    label: 'GitHub Portfolio',
+    description: 'Retained repository traffic',
+    projection: 'runtime/analytics/github/github-portfolio.v1.json',
+  };
+  for (const pattern of ['**/data/edition.v1.json', '**/runtime/edition.v1.json']) {
+    await page.route(pattern, (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(edition) }));
+  }
+  await page.route('**/runtime/analytics/github/github-portfolio.v1.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(githubProjection) }));
+}
+
 async function routeProviderUsage(page, providers, generatedAt = '2026-07-31T23:30:00.000Z') {
   for (const pattern of ['**/data/provider-usage.v1.json', '**/runtime/provider-usage.v1.json']) {
     await page.route(pattern, async (route) => {
@@ -75,6 +91,25 @@ async function routeDomainProjection(page, projection) {
       await route.fulfill({ contentType: 'application/json', body: JSON.stringify(projection) });
     });
   }
+}
+
+async function routeLegacyEdition(page) {
+  for (const pattern of ['**/data/edition.v1.json', '**/runtime/edition.v1.json']) {
+    await page.route(pattern, (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(demoEdition) }));
+  }
+}
+
+async function routeProjectPortfolio(page, projection = projectPortfolio) {
+  const edition = structuredClone(demoEdition);
+  edition.projections.portfolio = 'runtime/portfolio/projects.v1.json';
+  for (const pattern of ['**/data/edition.v1.json', '**/runtime/edition.v1.json']) {
+    await page.route(pattern, async (route) => {
+      await route.fulfill({ contentType: 'application/json', body: JSON.stringify(edition) });
+    });
+  }
+  await page.route('**/runtime/portfolio/projects.v1.json', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(projection) });
+  });
 }
 
 async function routeProtectedKnowledge(page, { failure = false } = {}) {
@@ -235,9 +270,52 @@ test('Integration Status uses a compact issue bar, keeps complete details in Set
   expect(browserErrors).toEqual([]);
 });
 
+test('Portfolio projects Hermes membership, WIP focus, governance gaps, and lifecycle details', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page);
+  const failedResources = [];
+  page.on('response', (response) => { if (response.status() >= 400) failedResources.push(`${response.status()} ${response.url()}`); });
+  const providerUsage = healthyProviderUsageFixture();
+  await routeDomainProjection(page, demoDomainProjection);
+  await routeProviderUsage(page, providerUsage.providers, providerUsage.observedAt);
+  await routeProjectPortfolio(page);
+  await page.goto(pluginUrl);
+  await page.getByRole('button', { name: 'Open Portfolio' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Portfolio', exact: true })).toBeVisible();
+  await expect(page.getByText('4', { exact: true }).first()).toBeVisible();
+  const focus = page.getByRole('region', { name: /Active \/ in flight/ });
+  await expect(focus.getByRole('heading', { name: 'Active / in flight · 3' })).toBeVisible();
+  await expect(focus.locator('.acc-project-card')).toHaveCount(3);
+
+  const catalog = page.getByRole('region', { name: /All Hermes Projects/ });
+  await expect(catalog.locator('.acc-project-card')).toHaveCount(4);
+  await expect(catalog.locator('.acc-project-activity')).toHaveCount(4);
+  await expect(catalog.getByText(/Repository activity/).first()).toBeVisible();
+  await expect(catalog.getByText('No activity source', { exact: true })).toBeVisible();
+  await expect(catalog.getByText('Git repository has no commits', { exact: true })).toBeVisible();
+  await expect(page.getByText('Owner review missing', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Activity sources', { exact: true })).toBeVisible();
+  await expect(page.getByText('3 / 4', { exact: true })).toBeVisible();
+  await expect(catalog.getByText('Architecture missing', { exact: true })).toBeVisible();
+  await expect(catalog.locator('.acc-project-doc.is-missing')).toHaveCount(1);
+  const vision = catalog.getByRole('link', { name: 'Approved vision' });
+  await expect(vision).toHaveAttribute('href', /runtime\/portfolio\/documents\/alpha\/vision\.html$/);
+
+  await catalog.getByRole('button', { name: /Alpha/ }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Governance documents' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Lifecycle gates' })).toBeVisible();
+  await expect(page.getByText('Approve the architecture gate.', { exact: true })).toBeVisible();
+  expect(failedResources).toEqual([]);
+  expect(browserErrors).toEqual([]);
+});
+
 test('Portfolio presents dated capability evidence without a runtime availability monitor', async ({ page }) => {
   const browserErrors = captureBrowserErrors(page);
+  const providerUsage = healthyProviderUsageFixture();
+  await routeLegacyEdition(page);
   await routeDomainProjection(page, demoDomainProjection);
+  await routeProviderUsage(page, providerUsage.providers, providerUsage.observedAt);
   await page.goto(pluginUrl);
   await page.getByRole('button', { name: 'Open Portfolio' }).click();
   await page.getByRole('button', { name: /Demo Command Center/ }).click();
@@ -330,9 +408,10 @@ test('Analytics exposes scalable domains and a truthful KFC real-data route', as
   await page.goto(pluginUrl + '?view=analytics');
   await expect(page.getByRole('heading', { name: 'Analytics', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Web properties' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Code & repositories' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'AI services' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Products & agents' })).toBeVisible();
-  await expect(page.getByText('Not connected', { exact: true })).toHaveCount(1);
+  const productsDomain = page.locator('section.acc-analytics-domain').filter({ has: page.getByRole('heading', { name: 'Products & agents' }) });
+  await expect(productsDomain.getByText('Not connected', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open alexgeslani.com analytics' })).toBeVisible();
   await page.getByRole('button', { name: 'Open Kung Fu Clan analytics' }).click();
   await expect(page).toHaveURL(/view=analytics.*domain=web.*subject=kungfuclan\.com.*range=30d/);
@@ -377,6 +456,64 @@ test('Analytics exposes the alexgeslani.com real-data route', async ({ page }) =
   await page.goto(pluginUrl + '?view=analytics&domain=web&subject=alexgeslani.com&range=30d');
   await expect(page.getByRole('heading', { name: 'alexgeslani.com', exact: true })).toBeVisible();
   await expect(page.getByText('ILLUSTRATIVE FIXTURE', { exact: false })).toHaveCount(0);
+});
+
+test('GitHub analytics turns retained observations into truthful responsive trends', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page);
+  await routeGitHubAnalytics(page);
+  await page.goto(pluginUrl + '?view=analytics&domain=code&subject=github-portfolio&range=14d');
+
+  await expect(page.getByRole('heading', { name: 'Repository attention over time' })).toBeVisible();
+  await expect(page.locator('[data-github-trend="views"]')).toHaveCount(1);
+  await expect(page.locator('[data-github-trend="clones"]')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: '14 days' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: '30 days' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '30 days' })).toHaveAttribute('title', /Needs 14 more complete UTC days/);
+  await expect(page.getByText(/earliest comparison 2026-09-12/i).first()).toBeVisible();
+  await expect(page.getByText(/conversion rate|campaign attribution confirmed/i)).toHaveCount(0);
+
+  await page.getByText('Exact selected-range values and gap states', { exact: true }).click();
+  await expect(page.getByRole('table', { name: 'Portfolio exact GitHub trend values' }).locator('tbody tr')).toHaveCount(14);
+
+  const beta = page.getByRole('button', { name: /beta.*views.*full clones/i });
+  await beta.click();
+  await expect(page).toHaveURL(/repository=202.*range=14d|range=14d.*repository=202/);
+  await expect(beta).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('[data-github-trend="views"]')).toHaveAttribute('aria-label', /^beta daily views/i);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('heading', { name: 'Repository attention over time' })).toBeVisible();
+  expect(await page.locator('.acc-github-trend-grid').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  expect(browserErrors).toEqual([]);
+});
+
+test('a malformed GitHub projection is isolated from both website analytics subjects', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page);
+  const edition = structuredClone(demoEdition);
+  edition.analytics.web = [
+    { id: 'kungfuclan.com', label: 'Kung Fu Clan', description: 'Retained web traffic', projection: 'runtime/analytics/web/kungfuclan.com.v2.json' },
+    { id: 'alexgeslani.com', label: 'alexgeslani.com', description: 'Retained web traffic', projection: 'runtime/analytics/web/alexgeslani.com.v2.json' },
+  ];
+  edition.analytics.github = {
+    id: 'github-portfolio',
+    label: 'GitHub Portfolio',
+    description: 'Retained repository traffic',
+    projection: 'runtime/analytics/github/github-portfolio.v1.json',
+  };
+  for (const pattern of ['**/data/edition.v1.json', '**/runtime/edition.v1.json']) {
+    await page.route(pattern, (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(edition) }));
+  }
+  await page.route('**/runtime/analytics/github/github-portfolio.v1.json', (route) => route.fulfill({ contentType: 'application/json', body: '{"invalid":true}' }));
+  await routeWebAnalytics(page);
+
+  await page.goto(pluginUrl + '?view=analytics&domain=code&subject=github-portfolio');
+  await expect(page.getByRole('heading', { name: 'GitHub Portfolio analytics unavailable' })).toBeVisible();
+  await page.getByRole('button', { name: '← Analytics', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Open alexgeslani.com analytics' })).toBeVisible();
+  await page.getByRole('button', { name: 'Open Kung Fu Clan analytics' }).click();
+  await expect(page.getByRole('heading', { name: 'Kung Fu Clan', exact: true })).toBeVisible();
+  expect(browserErrors).toEqual([]);
 });
 
 test('illustrative analytics stays on its separate identity with a permanent warning', async ({ page }) => {
@@ -694,7 +831,8 @@ test('mobile hero exposes a 44px Search button and Search has no horizontal over
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 
-test('Portfolio stays on its frozen showcase projection', async ({ page }) => {
+test('Portfolio stays on its frozen showcase projection when the private projection is not configured', async ({ page }) => {
+  await routeLegacyEdition(page);
   await page.goto(pluginUrl + '?view=portfolio');
   const publicProjects = page.getByRole('region', { name: 'GitHub Showcase Projects' });
   await expect(publicProjects.locator('[data-showcase-project]')).toHaveCount(3);
@@ -940,6 +1078,7 @@ test('testing records live with their owning projects without a global Evidence 
 });
 
 test('top-level page explanations use accessible information popovers instead of repeated ledes', async ({ page }) => {
+  await routeLegacyEdition(page);
   for (const [route, title, copy] of [
     ['?view=portfolio', 'Portfolio', 'Public GitHub evidence is refreshed'],
     ['?view=analytics', 'Analytics', 'One reporting destination for web properties'],

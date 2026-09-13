@@ -1,4 +1,5 @@
 import { loadWebAnalyticsProjection } from './client.mjs';
+import { loadGitHubAnalyticsProjection } from './github-client.mjs';
 import { projectCurrentWebAnalyticsCoverage } from './schema.mjs';
 import { buildWorldTrafficModel } from './world-map.mjs';
 import { createSortingSupport, defineSortColumns } from '../sorting.mjs';
@@ -55,8 +56,163 @@ export function projectTrafficScale(daily) {
   return { maximum, ticks: [0, 0.25, 0.5, 0.75, 1].map((fraction) => maximum * fraction) };
 }
 
+export function projectGitHubPortfolioCards(projection) {
+  return [
+    { label: 'Retained views', value: formatNumber(projection.portfolio.retainedTotals.views), note: 'Additive repository views retained since collection began' },
+    { label: 'Retained clones', value: formatNumber(projection.portfolio.retainedTotals.clones), note: 'Additive full-clone events retained since collection began' },
+    { label: 'Repositories reporting', value: formatNumber(projection.portfolio.repositoriesReporting), note: 'Approved public repositories with validated observations' },
+    { label: 'Retained coverage', value: projection.coverage.trafficStart ? `${projection.coverage.trafficStart} → ${projection.coverage.observedThrough}` : 'No daily rows', note: `Collection began ${projection.coverage.collectionStartedAt.slice(0, 10)}` },
+  ];
+}
+
+export function projectGitHubRepositoryOptions(projection) {
+  return projection.repositories.map((repository) => ({
+    id: repository.id, name: repository.name, retainedViews: repository.retainedTotals.views, retainedClones: repository.retainedTotals.clones,
+    uniqueVisitors: repository.latestWindow.views.uniques, uniqueCloners: repository.latestWindow.clones.uniques,
+  })).sort((left, right) => left.id - right.id);
+}
+
+export function projectGitHubDailyRows(repository) {
+  const display = (metric, field) => metric.state === 'missing' ? '—' : formatNumber(metric[field]);
+  return repository.daily.map((row) => ({
+    date: row.date, finality: row.finality,
+    views: display(row.views, 'count'), uniqueVisitors: display(row.views, 'uniques'),
+    clones: display(row.clones, 'count'), uniqueCloners: display(row.clones, 'uniques'),
+  }));
+}
+
+const GITHUB_RANGE_DAYS = { '14d': 14, '30d': 30, '90d': 90 };
+const GITHUB_RANGE_LABELS = { '14d': '14 days', '30d': '30 days', '90d': '90 days', all: 'All retained' };
+
+function addUtcDays(date, amount) {
+  const value = new Date(`${date}T00:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + amount);
+  return value.toISOString().slice(0, 10);
+}
+
+function utcDateRange(start, end) {
+  if (!start || !end || start > end) return [];
+  const dates = [];
+  for (let date = start; date <= end; date = addUtcDays(date, 1)) dates.push(date);
+  return dates;
+}
+
+function aggregateGitHubDay(repositories, date) {
+  const rows = repositories.map((repository) => repository.daily.find((row) => row.date === date));
+  const metric = (field) => {
+    const values = rows.map((row) => row?.[field]);
+    if (values.some((value) => !value || value.state === 'missing')) return { state: 'missing', count: null };
+    return { state: 'present', count: values.reduce((sum, value) => sum + value.count, 0) };
+  };
+  return {
+    date,
+    finality: rows.length && rows.every((row) => row?.finality === 'historical') ? 'historical' : 'provisional',
+    views: metric('views'),
+    clones: metric('clones'),
+  };
+}
+
+function summarizeGitHubDays(daily) {
+  const completeViews = daily.every((row) => row.views.state === 'present');
+  const completeClones = daily.every((row) => row.clones.state === 'present');
+  return {
+    views: daily.reduce((sum, row) => sum + (row.views.count ?? 0), 0),
+    clones: daily.reduce((sum, row) => sum + (row.clones.count ?? 0), 0),
+    completeViews,
+    completeClones,
+    complete: completeViews && completeClones,
+  };
+}
+
+export function projectGitHubTrendModel(projection, { range = '14d', repositoryId = null, today = projection.generatedAt.slice(0, 10) } = {}) {
+  const lastCompleteUtcDate = addUtcDays(today, -1);
+  const retainedEnd = projection.coverage.observedThrough && projection.coverage.observedThrough < today
+    ? projection.coverage.observedThrough
+    : lastCompleteUtcDate;
+  const retainedStart = projection.coverage.trafficStart;
+  const retainedDates = utcDateRange(retainedStart, retainedEnd);
+  const rangeOptions = Object.entries(GITHUB_RANGE_LABELS).map(([id, label]) => {
+    if (id === 'all') return { id, label, available: true, daysNeeded: 0, reason: '' };
+    const daysNeeded = Math.max(GITHUB_RANGE_DAYS[id] - retainedDates.length, 0);
+    const unlockDate = daysNeeded ? addUtcDays(retainedEnd, daysNeeded) : null;
+    return {
+      id, label, available: daysNeeded === 0, daysNeeded,
+      reason: daysNeeded ? `Needs ${daysNeeded} more complete UTC day${daysNeeded === 1 ? '' : 's'}; earliest ${unlockDate}.` : '',
+    };
+  });
+  const requested = rangeOptions.find((option) => option.id === range);
+  const selectedRange = requested?.available ? requested.id : 'all';
+  const selectedDays = GITHUB_RANGE_DAYS[selectedRange];
+  const startDate = selectedDays ? addUtcDays(retainedEnd, -(selectedDays - 1)) : retainedStart;
+  const dates = utcDateRange(startDate, retainedEnd);
+  const selectedRepository = projection.repositories.find((repository) => repository.id === Number(repositoryId));
+  const scopeRepositories = selectedRepository ? [selectedRepository] : projection.repositories;
+  const daily = dates.map((date) => aggregateGitHubDay(scopeRepositories, date));
+  const totals = summarizeGitHubDays(daily);
+  const portfolioTotals = summarizeGitHubDays(dates.map((date) => aggregateGitHubDay(projection.repositories, date)));
+
+  const repositories = projection.repositories.map((repository) => {
+    const repositoryDaily = dates.map((date) => aggregateGitHubDay([repository], date));
+    const repositoryTotals = summarizeGitHubDays(repositoryDaily);
+    return {
+      id: repository.id,
+      name: repository.name,
+      views: repositoryTotals.views,
+      clones: repositoryTotals.clones,
+      complete: repositoryTotals.complete,
+      viewShare: portfolioTotals.completeViews && repositoryTotals.completeViews && portfolioTotals.views > 0 ? repositoryTotals.views / portfolioTotals.views : null,
+    };
+  }).sort((left, right) => (right.views - left.views) || left.name.localeCompare(right.name));
+
+  let comparison = { available: false, reason: selectedRange === 'all' ? 'Choose a fixed range for a prior-period comparison.' : 'Not enough retained history for an equal prior period.' };
+  if (selectedDays) {
+    const previousDates = utcDateRange(addUtcDays(startDate, -selectedDays), addUtcDays(startDate, -1));
+    if (previousDates.length === selectedDays && previousDates[0] >= retainedStart) {
+      const previousDaily = previousDates.map((date) => aggregateGitHubDay(scopeRepositories, date));
+      const previous = summarizeGitHubDays(previousDaily);
+      if (totals.complete && previous.complete) {
+        const change = (currentValue, priorValue) => ({
+          absolute: currentValue - priorValue,
+          percent: priorValue > 0 ? (currentValue - priorValue) / priorValue : null,
+        });
+        comparison = {
+          available: true,
+          current: { views: totals.views, clones: totals.clones },
+          prior: { views: previous.views, clones: previous.clones },
+          change: { views: change(totals.views, previous.views), clones: change(totals.clones, previous.clones) },
+          priorStartDate: previousDates[0],
+          priorEndDate: previousDates.at(-1),
+        };
+      } else {
+        comparison = { available: false, reason: 'A comparison window contains a retained gap.' };
+      }
+    } else {
+      const daysNeeded = Math.max((selectedDays * 2) - retainedDates.length, 0);
+      comparison = {
+        available: false,
+        daysNeeded,
+        readyDate: daysNeeded ? addUtcDays(retainedEnd, daysNeeded) : retainedEnd,
+        reason: daysNeeded ? `Needs ${daysNeeded} more complete UTC day${daysNeeded === 1 ? '' : 's'}; earliest comparison ${addUtcDays(retainedEnd, daysNeeded)}.` : 'Not enough retained history for an equal prior period.',
+      };
+    }
+  }
+
+  return {
+    selectedRange,
+    rangeOptions,
+    startDate,
+    endDate: retainedEnd,
+    scope: selectedRepository ? { id: selectedRepository.id, name: selectedRepository.name } : { id: null, name: 'Portfolio' },
+    daily,
+    totals,
+    repositories,
+    comparison,
+  };
+}
+
 export function createAnalyticsView({ React, h, useEffect, useState, Badge, StatusBadge, SectionHeading, ProviderUsage, edition }) {
   const webSubjects = edition.analytics.web;
+  const githubSubject = edition.analytics.github;
   const providerSubject = edition.analytics.providerUsage;
   const { useSortableRows, SortableHeader } = createSortingSupport({ React, useState });
 
@@ -95,14 +251,23 @@ export function createAnalyticsView({ React, h, useEffect, useState, Badge, Stat
           })))
           : h('p', { className: 'acc-provider-empty' }, 'No web analytics projection is connected in this edition.'),
       ),
+      h('section', { className: 'acc-analytics-domain', 'aria-labelledby': 'acc-domain-code' },
+        h('div', { className: 'acc-analytics-domain__head' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Domain 02'), h('h2', { id: 'acc-domain-code' }, 'Code & repositories')), h(Badge, { tone: githubSubject ? 'good' : 'warn' }, githubSubject ? '1 connected' : 'Not connected')),
+        githubSubject
+          ? h('div', { className: 'acc-analytics-source-grid' }, h(SourceCard, {
+            eyebrow: 'Retained rolling observations', title: githubSubject.label, status: 'available', description: githubSubject.description,
+            action: `Open ${githubSubject.label}`, onClick: () => go({ view: 'analytics', domain: 'code', subject: githubSubject.id }),
+          }))
+          : h('p', { className: 'acc-provider-empty' }, 'No repository analytics projection is connected in this edition.'),
+      ),
       h('section', { className: 'acc-analytics-domain', 'aria-labelledby': 'acc-domain-ai' },
-        h('div', { className: 'acc-analytics-domain__head' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Domain 02'), h('h2', { id: 'acc-domain-ai' }, 'AI services')), h(Badge, { tone: providerCount ? 'good' : 'warn' }, `${providerCount} reporting`)),
+        h('div', { className: 'acc-analytics-domain__head' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Domain 03'), h('h2', { id: 'acc-domain-ai' }, 'AI services')), h(Badge, { tone: providerCount ? 'good' : 'warn' }, `${providerCount} reporting`)),
         h('div', { className: 'acc-analytics-source-grid' },
           h(SourceCard, { eyebrow: 'Subscription and API headroom', title: providerSubject.label, status: providerCount ? 'available' : 'unknown', description: providerSubject.description, action: `Open ${providerSubject.label.toLocaleLowerCase('en')}`, onClick: () => go({ view: 'analytics', domain: 'ai', subject: providerSubject.id }) }),
         ),
       ),
       h('section', { className: 'acc-analytics-domain', 'aria-labelledby': 'acc-domain-products' },
-        h('div', { className: 'acc-analytics-domain__head' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Domain 03'), h('h2', { id: 'acc-domain-products' }, 'Products & agents')), h(Badge, { tone: 'warn' }, 'Not connected')),
+        h('div', { className: 'acc-analytics-domain__head' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Domain 04'), h('h2', { id: 'acc-domain-products' }, 'Products & agents')), h(Badge, { tone: 'warn' }, 'Not connected')),
         h('p', { className: 'acc-provider-empty' }, 'No product or agent analytics projection is connected in this edition.'),
       ),
     );
@@ -328,12 +493,225 @@ export function createAnalyticsView({ React, h, useEffect, useState, Badge, Stat
     );
   }
 
+  function GitHubTopList({ eyebrow, title, rows, labelFor, empty }) {
+    const maximum = Math.max(...rows.map((row) => row.count), 1);
+    return h('section', { className: 'acc-analytics-panel' },
+      h('div', { className: 'acc-analytics-panel__head' }, h('div', null, h('p', { className: 'acc-eyebrow' }, eyebrow), h('h2', null, title)), h('small', null, `${rows.length} from one provider window`)),
+      rows.length ? h('ol', { className: 'acc-analytics-bars' }, rows.map((row) => {
+        const label = labelFor(row);
+        return h('li', { key: label },
+          h('div', null, h('span', { title: label }, label), h('strong', null, `${formatNumber(row.count)} · ${formatNumber(row.uniques)} unique`)),
+          h('span', { className: 'acc-analytics-bar', role: 'img', 'aria-label': `${label}: ${formatNumber(row.count)} views in this repository window` }, h('i', { style: { width: `${(row.count / maximum) * 100}%` } })),
+        );
+      })) : h('p', { className: 'acc-provider-empty' }, empty),
+    );
+  }
+
+  function GitHubTrendChart({ trend, metric, title }) {
+    const width = 720;
+    const height = 220;
+    const leftInset = 58;
+    const rightInset = 22;
+    const topInset = 20;
+    const bottomInset = 30;
+    const observed = trend.daily.filter((row) => row[metric].state === 'present');
+    const maximum = Math.max(...observed.map((row) => row[metric].count), 1);
+    const slot = (width - leftInset - rightInset) / Math.max(trend.daily.length, 1);
+    const barWidth = Math.max(Math.min(slot * 0.62, 28), 3);
+    const xFor = (index) => leftInset + (index * slot) + ((slot - barWidth) / 2);
+    const yFor = (value) => height - bottomInset - ((value / maximum) * (height - topInset - bottomInset));
+    const gaps = trend.daily.filter((row) => row[metric].state === 'missing').length;
+    const metricLabel = metric === 'clones' ? 'full clones' : 'views';
+    const ticks = [0, maximum / 2, maximum];
+    return h('section', { className: 'acc-analytics-panel acc-github-trend-panel', 'aria-labelledby': `acc-github-${metric}-trend-title` },
+      h('div', { className: 'acc-analytics-panel__head' },
+        h('div', null, h('p', { className: 'acc-eyebrow' }, `${trend.scope.name} · complete UTC days`), h('h2', { id: `acc-github-${metric}-trend-title` }, title)),
+        h('small', null, gaps ? `${gaps} retained gap${gaps === 1 ? '' : 's'}` : 'No retained gaps'),
+      ),
+      h('div', { className: 'acc-github-chart-frame' }, h('svg', {
+        className: 'acc-github-trend-chart', viewBox: `0 0 ${width} ${height}`, role: 'img',
+        'data-github-trend': metric,
+        'aria-label': `${trend.scope.name} daily ${metricLabel} from ${trend.startDate} through ${trend.endDate}. Missing values are shown as gaps, never zero.`,
+      },
+      ticks.map((value, index) => h('g', { key: index },
+        h('line', { x1: leftInset, x2: width - rightInset, y1: yFor(value), y2: yFor(value), className: 'acc-traffic-gridline' }),
+        h('text', { x: leftInset - 8, y: yFor(value) + 4, textAnchor: 'end', className: 'acc-traffic-tick' }, formatChartNumber(value)),
+      )),
+      trend.daily.map((row, index) => row[metric].state === 'present'
+        ? h('rect', {
+          key: row.date,
+          x: xFor(index), y: yFor(row[metric].count), width: barWidth, height: Math.max((height - bottomInset) - yFor(row[metric].count), 1),
+          className: `acc-github-trend-bar${row.finality === 'provisional' ? ' is-provisional' : ''}`,
+        }, h('title', null, `${row.date}: ${formatNumber(row[metric].count)} ${metricLabel} · ${row.finality}`))
+        : h('line', {
+          key: row.date, x1: xFor(index) + (barWidth / 2), x2: xFor(index) + (barWidth / 2), y1: topInset, y2: height - bottomInset,
+          className: 'acc-github-trend-gap',
+        }, h('title', null, `${row.date}: unavailable, not zero`))),
+      )),
+      h('div', { className: 'acc-traffic-axis' }, h('span', null, trend.startDate), h('span', null, trend.endDate)),
+      h('p', { className: 'acc-github-chart-note' }, 'Solid bars are historical. Translucent outlined bars remain provisional while GitHub can revise the rolling provider window.'),
+    );
+  }
+
+  function GitHubTrendOverview({ trend, route, go }) {
+    const goRange = (range) => {
+      const next = { view: 'analytics', domain: 'code', subject: 'github-portfolio', range };
+      if (route.repository) next.repository = route.repository;
+      go(next);
+    };
+    const changeLabel = (change) => {
+      const sign = change.absolute > 0 ? '+' : '';
+      const percent = change.percent == null ? 'from a zero prior value' : `${change.percent > 0 ? '+' : ''}${formatPercent(change.percent)}`;
+      return `${sign}${formatNumber(change.absolute)} (${percent})`;
+    };
+    const answer = trend.comparison.available
+      ? `${trend.scope.name} recorded ${formatNumber(trend.totals.views)} views (${changeLabel(trend.comparison.change.views)}) and ${formatNumber(trend.totals.clones)} full clones (${changeLabel(trend.comparison.change.clones)}) versus ${trend.comparison.priorStartDate} → ${trend.comparison.priorEndDate}. This is attention correlation, not campaign attribution.`
+      : `Building comparable history for ${trend.scope.name}. ${trend.comparison.reason}`;
+    const displayTotal = (metric) => trend.totals[`complete${metric === 'views' ? 'Views' : 'Clones'}`]
+      ? formatNumber(trend.totals[metric])
+      : `≥ ${formatNumber(trend.totals[metric])}`;
+    return h('section', { className: 'acc-github-trends', 'aria-labelledby': 'acc-github-trends-title' },
+      h('div', { className: 'acc-github-answer', role: 'status' },
+        h('div', null, h('p', { className: 'acc-eyebrow' }, 'Promotion attention pulse'), h('h2', { id: 'acc-github-trends-title' }, 'Repository attention over time')),
+        h('p', null, answer),
+      ),
+      h('div', { className: 'acc-analytics-toolbar acc-github-range-toolbar' },
+        h('div', { className: 'acc-metric-tabs', role: 'group', 'aria-label': 'GitHub analytics date range' }, trend.rangeOptions.map((option) => h('button', {
+          key: option.id, type: 'button', className: `acc-tab-button${trend.selectedRange === option.id ? ' is-active' : ''}`,
+          'aria-pressed': trend.selectedRange === option.id, disabled: !option.available, title: option.reason || option.label,
+          onClick: () => goRange(option.id),
+        }, option.label))),
+        h('p', { className: 'acc-github-range-note' }, trend.rangeOptions.filter((option) => !option.available).map((option) => `${option.label}: ${option.reason}`).join(' ')),
+      ),
+      h('section', { className: 'acc-analytics-summary', 'aria-label': 'Selected GitHub trend summary' },
+        h('article', { className: 'acc-analytics-metric' }, h('span', null, 'Views in range'), h('strong', null, displayTotal('views')), h('small', null, trend.totals.completeViews ? `${trend.startDate} → ${trend.endDate}` : 'Partial: retained gaps excluded, not zero-filled')),
+        h('article', { className: 'acc-analytics-metric' }, h('span', null, 'Full clones in range'), h('strong', null, displayTotal('clones')), h('small', null, trend.totals.completeClones ? 'Full-clone events; fetches are not included' : 'Partial: retained gaps excluded, not zero-filled')),
+        h('article', { className: 'acc-analytics-metric' }, h('span', null, 'Trend scope'), h('strong', null, trend.scope.name), h('small', null, trend.scope.id == null ? 'Additive approved public repository portfolio' : `Repository ID ${trend.scope.id}`)),
+        h('article', { className: 'acc-analytics-metric' }, h('span', null, 'Prior-period change'), h('strong', null, trend.comparison.available ? 'Comparable' : 'Building history'), h('small', null, trend.comparison.available ? 'Equal complete UTC windows with no retained gaps' : trend.comparison.reason)),
+      ),
+      h('div', { className: 'acc-github-trend-grid' },
+        h(GitHubTrendChart, { trend, metric: 'views', title: 'Daily views' }),
+        h(GitHubTrendChart, { trend, metric: 'clones', title: 'Daily full clones' }),
+      ),
+      h('details', { className: 'acc-analytics-daily acc-github-trend-values' },
+        h('summary', null, 'Exact selected-range values and gap states'),
+        h('div', { className: 'acc-analytics-daily-table' }, h('table', { 'aria-label': `${trend.scope.name} exact GitHub trend values` },
+          h('thead', null, h('tr', null, h('th', null, 'UTC date'), h('th', null, 'Revision state'), h('th', null, 'Views'), h('th', null, 'Full clones'))),
+          h('tbody', null, [...trend.daily].reverse().map((row) => h('tr', { key: row.date },
+            h('th', { scope: 'row' }, row.date), h('td', null, row.finality),
+            h('td', null, row.views.state === 'present' ? formatNumber(row.views.count) : '—'),
+            h('td', null, row.clones.state === 'present' ? formatNumber(row.clones.count) : '—'),
+          ))),
+        )),
+      ),
+      h('section', { className: 'acc-analytics-panel' },
+        h('div', { className: 'acc-analytics-panel__head' }, h('div', null, h('p', { className: 'acc-eyebrow' }, 'Selected-range portfolio drivers'), h('h2', null, 'Repositories')), h('small', null, 'Views and full clones are additive; audience uniques are not ranked here')),
+        h('div', { className: 'acc-github-repository-grid' },
+          h('button', {
+            type: 'button', className: `acc-github-repository${trend.scope.id == null ? ' is-active' : ''}`,
+            'aria-pressed': trend.scope.id == null,
+            onClick: () => go({ view: 'analytics', domain: 'code', subject: 'github-portfolio', range: trend.selectedRange }),
+          }, h('strong', null, 'Portfolio total'), h('span', null, `${formatNumber(trend.repositories.length)} approved public repositories`), h('small', null, 'Use the additive portfolio trend')),
+          trend.repositories.map((row) => h('button', {
+            key: row.id, type: 'button', className: `acc-github-repository${trend.scope.id === row.id ? ' is-active' : ''}`,
+            'aria-pressed': trend.scope.id === row.id,
+            onClick: () => go({ view: 'analytics', domain: 'code', subject: 'github-portfolio', repository: String(row.id), range: trend.selectedRange }),
+          }, h('strong', null, row.name), h('span', null, `${row.complete ? '' : '≥ '}${formatNumber(row.views)} views · ${row.complete ? '' : '≥ '}${formatNumber(row.clones)} full clones`), h('small', null, row.viewShare == null ? 'Share unavailable while the portfolio has a retained gap' : `${formatPercent(row.viewShare)} of portfolio views in this range`))),
+        ),
+      ),
+    );
+  }
+
+  function GitHubPortfolioAnalytics({ route, go }) {
+    const [loadState, setLoadState] = useState({ status: 'loading', projection: null });
+    useEffect(() => {
+      let active = true;
+      setLoadState({ status: 'loading', projection: null });
+      loadGitHubAnalyticsProjection(window.__ACC_BASE_PATH__ || '/dashboard-plugins/autobot-command-center/dist', githubSubject).then(
+        (projection) => { if (active) setLoadState({ status: 'ready', projection }); },
+        () => { if (active) setLoadState({ status: 'unavailable', projection: null }); },
+      );
+      return () => { active = false; };
+    }, []);
+
+    if (loadState.status === 'loading') return h('div', { className: 'acc-view' }, h('p', { className: 'acc-search-status', role: 'status' }, 'Loading validated GitHub observations…'));
+    if (loadState.status === 'unavailable') return h('div', { className: 'acc-view' },
+      h('button', { type: 'button', className: 'acc-back', onClick: () => go({ view: 'analytics' }) }, '← Analytics'),
+      h('section', { className: 'acc-boundary', role: 'status' }, h('h2', null, 'GitHub Portfolio analytics unavailable'), h('p', null, 'No validated GitHub projection was loaded. The dashboard does not substitute zeros, fixtures, or repository inventory.')),
+    );
+    const projection = loadState.projection;
+    const requestedId = Number(route.repository);
+    const repository = projection.repositories.find((row) => row.id === requestedId) || projection.repositories[0];
+    const trend = projectGitHubTrendModel(projection, { range: route.range || '14d', repositoryId: route.repository });
+    const daily = projectGitHubDailyRows(repository);
+    const freshness = Date.now() - Date.parse(projection.generatedAt) <= 36 * 60 * 60 * 1000 ? 'available' : 'stale';
+    return h('div', { className: 'acc-view acc-analytics' },
+      h('button', { type: 'button', className: 'acc-back', onClick: () => go({ view: 'analytics' }) }, '← Analytics'),
+      h('section', { className: 'acc-analytics-hero' },
+        h('div', null,
+          h('p', { className: 'acc-eyebrow' }, 'Analytics / Code & repositories'),
+          h('h2', null, 'GitHub Portfolio'),
+          h('p', { className: 'acc-lede' }, 'Prospective retention of GitHub’s rolling, revisable 14-day repository traffic observations. Website and demo traffic remains in the separate Cloudflare lane.'),
+        ),
+        h(StatusBadge, { state: freshness }),
+      ),
+      h('section', { className: 'acc-analytics-trust', 'aria-label': 'GitHub analytics source coverage' },
+        h('div', null, h('span', null, 'Source state'), h(StatusBadge, { state: freshness }), h('small', null, 'Checksum-verified immutable observations')),
+        h('div', null, h('span', null, 'Collection began'), h('strong', null, projection.coverage.collectionStartedAt.slice(0, 10)), h('small', null, 'Earlier traffic outside GitHub’s first retained window is unavailable')),
+        h('div', null, h('span', null, 'Retained traffic dates'), h('strong', null, projection.coverage.trafficStart ? `${projection.coverage.trafficStart} → ${projection.coverage.observedThrough}` : 'No daily rows'), h('small', null, 'Recent dates remain provisional while GitHub can revise them')),
+        h('div', null, h('span', null, 'Authority'), h('strong', null, 'GitHub REST traffic metrics'), h('small', null, 'Repository traffic only · not GitHub Pages/demo traffic')),
+      ),
+      h(GitHubTrendOverview, { trend, route, go }),
+      h('section', { className: 'acc-analytics-summary', 'aria-label': 'GitHub Portfolio retained summary' }, projectGitHubPortfolioCards(projection).map((card) =>
+        h('article', { key: card.label, className: 'acc-analytics-metric' }, h('span', null, card.label), h('strong', null, card.value), h('small', null, card.note)),
+      )),
+      h('section', { className: 'acc-analytics-panel acc-github-caveat', role: 'note' },
+        h('strong', null, 'Audience boundary'),
+        h('p', null, 'Unique visitors and unique cloners are shown only for one repository’s latest 14-day GitHub window. They overlap across repositories and dates, so ACC never creates a portfolio-wide unique audience total. Traffic may include Alex, automation, and repeat activity.'),
+      ),
+      h('section', { className: 'acc-analytics-panel' },
+        h('div', { className: 'acc-analytics-panel__head' },
+          h('div', null, h('p', { className: 'acc-eyebrow' }, `Repository ID ${repository.id}`), h('h2', null, h('a', { href: repository.htmlUrl, target: '_blank', rel: 'noreferrer' }, repository.fullName))),
+          h('small', null, `Observed ${repository.latestWindow.observedAt}`),
+        ),
+        h('div', { className: 'acc-analytics-summary acc-github-window-summary' },
+          h('article', { className: 'acc-analytics-metric' }, h('span', null, '14-day views'), h('strong', null, formatNumber(repository.latestWindow.views.count)), h('small', null, `${formatNumber(repository.latestWindow.views.uniques)} repository-window unique visitors`)),
+          h('article', { className: 'acc-analytics-metric' }, h('span', null, '14-day clones'), h('strong', null, formatNumber(repository.latestWindow.clones.count)), h('small', null, `${formatNumber(repository.latestWindow.clones.uniques)} repository-window unique cloners`)),
+          h('article', { className: 'acc-analytics-metric' }, h('span', null, 'Stars'), h('strong', null, formatNumber(repository.stars)), h('small', null, `${formatNumber(repository.forks)} forks`)),
+          h('article', { className: 'acc-analytics-metric' }, h('span', null, 'Subscribers'), h('strong', null, formatNumber(repository.subscribers)), h('small', null, 'GitHub repository subscribers · not watchers/stars')),
+        ),
+        h('p', { className: 'acc-github-window-note' }, `Exact provider window ${repository.latestWindow.windowStart} → ${repository.latestWindow.windowEnd}. Top referrers and paths below are this one snapshot only and are never merged into portfolio rankings.`),
+        h('details', { className: 'acc-analytics-daily', open: true },
+          h('summary', null, 'Retained daily values and revision state'),
+          h('div', { className: 'acc-analytics-daily-table' }, h('table', { 'aria-label': `${repository.name} retained GitHub traffic` },
+            h('thead', null, h('tr', null, h('th', null, 'UTC date'), h('th', null, 'State'), h('th', null, 'Views'), h('th', null, 'Unique visitors'), h('th', null, 'Clones'), h('th', null, 'Unique cloners'))),
+            h('tbody', null, [...daily].reverse().map((row) => h('tr', { key: row.date }, h('th', { scope: 'row' }, row.date), h('td', null, row.finality), h('td', null, row.views), h('td', null, row.uniqueVisitors), h('td', null, row.clones), h('td', null, row.uniqueCloners)))),
+          )),
+        ),
+      ),
+      h('div', { className: 'acc-analytics-compact-breakdowns' },
+        h(GitHubTopList, { eyebrow: 'Latest repository window', title: 'Top referrers', rows: repository.latestWindow.referrers, labelFor: (row) => row.referrer, empty: 'No referrers reported in this provider window' }),
+        h(GitHubTopList, { eyebrow: 'Latest repository window', title: 'Popular paths', rows: repository.latestWindow.paths, labelFor: (row) => row.title || row.path, empty: 'No popular paths reported in this provider window' }),
+      ),
+      h('section', { className: 'acc-analytics-method' },
+        h('div', null, h('p', { className: 'acc-eyebrow' }, 'Interpretation contract'), h('h2', null, 'Coverage & method')),
+        h('div', { className: 'acc-detail-grid' },
+          h('section', null, h('h3', null, 'Rolling revisions'), h('p', null, 'Each daily collection preserves the full GitHub window. A newer observation may revise a recent date; ACC selects the newest valid observation for that repository and day. Dates age from provisional to historical only after they leave the revisable window.')),
+          h('section', null, h('h3', null, 'Missing is not zero'), h('p', null, 'An explicit provider zero is displayed as 0. A day or metric absent from retained observations is displayed as — and is never silently imputed.')),
+          h('section', null, h('h3', null, 'Identity & privacy'), h('p', null, 'Approved public repositories are keyed by GitHub numeric repository ID across renames. Private, unknown-visibility, access-lost, and unapproved repositories are absent from this browser projection.')),
+          h('section', null, h('h3', null, 'Version contract'), h('p', null, `Archive ${projection.versions.archiveSchema} · compiler ${projection.versions.compiler} · projection ${projection.schemaVersion}`)),
+        ),
+      ),
+    );
+  }
+
   function Analytics({ route, go, providerUsage }) {
     if (!route.domain && !route.subject) return h(AnalyticsLanding, { go, providerUsage });
     if (route.domain === 'ai' && route.subject === providerSubject.id) return h('div', { className: 'acc-view acc-analytics' },
       h('button', { type: 'button', className: 'acc-back', onClick: () => go({ view: 'analytics' }) }, '← Analytics'),
       h(ProviderUsage, { snapshot: providerUsage, go }),
     );
+    if (route.domain === 'code' && githubSubject && route.subject === githubSubject.id) return h(GitHubPortfolioAnalytics, { route, go });
     if (route.domain === 'web' && webSubjects.some((subject) => subject.id === route.subject)) return h(WebPropertyAnalytics, { route, go });
     return h('div', { className: 'acc-view' },
       h('button', { type: 'button', className: 'acc-back', onClick: () => go({ view: 'analytics' }) }, '← Analytics'),

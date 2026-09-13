@@ -924,6 +924,31 @@ body {
 .acc-analytics-bar i { display: block; height: 100%; min-width: 2px; border-radius: inherit; background: linear-gradient(90deg, var(--acc-green), var(--acc-cyan)); }
 .acc-analytics-method { display: grid; gap: .8rem; padding: 1rem; border: 1px solid var(--color-border); border-radius: var(--radius); background: color-mix(in srgb, var(--color-background) 45%, transparent); }
 .acc-analytics-method .acc-detail-grid > section { background: var(--acc-analytics-panel); }
+.acc-github-caveat { border-left: 3px solid var(--acc-amber); }
+.acc-github-caveat p, .acc-github-window-note { margin: .45rem 0 0; color: var(--color-muted-foreground); font-size: .76rem; line-height: 1.55; }
+.acc-github-trends { display: grid; gap: .9rem; }
+.acc-github-answer { display: grid; grid-template-columns: minmax(14rem, .7fr) minmax(0, 1.3fr); align-items: center; gap: 1rem; padding: 1rem; border: 1px solid var(--color-border); border-left: 3px solid var(--acc-green); border-radius: var(--radius); background: color-mix(in srgb, var(--acc-green) 6%, var(--acc-analytics-panel)); }
+.acc-github-answer p { margin: 0; color: var(--color-muted-foreground); font-size: .8rem; line-height: 1.6; }
+.acc-github-answer h2 { margin: .12rem 0 0; }
+.acc-github-range-toolbar { align-items: center; }
+.acc-github-range-toolbar .acc-metric-tabs { margin-left: 0; }
+.acc-github-range-toolbar .acc-tab-button:disabled { cursor: not-allowed; opacity: .42; }
+.acc-github-range-note { flex: 1 1 26rem; margin: 0; color: var(--color-muted-foreground); font-size: .7rem; line-height: 1.5; text-align: right; }
+.acc-github-trend-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
+.acc-github-chart-frame { min-width: 0; overflow-x: auto; }
+.acc-github-trend-chart { display: block; width: 100%; min-height: 180px; }
+.acc-github-trend-bar { fill: var(--acc-cyan); stroke: color-mix(in srgb, var(--acc-cyan) 72%, white); stroke-width: 1; }
+.acc-github-trend-bar.is-provisional { fill: color-mix(in srgb, var(--acc-cyan) 48%, transparent); stroke-dasharray: 3 2; }
+.acc-github-trend-gap { stroke: var(--acc-amber); stroke-dasharray: 4 4; stroke-width: 2; }
+.acc-github-chart-note { margin: .65rem 0 0; color: var(--color-muted-foreground); font-size: .68rem; line-height: 1.45; }
+.acc-github-trend-values { margin: 0; }
+.acc-github-repository-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+.acc-github-repository { display: grid; gap: .32rem; min-width: 0; min-height: 44px; padding: .8rem; border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-foreground); background: color-mix(in srgb, var(--color-background) 58%, transparent); text-align: left; cursor: pointer; }
+.acc-github-repository:hover, .acc-github-repository:focus-visible, .acc-github-repository.is-active { border-color: var(--acc-cyan); background: color-mix(in srgb, var(--acc-cyan) 8%, var(--color-background)); }
+.acc-github-repository strong { overflow-wrap: anywhere; }
+.acc-github-repository span, .acc-github-repository small { color: var(--color-muted-foreground); font-size: .7rem; line-height: 1.45; }
+.acc-github-window-summary { margin-top: .4rem; }
+.acc-analytics-panel a { color: var(--acc-cyan); }
 
 @media (max-width: 900px) {
   .acc-analytics-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -933,13 +958,55 @@ body {
 }
 
 @media (max-width: 640px) {
-  .acc-analytics-source-grid, .acc-analytics-summary, .acc-analytics-trust, .acc-analytics-compact-breakdowns { grid-template-columns: 1fr; }
+  .acc-analytics-source-grid, .acc-analytics-summary, .acc-analytics-trust, .acc-analytics-compact-breakdowns, .acc-github-repository-grid, .acc-github-trend-grid, .acc-github-answer { grid-template-columns: 1fr; }
   .acc-analytics-domain__head, .acc-analytics-source-card__head, .acc-analytics-panel__head, .acc-analytics-hero { align-items: flex-start; flex-direction: column; }
   .acc-analytics-toolbar { align-items: stretch; }
   .acc-analytics-toolbar .acc-field { min-width: 100%; }
   .acc-analytics-toolbar .acc-metric-tabs { margin-left: 0; }
+  .acc-github-range-note { text-align: left; }
   .acc-analytics-trust > div, .acc-analytics-trust > div:nth-child(2) { border-right: 0; border-bottom: 1px solid var(--color-border); }
   .acc-analytics-trust > div:last-child { border-bottom: 0; }
   .acc-traffic-chart { min-height: 140px; }
   .acc-analytics-daily-table { max-width: 100%; }
+}
+
+.acc-project-focus-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
+.acc-project-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
+.acc-project-card { display: grid; align-content: start; gap: .8rem; min-width: 0; padding: 1rem; border: 1px solid var(--color-border); border-radius: var(--radius); background: color-mix(in srgb, var(--acc-panel) 88%, transparent); }
+.acc-project-card.is-focus { border-color: color-mix(in srgb, var(--acc-green) 48%, var(--color-border)); background: linear-gradient(145deg, color-mix(in srgb, var(--acc-green) 6%, var(--acc-panel)), var(--acc-panel)); }
+.acc-project-card__open { display: grid; gap: .35rem; min-height: 44px; padding: 0; border: 0; color: inherit; background: transparent; text-align: left; cursor: pointer; }
+.acc-project-card__open h3, .acc-project-card__open p { margin: 0; }
+.acc-project-card__open h3 { font-size: 1.05rem; }
+.acc-project-card__open p, .acc-project-card > small, .acc-project-no-link { color: var(--color-muted-foreground); font-size: .72rem; }
+.acc-project-activity { display: grid; gap: .2rem; padding: .55rem .65rem; border: 1px solid var(--color-border); border-radius: calc(var(--radius) - 2px); background: color-mix(in srgb, var(--color-muted) 28%, transparent); }
+.acc-project-activity strong { font-size: .75rem; }
+.acc-project-activity small { color: var(--color-muted-foreground); font-size: .68rem; }
+.acc-project-activity:is(.is-binding_missing, .is-source_error) { border-color: color-mix(in srgb, var(--acc-amber) 48%, var(--color-border)); }
+.acc-project-docs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; }
+.acc-project-doc { display: grid; align-content: start; gap: .28rem; min-width: 0; padding: .65rem; border: 1px solid color-mix(in srgb, var(--acc-green) 30%, var(--color-border)); border-radius: calc(var(--radius) - 2px); background: color-mix(in srgb, var(--acc-green) 4%, transparent); }
+.acc-project-doc.is-missing { border-color: color-mix(in srgb, var(--acc-amber) 48%, var(--color-border)); background: color-mix(in srgb, var(--acc-amber) 5%, transparent); }
+.acc-project-doc > span:first-child { color: var(--color-muted-foreground); font-size: .62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.acc-project-doc__link, .acc-project-doc__missing { overflow-wrap: anywhere; color: var(--acc-green); font-size: .72rem; font-weight: 750; line-height: 1.4; }
+.acc-project-doc__link { display: flex; align-items: center; min-height: 44px; }
+.acc-project-doc__missing { color: var(--acc-amber); }
+.acc-project-doc small { color: var(--color-muted-foreground); font-size: .64rem; line-height: 1.4; }
+.acc-project-detail { display: grid; gap: 1rem; }
+.acc-project-detail__badges { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.acc-project-detail__section { display: grid; gap: .7rem; padding: 1rem; border: 1px solid var(--color-border); border-radius: var(--radius); }
+.acc-project-detail__section h3 { margin: 0; }
+.acc-project-lifecycle { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: .45rem; margin: 0; padding: 0; list-style: none; }
+.acc-project-lifecycle li { display: grid; gap: .22rem; padding: .65rem; border: 1px solid var(--color-border); border-radius: calc(var(--radius) - 2px); }
+.acc-project-lifecycle li.is-current { border-color: var(--acc-green); background: color-mix(in srgb, var(--acc-green) 7%, transparent); }
+.acc-project-lifecycle li.is-next { border-color: var(--acc-amber); }
+.acc-project-lifecycle li span { color: var(--color-muted-foreground); font-size: .64rem; text-transform: uppercase; }
+.acc-project-reference-list { display: grid; gap: .55rem; margin: 0; padding: 0; list-style: none; }
+.acc-project-reference-list li { display: grid; gap: .25rem; }
+.acc-project-reference-list code { overflow-wrap: anywhere; color: var(--acc-cyan); font-size: .72rem; }
+
+@media (max-width: 900px) {
+  .acc-project-focus-grid, .acc-project-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .acc-project-docs { grid-template-columns: 1fr; }
 }

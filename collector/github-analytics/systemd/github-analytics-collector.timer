@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily GitHub repository traffic observation collection
+
+[Timer]
+OnCalendar=*-*-* 05:35:00 UTC
+RandomizedDelaySec=10m
+Persistent=true
+AccuracySec=1m
+Unit=github-analytics-collector.service
+
+[Install]
+WantedBy=timers.target
